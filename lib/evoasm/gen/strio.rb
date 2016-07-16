@@ -1,3 +1,5 @@
+require 'stringio'
+
 module Evoasm
   module Gen
     class StrIO < ::StringIO

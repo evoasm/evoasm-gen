@@ -1,0 +1,12 @@
+require 'ffi'
+
+module Evoasm
+  module Libevoasm
+    <%= features.to_ruby_ffi %>
+    <%= inst_flags.to_ruby_ffi %>
+    <%= exceptions.to_ruby_ffi %>
+    <%= reg_types.to_ruby_ffi  %>
+    <%= reg_names.to_ruby_ffi %>
+    <%= param_names.to_ruby_ffi %>
+  end
+end

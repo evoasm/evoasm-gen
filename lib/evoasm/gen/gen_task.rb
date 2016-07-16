@@ -12,6 +12,7 @@ module Evoasm
 
       attr_accessor :ruby_bindings
       attr_reader :name, :archs
+      attr_accessor :output_formats
 
       ALL_ARCHS = %i(x64)
       X64_TABLE_FILENAME = File.join(Evoasm::Gen.data_dir, 'tables', 'x64.csv')
@@ -24,6 +25,7 @@ module Evoasm
         @name = name
         @archs = ALL_ARCHS
         @output_dir = output_dir
+        @output_formats = %i(c h)
 
         block[self] if block
 
@@ -35,14 +37,20 @@ module Evoasm
           archs.each do |arch|
             prereqs = [ARCH_TABLES[arch]]
 
-            prereqs << Translator.template_path(arch)
-            target_path = gen_path(Translator.target_filename(arch))
+            Translator::OUTPUT_FORMATS.each do |format|
+              prereqs << Translator.template_path(arch, format)
+            end
+
+            # pick any single format, all are generated
+            # at the same time
+            target_path = gen_path(Translator.target_filename(arch, :c))
 
             file target_path => prereqs do
               puts "Translating"
               insts = load_insts arch
-              translator = Translator.new(arch, insts, ruby: ruby_bindings)
-              translator.translate! do |filename, content|
+              translator = Translator.new(arch, insts)
+              translator.translate! do |filename, content, format|
+                next unless @output_formats.include? format
                 File.write gen_path(filename), content
               end
             end
