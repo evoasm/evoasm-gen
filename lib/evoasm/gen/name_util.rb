@@ -9,6 +9,26 @@ module Evoasm
         name_to_c name, prefix, const: true
       end
 
+      def const_name_to_ruby_ffi(name, prefix)
+        name_to_ruby_ffi name, prefix, const: true
+      end
+
+      def name_to_ruby_ffi(name, prefix = nil, const: false, type: false)
+        ruby_ffi_name = name.to_s.downcase
+        ruby_ffi_name =
+          if ruby_ffi_name =~ /^\d+$/
+            if prefix && prefix.last =~ /reg/
+              'r' + ruby_ffi_name
+            else
+              raise
+            end
+          else
+            ruby_ffi_name
+          end
+
+        ruby_ffi_name
+      end
+
       def name_to_c(name, prefix = nil, const: false, type: false)
         c_name = [namespace, *prefix, name.to_s.sub(/\?$/, '')].compact.join '_'
         if const
@@ -53,6 +73,10 @@ module Evoasm
         const_name_to_c inst.name, arch_prefix(:inst)
       end
 
+      def inst_name_to_ruby_ffi(inst)
+        const_name_to_ruby_ffi inst.name, arch_prefix(:inst)
+      end
+
       def operand_size_to_c(size)
         const_name_to_c size, :operand_size
       end
@@ -74,7 +98,7 @@ module Evoasm
       end
 
       def insts_var_name
-        "evoasm_#{arch}_insts"
+        "_evoasm_#{arch}_insts"
       end
 
       def static_insts_var_name

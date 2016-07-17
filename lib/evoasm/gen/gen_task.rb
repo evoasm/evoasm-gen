@@ -46,7 +46,7 @@ module Evoasm
             target_path = gen_path(Translator.target_filename(arch, :c))
 
             file target_path => prereqs do
-              puts "Translating"
+              puts 'Translating'
               insts = load_insts arch
               translator = Translator.new(arch, insts)
               translator.translate! do |filename, content, format|

@@ -143,7 +143,7 @@ module Evoasm::Gen
     def instance_eval_with_state(state, &block)
       prev_state = @__state__
       @__state__ = state
-      result = instance_eval(&block) if block
+      result = instance_eval(&block)
       @__state__ = prev_state
 
       result

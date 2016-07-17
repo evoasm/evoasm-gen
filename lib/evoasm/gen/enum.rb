@@ -18,12 +18,41 @@ module Evoasm
         add_all elems
       end
 
-      def n
+      def size
         @counter
       end
 
+      def to_ruby_ffi(io = StrIO.new)
+        io.indent(2) do
+          io.puts "enum :#{ruby_ffi_type_name}, ["
+          io.indent do
+            each do |elem, value|
+              elem_name = elem_name_to_ruby_ffi elem
+              elem_value =
+                if valid_elem?(value)
+                  raise
+                  elem_name_to_ruby_ffi value
+                else
+                  if flags?
+                    "1 << #{value}"
+                  else
+                    "#{value}"
+                  end
+                end
+              io.puts ":#{elem_name}, #{elem_value}," , eol: "\n"
+            end
+            unless flags?
+              io.puts ":#{n_elem_const_name_to_ruby_ffi}"
+            end
+          end
+          io.puts ']'
+        end
+
+        io.string
+      end
+
       def to_c(io = StrIO.new, typedef: true)
-        raise 'name missing' if !name
+        raise 'name missing' unless name
 
         type_name = c_type_name
 
@@ -43,18 +72,18 @@ module Evoasm
               end
             io.puts "#{elem_name} = #{c_value},"
           end
-          if !flags?
-            io.puts n_elem_to_c
+          unless flags?
+            io.puts n_elem_const_name_to_c
           end
         end
         io.write '}'
         io.write " #{type_name}" if typedef
         io.puts ';'
         io.puts "#define #{bitsize_to_c} #{bitsize}"
-        unless flags?
-          io.puts "#define #{bitsize_to_c true} #{bitsize true}"
-        else
+        if flags?
           io.puts "#define #{all_to_c} #{all_value}"
+        else
+          io.puts "#define #{bitsize_to_c true} #{bitsize true}"
         end
 
         io.string
@@ -69,7 +98,7 @@ module Evoasm
       end
 
       def max
-        @map.each_with_index.inject(0) do |acc, (index, (k, v))|
+        @map.each_with_index.inject(0) do |acc, (_index, (k, v))|
           if v
             [v + 1, acc + 1].max
           else
@@ -82,24 +111,8 @@ module Evoasm
         "#{typedef ? '' : 'enum '}#{c_type_name}"
       end
 
-      def c_type_name
-        name_to_c name, @prefix, type: true
-      end
-
-      def all_to_c
-        name_to_c "#{prefix_name}_all", @prefix, const: true
-      end
-
       def all_value
         (2**@map.size) - 1
-      end
-
-      def bitsize_to_c(with_n = false)
-        name_to_c "#{prefix_name}_bitsize#{with_n ? '_WITH_N' : ''}", @prefix, const: true
-      end
-
-      def n_elem_to_c
-        name_to_c "n_#{prefix_name}s", @prefix, const: true
       end
 
       def keys
@@ -151,7 +164,32 @@ module Evoasm
         end
       end
 
+      def all_to_c
+        name_to_c "#{prefix_name}_all", @prefix, const: true
+      end
+
+      def n_elem_const_name_to_c
+        name_to_c "n_#{prefix_name}s", @prefix, const: true
+      end
+
       private
+      def c_type_name
+        name_to_c name, @prefix, type: true
+      end
+
+      def ruby_ffi_type_name
+        "#{@prefix}_#{name}"
+      end
+
+      def bitsize_to_c(with_n = false)
+        name_to_c "#{prefix_name}_bitsize#{with_n ? '_WITH_N' : ''}", @prefix, const: true
+      end
+
+      def n_elem_const_name_to_ruby_ffi
+        # convention: _id does not appear in element's name
+        name_to_ruby_ffi "n_#{prefix_name}s"
+      end
+
       def prefix_name
         name.to_s.sub(/_id$/, '')
       end
@@ -159,6 +197,10 @@ module Evoasm
       def elem_name_to_c(elem_name)
         # convention: _id does not appear in element's name
         name_to_c elem_name, Array(@prefix) + [prefix_name], const: true
+      end
+
+      def elem_name_to_ruby_ffi(elem_name)
+        name_to_ruby_ffi elem_name, Array(@prefix) + [prefix_name], const: true
       end
 
       def valid_elem?(elem)

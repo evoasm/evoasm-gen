@@ -53,7 +53,7 @@ module Evoasm::Gen
     end
 
     def root
-      roots = roots()
+      roots = self.roots
       fail 'multiple roots' if roots.size > 1
       roots.first
     end

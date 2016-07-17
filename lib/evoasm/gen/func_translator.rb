@@ -71,18 +71,18 @@ module Evoasm
         "#{arch_var_name arch_indep: true}->error_data.#{field_name}"
       end
 
-      def emit_error(state, code, msg, reg = nil, param = nil)
+      def emit_error(_state, code, msg, reg = nil, param = nil)
         reg_c_val =
           if reg
             reg_name_to_c reg
           else
-            "(uint8_t) -1"
+            '(uint8_t) -1'
           end
         param_c_val =
           if param
             param_to_c param
           else
-            "(uint8_t) -1"
+            '(uint8_t) -1'
           end
 
         io.write <<-EOL
@@ -156,15 +156,15 @@ module Evoasm
         state.children.any? { |_, cond| cond == [:else] }
       end
 
-      def emit_ret(state)
-        io.puts "goto exit;"
+      def emit_ret(_state)
+        io.puts 'goto exit;'
       end
 
       def state_label(state, id = nil)
         "L#{id || id_map[state]}"
       end
 
-      def emit_call(state, func)
+      def emit_call(_state, func)
         id = main_translator.request_func_call func, self
 
         func_call = call_to_c called_func_name(func, id),
@@ -382,7 +382,7 @@ module Evoasm
         end
       end
 
-      def emit_read_access(state, op)
+      def emit_read_access(_state, op)
         call = access_call_to_c 'read', op, "#{arch_var_name(true)}->acc",
                                 [inst && inst_name_to_c(inst) || 'inst']
 
@@ -435,7 +435,7 @@ module Evoasm
         io.puts write_to_c(value, size)
       end
 
-      def emit_access(state, op, access)
+      def emit_access(_state, _op, _access)
         #access.each do |mode|
         #  case mode
         #  when :r
@@ -485,7 +485,7 @@ module Evoasm
                     io.puts 'break;'
                   end
                 end
-                io.puts "default: evoasm_assert_not_reached();"
+                io.puts 'default: evoasm_assert_not_reached();'
               end
             end
           end

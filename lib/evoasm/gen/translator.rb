@@ -10,11 +10,8 @@ module Evoasm
     class Translator
       include TranslatorUtil
 
-      attr_reader :params
       attr_reader :param_names
       attr_reader :bit_masks
-      attr_reader :regs
-      attr_reader :id_map
       attr_reader :registered_param_domains
       attr_reader :reg_names
       attr_reader :exceptions
@@ -46,7 +43,7 @@ module Evoasm
       def initialize_x64
         @features = Enum.new :feature, prefix: arch, flags: true
         @inst_flags = Enum.new :inst_flag, prefix: arch, flags: true
-        @exceptions = Enum.new :exception_id, prefix: arch
+        @exceptions = Enum.new :exception, prefix: arch
         @reg_types = Enum.new :reg_type, Evoasm::Gen::X64::REGISTERS.keys, prefix: arch
         @operand_types = Enum.new :operand_type, Evoasm::Gen::X64::Inst::OPERAND_TYPES, prefix: arch
         @reg_names = Enum.new :reg_id, Evoasm::Gen::X64::REGISTER_NAMES, prefix: arch
@@ -202,7 +199,7 @@ module Evoasm
           io.puts inst_name_to_c(inst), eol: ','
           io.puts params.size, eol: ','
           if params.empty?
-            io.puts "NULL,"
+            io.puts 'NULL,'
           else
             io.puts "(#{param_c_type} *)" + inst_params_var_name(inst), eol: ','
           end
@@ -233,26 +230,25 @@ module Evoasm
       end
 
       def inst_param_to_c(io, inst, params, param_domains)
-        if !params.empty?
-          io.puts "static const #{param_c_type} #{inst_params_var_name inst}[] = {"
-          io.indent do
-            params.each do |param|
-              next if local_param? param
+        return if params.empty?
+        io.puts "static const #{param_c_type} #{inst_params_var_name inst}[] = {"
+        io.indent do
+          params.each do |param|
+            next if local_param? param
 
-              param_domain = param_domains[param] || inst.param_domain(param)
-              register_param_domain param_domain
+            param_domain = param_domains[param] || inst.param_domain(param)
+            register_param_domain param_domain
 
-              io.puts '{'
-              io.indent do
-                io.puts param_name_to_c(param), eol: ','
-                io.puts '(evoasm_domain_t *) &' + param_domain_var_name(param_domain)
-              end
-              io.puts '},'
+            io.puts '{'
+            io.indent do
+              io.puts param_name_to_c(param), eol: ','
+              io.puts '(evoasm_domain_t *) &' + param_domain_var_name(param_domain)
             end
+            io.puts '},'
           end
-          io.puts '};'
-          io.puts
         end
+        io.puts '};'
+        io.puts
       end
 
       def inst_params_to_c(io = StrIO.new)
@@ -294,13 +290,13 @@ module Evoasm
           if op.reg
             io.puts reg_name_to_c(op.reg), eol: ','
           else
-            io.puts reg_names.n_elem_to_c, eol: ','
+            io.puts reg_names.n_elem_const_name_to_c, eol: ','
           end
 
           if op.reg_type
             io.puts reg_type_to_c(op.reg_type), eol: ','
           else
-            io.puts reg_types.n_elem_to_c, eol: ','
+            io.puts reg_types.n_elem_const_name_to_c, eol: ','
           end
 
           if op.accessed_bits.key? :w
@@ -314,16 +310,15 @@ module Evoasm
 
       def inst_operands_to_c(io = StrIO.new)
         @inst_translators.each do |translator|
-          if !translator.inst.operands.empty?
-            io.puts "static const #{operand_c_type} #{inst_operands_var_name translator.inst}[] = {"
-            io.indent do
-              translator.inst.operands.each do |op|
-                inst_operand_to_c(translator, op, io, eol: ',')
-              end
+          next if translator.inst.operands.empty?
+          io.puts "static const #{operand_c_type} #{inst_operands_var_name translator.inst}[] = {"
+          io.indent do
+            translator.inst.operands.each do |op|
+              inst_operand_to_c(translator, op, io, eol: ',')
             end
-            io.puts '};'
-            io.puts
           end
+          io.puts '};'
+          io.puts
         end
 
         io.string
@@ -342,10 +337,12 @@ module Evoasm
             "{EVOASM_DOMAIN_TYPE_INTERVAL, #{min_c}, #{max_c}}"
           when Array
             if domain.size > ENUM_MAX_LENGTH
-              raise 'enum exceeds maximal enum length of'
+              fail 'enum exceeds maximal enum length of'
             end
             values_c = "#{domain.map { |expr| expr_to_c expr }.join ', '}"
             "{EVOASM_DOMAIN_TYPE_ENUM, #{domain.length}, {#{values_c}}}"
+          else
+            raise
           end
 
         domain_c_type =
@@ -354,12 +351,14 @@ module Evoasm
             'evoasm_interval_t'
           when Array
             "evoasm_enum#{domain.size}_t"
+          else
+            raise
           end
         io.puts "static const #{domain_c_type} #{param_domain_var_name domain} = #{domain_c};"
       end
 
       def param_domains_to_c(io = StrIO.new)
-        registered_param_domains.each_with_index do |domain, index|
+        registered_param_domains.each do |domain|
           param_domain_to_c io, domain
         end
 
@@ -396,7 +395,7 @@ module Evoasm
 
       def inst_flags_to_c(inst)
         if inst.flags.empty?
-          "0"
+          '0'
         else
           inst.flags.map { |flag| inst_flag_to_c flag }
             .join ' | '
@@ -404,13 +403,13 @@ module Evoasm
       end
 
       def features_bitmap(inst)
-        bitmap(features) do |flag, index|
+        bitmap(features) do |flag, _|
           inst.features.include?(flag)
         end
       end
 
       def exceptions_bitmap(inst)
-        bitmap(exceptions) do |flag, index|
+        bitmap(exceptions) do |flag, _|
           inst.exceptions.include?(flag)
         end
       end

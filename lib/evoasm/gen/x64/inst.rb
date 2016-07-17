@@ -48,68 +48,66 @@ module Evoasm
         # NOTE: enum domains need to be sorted
         # (i.e. by their corresponding C enum numberic value)
         GP_REGISTERS = X64::REGISTERS.fetch(:gp)[0..-5] - [:SP]
+
         def param_domain(param_name)
-          domain =
-            case param_name
-            when :rex_b, :rex_r, :rex_x, :rex_w,
-                 :vex_l, :force_rex?, :lock?, :force_sib?,
-                 :force_disp32?, :force_long_vex?
-              (0..1)
-            when :address_size
-              [16, 32, 64]
-            when :disp_size
-              [16, 32]
-            when :scale
-              [1, 2, 4, 8]
-            when :modrm_reg
-              (0..7)
-            when :vex_v
-              (0..15)
-            when :reg_base
+          case param_name
+          when :rex_b, :rex_r, :rex_x, :rex_w,
+            :vex_l, :force_rex?, :lock?, :force_sib?,
+            :force_disp32?, :force_long_vex?
+            (0..1)
+          when :address_size
+            [16, 32, 64]
+          when :disp_size
+            [16, 32]
+          when :scale
+            [1, 2, 4, 8]
+          when :modrm_reg
+            (0..7)
+          when :vex_v
+            (0..15)
+          when :reg_base
+            GP_REGISTERS
+          when :reg_index
+            case reg_operands[1].type
+            when :vsib
+              X64::REGISTERS.fetch :xmm
+            when :mem, :rm
               GP_REGISTERS
-            when :reg_index
-              case reg_operands[1].type
-              when :vsib
-                X64::REGISTERS.fetch :xmm
-              when :mem, :rm
-                GP_REGISTERS
-              else
-                fail
-              end
-            when :imm0, :imm1, :imm, :moffs, :rel
-              imm_op = encoded_operands.find {|op| op.param == param_name}
-              case imm_op.size
-              when 8
-                (:INT8_MIN..:INT8_MAX)
-              when 16
-                (:INT16_MIN..:INT16_MAX)
-              when 32
-                (:INT32_MIN..:INT32_MAX)
-              when 64
-                (:INT64_MIN..:INT64_MAX)
-              else
-                fail "unexpected imm size '#{imm_size}' (#{imm_ops})"
-              end
-            when :disp
-              (:INT32_MIN..:INT32_MAX)
-            when :reg0, :reg1, :reg2, :reg3
-              reg_op = encoded_operands.find { |op| op.param == param_name }
-
-              case reg_op.reg_type
-              when :xmm
-                xmm_regs zmm: false
-              when :zmm
-                xmm_regs zmm: true
-              when :gp
-                GP_REGISTERS
-              else
-                X64::REGISTERS.fetch reg_op.reg_type
-              end
             else
-              fail "missing domain for param #{param_name}"
+              fail
             end
+          when :imm0, :imm1, :imm, :moffs, :rel
+            imm_op = encoded_operands.find { |op| op.param == param_name }
+            case imm_op.size
+            when 8
+              (:INT8_MIN..:INT8_MAX)
+            when 16
+              (:INT16_MIN..:INT16_MAX)
+            when 32
+              (:INT32_MIN..:INT32_MAX)
+            when 64
+              (:INT64_MIN..:INT64_MAX)
+            else
+              fail "unexpected imm size '#{imm_op.size}'"
+            end
+          when :disp
+            (:INT32_MIN..:INT32_MAX)
+          when :reg0, :reg1, :reg2, :reg3
+            reg_op = encoded_operands.find { |op| op.param == param_name }
 
-          domain
+            case reg_op.reg_type
+            when :xmm
+              xmm_regs zmm: false
+            when :zmm
+              xmm_regs zmm: true
+            when :gp
+              GP_REGISTERS
+            else
+              X64::REGISTERS.fetch reg_op.reg_type
+            end
+          else
+            fail "missing domain for param #{param_name}"
+          end
         end
 
         def self.load(rows)
@@ -318,21 +316,6 @@ module Evoasm
             [:mm, 64]
           else
             fail "unexpected reg type '#{type_match}/#{size_match}'"
-          end
-        end
-
-        private def reg_size(reg_type, match)
-          case reg_type
-          when :xmm
-            128
-          when 'xmm', 'ymm'
-            :xmm
-          when 'zmm'
-            :zmm
-          when 'mm'
-            :mm
-          else
-            fail "unexpected reg type '#{reg_op.match}' (#{reg_op})"
           end
         end
 
@@ -713,7 +696,10 @@ module Evoasm
         end
 
         def encode_imm_or_imm_reg
-          while byte = opcode.shift
+          loop do
+            byte = opcode.shift
+            break if byte.nil?
+
             case byte
             when /^(?:i|c)(?:b|w|d|o|q)$/
               write imm_param_name, imm_code_size(byte)

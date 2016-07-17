@@ -333,7 +333,7 @@ module Evoasm::Gen
             to_if index_encodable?, _scale_index_base
             else_to do
               # not encodable
-              error :not_encodable, "index not encodable", param: :reg_index
+              error :not_encodable, 'index not encodable', param: :reg_index
             end
           end
         end
@@ -369,7 +369,7 @@ module Evoasm::Gen
           end
           if cond != true
             else_to do
-              error :not_encodable, "index not encodable (0b0100)", param: :reg_index
+              error :not_encodable, 'index not encodable (0b0100)', param: :reg_index
             end
           end
         end
