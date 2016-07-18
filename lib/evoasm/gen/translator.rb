@@ -56,14 +56,16 @@ module Evoasm
         end
       end
 
-      def self.target_filename(arch, output_type)
-        case output_type
+      def self.target_filename(arch, file_type)
+        case file_type
         when :c, :h
-          "evoasm-#{arch}.#{output_type == :h ? 'h' : 'c'}"
+          "evoasm-#{arch}.#{file_type == :h ? 'h' : 'c'}"
+        when :enums_h
+          "evoasm-#{arch}-enums.h"
         when :ruby_ffi
           "#{arch}_enums.rb"
         else
-          raise "invalid output type #{output_type}"
+          raise "invalid file type #{file_type}"
         end
       end
 
@@ -114,12 +116,12 @@ module Evoasm
         translate_x64_ruby_ffi(&block)
       end
 
-      def render_template(format, binding, &block)
-        target_filename = self.class.target_filename(arch, format)
-        template_path = self.class.template_path(arch, format)
+      def render_template(file_type, binding, &block)
+        target_filename = self.class.target_filename(arch, file_type)
+        template_path = self.class.template_path(arch, file_type)
 
         renderer = Erubis::Eruby.new(File.read(template_path))
-        block[target_filename, renderer.result(binding), format]
+        block[target_filename, renderer.result(binding), file_type]
       end
 
       def translate_x64_ruby_ffi(&block)
@@ -128,6 +130,7 @@ module Evoasm
 
       def translate_x64_h(&block)
         render_template(:h, binding, &block)
+        render_template(:enums_h, binding, &block)
       end
 
       def translate_x64_c(&block)

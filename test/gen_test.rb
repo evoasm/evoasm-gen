@@ -5,7 +5,7 @@ class Evoasm::GenTest < Minitest::Test
   def test_gen_task
     Dir.mktmpdir do |dir|
       Evoasm::Gen::GenTask.new dir do |t|
-        t.output_formats = %i(c h ruby_ffi)
+        t.file_types = %i(c h ruby_ffi)
       end
       Rake::Task['evoasm:gen'].invoke
 
