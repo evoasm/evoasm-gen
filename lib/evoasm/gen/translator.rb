@@ -41,7 +41,7 @@ module Evoasm
       end
 
       def initialize_x64
-        @features = Enum.new :feature, prefix: arch, flags: true
+        @features = Enum.new :feature, prefix: arch
         @inst_flags = Enum.new :inst_flag, prefix: arch, flags: true
         @exceptions = Enum.new :exception, prefix: arch
         @reg_types = Enum.new :reg_type, Evoasm::Gen::X64::REGISTERS.keys, prefix: arch

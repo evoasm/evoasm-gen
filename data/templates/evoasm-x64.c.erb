@@ -88,7 +88,7 @@ evoasm_x64_load_cpuid(evoasm_x64_t *x64) {
       <% if remaining_flags.delete(flag) %>
         <% io.indent 1 do %>
           <% io.puts "if(vals[#{index0}][#{index1}] & (1 << #{bit_index})) {" %>
-          <% io.puts "  x64->features |= #{feature_name_to_c flag};" %>
+          <% io.puts "  x64->features |= (1 << #{feature_name_to_c flag});" %>
           <% io.puts %{  evoasm_info("Found support for #{flag.upcase}");} %>
           <% io.puts "} else {" %>
           <% io.puts %{  evoasm_info("Missing support for #{flag.upcase}");} %>
