@@ -19,3 +19,10 @@
 #define <%= bit_mask_to_c 0..63 %> (<%= bit_mask_to_c 0..31 %> | <%= bit_mask_to_c 32..63 %>)
 #define <%= bit_mask_to_c 0..127 %> (<%= bit_mask_to_c 0..63 %> | <%= bit_mask_to_c 64..127 %>)
 
+typedef enum {
+<% insts.each do |inst| %>
+  <%= inst_name_to_c inst %> = <%= inst.index %>,
+<% end %>
+EVOASM_X64_N_INSTS = <%= insts.size %>,
+} evoasm_x64_inst_id_t;
+

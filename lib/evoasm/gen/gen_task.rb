@@ -38,12 +38,12 @@ module Evoasm
             prereqs = [ARCH_TABLES[arch]]
 
             Translator::OUTPUT_FORMATS.each do |format|
-              prereqs << Translator.template_path(arch, format)
+              prereqs.concat Translator.template_paths(arch, format)
             end
 
             # pick any single file type, all are generated
             # at the same time
-            target_path = gen_path(Translator.target_filename(arch, :c))
+            target_path = gen_path(Translator.target_filenames(arch, :c))
 
             file target_path => prereqs do
               puts 'Translating'

@@ -56,21 +56,36 @@ module Evoasm
         end
       end
 
-      def self.target_filename(arch, file_type)
-        case file_type
-        when :c, :h
-          "evoasm-#{arch}.#{file_type == :h ? 'h' : 'c'}"
-        when :enums_h
-          "evoasm-#{arch}-enums.h"
-        when :ruby_ffi
-          "#{arch}_enums.rb"
+      def self.target_filenames(arch, file_type)
+        case arch
+        when :x64
+          case file_type
+          when :c
+            %w(evoasm-x64-insts.c evoasm-x64-misc.c)
+          when :h
+            %w(evoasm-x64-insts.h evoasm-x64-enums.h evoasm-x64-misc.h)
+          when :ruby_ffi
+            %w(x64_enums.rb)
+          else
+            raise "invalid file type #{file_type}"
+          end
         else
-          raise "invalid file type #{file_type}"
+          raise "invalid architecture #{arch}"
         end
       end
 
-      def self.template_path(arch, output_type)
-        File.join Evoasm::Gen.data_dir, 'templates', "#{target_filename(arch, output_type)}.erb"
+      def self.templates_dir
+        File.join Evoasm::Gen.data_dir, 'templates'
+      end
+
+      def self.template_path(filename)
+        File.join templates_dir, "#{filename}.erb"
+      end
+
+      def self.template_paths(arch, output_type)
+        target_filenames(arch, output_type).map do |target_filename|
+          File.join templates_dir, "#{target_filename}.erb"
+        end
       end
 
       def main_translator
@@ -116,21 +131,22 @@ module Evoasm
         translate_x64_ruby_ffi(&block)
       end
 
-      def render_template(file_type, binding, &block)
-        target_filename = self.class.target_filename(arch, file_type)
-        template_path = self.class.template_path(arch, file_type)
+      def render_templates(file_type, binding, &block)
+        target_filenames = self.class.target_filenames(arch, file_type)
 
-        renderer = Erubis::Eruby.new(File.read(template_path))
-        block[target_filename, renderer.result(binding), file_type]
+        target_filenames.each do |target_filename|
+          template_path = self.class.template_path(target_filename)
+          renderer = Erubis::Eruby.new(File.read(template_path))
+          block[target_filename, renderer.result(binding), file_type]
+        end
       end
 
       def translate_x64_ruby_ffi(&block)
-        render_template(:ruby_ffi, binding, &block)
+        render_templates(:ruby_ffi, binding, &block)
       end
 
       def translate_x64_h(&block)
-        render_template(:h, binding, &block)
-        render_template(:enums_h, binding, &block)
+        render_templates(:h, binding, &block)
       end
 
       def translate_x64_c(&block)
@@ -144,7 +160,7 @@ module Evoasm
         inst_params = inst_params_to_c
         param_domains = param_domains_to_c
 
-        render_template(:c, binding, &block)
+        render_templates(:c, binding, &block)
       end
 
       def inst_funcs_to_c(io = StrIO.new)

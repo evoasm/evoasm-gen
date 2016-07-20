@@ -13,16 +13,8 @@ evoasm_x64_reg_type(evoasm_x64_reg_id_t reg) {
   }
 }
 
-typedef enum {
-<% insts.each do |inst| %>
-  <%= inst_name_to_c inst %> = <%= inst.index %>,
-<% end %>
-  EVOASM_X64_N_INSTS = <%= insts.size %>,
-} evoasm_x64_inst_id_t;
+evoasm_success_t
+evoasm_x64_load_cpuid(evoasm_x64_t *x64);
 
 #define _EVOASM_X64_INSTS_VAR_NAME <%= insts_var_name %>
-
-<% insts.each do |inst| %>
-<%= func_prototype_to_c(inst.name, static: false) %>;
-<% end %>
 
