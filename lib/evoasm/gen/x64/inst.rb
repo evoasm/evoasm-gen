@@ -88,7 +88,7 @@ module Evoasm
             when 64
               (:INT64_MIN..:INT64_MAX)
             else
-              fail "unexpected imm size '#{imm_op.size}'"
+              raise "unexpected imm size '#{imm_op.size}'"
             end
           when :disp
             (:INT32_MIN..:INT32_MAX)
@@ -106,7 +106,7 @@ module Evoasm
               X64::REGISTERS.fetch reg_op.reg_type
             end
           else
-            fail "missing domain for param #{param_name}"
+            raise "missing domain for param #{param_name}"
           end
         end
 
@@ -116,11 +116,10 @@ module Evoasm
           end
 
           # make sure name is unique
-          insts.group_by(&:name).each do |name, group|
-            if group.size > 1
-              group.each_with_index do |inst, index|
-                inst.name << "_#{index}"
-              end
+          insts.group_by(&:name).each do |_name, group|
+            next if group.size <= 1
+            group.each_with_index do |inst, index|
+              inst.name << "_#{index}"
             end
           end
 
@@ -206,7 +205,7 @@ module Evoasm
             params_or_regs = Array(op.send(type))
 
             next unless (op.type == :reg || op.type == :rm) &&
-              !params_or_regs.empty?
+                        !params_or_regs.empty?
 
             next unless reg_types.include? op.reg_type
 
@@ -287,7 +286,7 @@ module Evoasm
             raise "unexpected operand '#{op_name}'"
           end
 
-          if (operand.type == :rm || operand.type == :reg)
+          if operand.type == :rm || operand.type == :reg
             operand.param = :"reg#{reg_counter}"
             reg_counter += 1
           end
@@ -297,7 +296,7 @@ module Evoasm
           [reg_counter, imm_counter]
         end
 
-        ALLOWED_REG_SIZES = [8, 16, 32, 64]
+        ALLOWED_REG_SIZES = [8, 16, 32, 64].freeze
         private def reg_type_and_size(type_match, size_match)
           case type_match
           when 'r'
@@ -437,11 +436,11 @@ module Evoasm
           lock: 0xF0,
           pref66: 0x66,
           pref67: 0x67
-        }
+        }.freeze
 
         LEGACY_PREF_CONDS = {
           pref67: [:eq, :address_size, 32]
-        }
+        }.freeze
 
         def encode_legacy_prefs(&block)
           writes = []
@@ -593,21 +592,19 @@ module Evoasm
             when 'NP'
               nil
             else
-              fail "unknown VEX encoding #{encoding} in #{mnem}"
+              raise "unknown VEX encoding #{encoding} in #{mnem}"
             end
 
           vex_l =
             if vex.include? 'LIG'
               nil
-            else
-              if vex.include? '128'
-                0b0
-              elsif vex.include? '256'
-                0b1
-              elsif vex.include? 'LZ'
-                0b0
-                # [:if, [:eq, [:operand_size], 128], 0b0, 0b1]
-              end
+            elsif vex.include? '128'
+              0b0
+            elsif vex.include? '256'
+              0b1
+            elsif vex.include? 'LZ'
+              0b0
+              # [:if, [:eq, [:operand_size], 128], 0b0, 0b1]
             end
 
           vex = VEX.new rex_w: rex_w,
@@ -750,7 +747,7 @@ module Evoasm
           when 'iw', 'cw' then 16
           when 'id', 'cd' then 32
           when 'io', 'cq' then 64
-          else fail "invalid imm code #{code}"
+          else raise "invalid imm code #{code}"
           end
         end
 
