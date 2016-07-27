@@ -3,94 +3,12 @@ require 'evoasm/gen/core_ext/kwstruct'
 
 module Evoasm::Gen
   module X64
-    VEX = KwStruct.new :rex_w, :reg_reg_param, :rm_reg_param, :vex_m, :vex_v, :vex_l, :vex_p do
+
+    module REXUtil
       include StateDSL
-
-      state def two_byte_vex
-        state do
-          log :trace, 'writing vex'
-          write 0b11000101, 8
-          write [
-            [:neg, :rex_r],
-            [:neg, vex_v || :vex_v],
-            (vex_l || :vex_l),
-            vex_p
-          ], [1, 4, 1, 2]
-          ret
-        end
-      end
-
-      state def three_byte_vex
-        state do
-          log :trace, 'writing vex'
-          write 0b11000100, 8
-          write [[:neg, :rex_r],
-                 [:neg, :rex_x],
-                 [:neg, :rex_b],
-                 vex_m], [1, 1, 1, 5]
-          write [rex_w || :rex_w,
-                 [:neg, vex_v || :vex_v],
-                 vex_l || :vex_l,
-                 vex_p], [1, 4, 1, 2]
-          ret
-        end
-      end
-
-      def zero_rex?
-        cond =
-          [:and,
-           [:eq, :rex_x, 0b0],
-           [:eq, :rex_b, 0b0]
-          ]
-
-        cond << [:eq, :rex_w, 0b0] unless rex_w == 0x0
-
-        cond
-      end
-
-      state def root_state
-        state do
-          comment 'VEX'
-
-          # assume rex_w and vex_l set
-          # default unset 0 is ok for both
-          if vex_m == 0x01 && rex_w != 0x1
-            to_if :and, zero_rex?, [:false?, :force_long_vex?], two_byte_vex
-            else_to three_byte_vex
-          else
-            to three_byte_vex
-          end
-        end
-      end
-    end
-
-    REX = KwStruct.new :rex_w, :reg_reg_param, :rm_reg_param, :force, :rm_reg_type, :modrm do
-      include StateDSL
-
-      alias_method :modrm?, :modrm
-      # reg_reg_param
-      # and rm_reg_param
-      # are REGISTERS
-      # and NOT register ids
-      # or bitfield values
 
       def rex_bit(reg)
         [:div, [:reg_code, reg], 8]
-      end
-
-      def base_or_index?
-        modrm? && rm_reg_type != :reg
-      end
-
-      def need_rex?
-        cond = [:or]
-        cond << [:neq, rex_bit(reg_reg_param), 0] if reg_reg_param
-        cond << [:and, [:set?, rm_reg_param], [:neq, rex_bit(rm_reg_param), 0]] if rm_reg_param
-
-        cond << [:and, [:set?, :reg_base],  [:neq, rex_bit(:reg_base), 0]] if  base_or_index?
-        cond << [:and, [:set?, :reg_index], [:neq, rex_bit(:reg_index), 0]] if base_or_index?
-
-        cond == [:or] ? false : cond
       end
 
       state def rex_b
@@ -99,42 +17,50 @@ module Evoasm::Gen
 
           #FIXME: can REX.b ever be ignored ?
           #set :_rex_b, :rex_b
-          #to write_rex
+          #to rex_locals_set
 
           rex_b_rm_reg = proc do
             set :_rex_b, rex_bit(rm_reg_param)
-            to write_rex
+            to rex_locals_set
           end
 
           rex_b_reg_reg = proc do
             set :_rex_b, rex_bit(reg_reg_param)
-            to write_rex
+            to rex_locals_set
           end
 
           rex_b_base_reg = proc do
             log :trace, 'setting rex_b from base'
             set :_rex_b, rex_bit(:reg_base)
-            to write_rex
+            to rex_locals_set
           end
 
           if !modrm?
             if reg_reg_param
               rex_b_reg_reg[]
             else
-              fail
+              # currently only taken for NP and VEX
+              set :_rex_b, :rex_b
+              to rex_locals_set
             end
           else
             case rm_reg_type
+            # RM can only encode register
+            # e.g. vmaskmovdqu_xmm_xmm"
             when :reg
               log :trace, 'setting rex_b from modrm_rm'
               rex_b_rm_reg[]
+            # RM is allowed to encode both
             when :rm
               to_if :set?, :reg_base, &rex_b_base_reg
               else_to(&rex_b_rm_reg)
+            # RM is allowed to only encode memory operand
             when :mem
               rex_b_base_reg[]
+            when :vsib
+              rex_b_base_reg[]
             else
-              fail
+              fail "unknown rm reg type '#{rm_reg_type}'"
             end
           end
         end
@@ -177,14 +103,43 @@ module Evoasm::Gen
               else_to(&rex_x_free)
             when :mem
               rex_x_index[]
+            when :vsib
+              rex_x_index[]
             else
-              fail
+              fail "unknown reg type '#{rm_reg_type}'"
             end
           else
             set_rex_r_free[]
             rex_x_free[]
           end
         end
+      end
+    end
+
+    REX = KwStruct.new :rex_w, :reg_reg_param, :rm_reg_param, :force, :rm_reg_type, :modrm do
+      include REXUtil
+      include StateDSL
+
+      alias_method :modrm?, :modrm
+      # reg_reg_param
+      # and rm_reg_param
+      # are REGISTERS
+      # and NOT register ids
+      # or bitfield values
+
+      def base_or_index?
+        modrm? && rm_reg_type != :reg
+      end
+
+      def need_rex?
+        cond = [:or]
+        cond << [:neq, rex_bit(reg_reg_param), 0] if reg_reg_param
+        cond << [:and, [:set?, rm_reg_param], [:neq, rex_bit(rm_reg_param), 0]] if rm_reg_param
+
+        cond << [:and, [:set?, :reg_base],  [:neq, rex_bit(:reg_base), 0]] if  base_or_index?
+        cond << [:and, [:set?, :reg_index], [:neq, rex_bit(:reg_index), 0]] if base_or_index?
+
+        cond == [:or] ? false : cond
       end
 
       state def root_state
@@ -200,6 +155,10 @@ module Evoasm::Gen
             end
           end
         end
+      end
+
+      def rex_locals_set
+        write_rex
       end
 
       state def write_rex
@@ -491,5 +450,76 @@ module Evoasm::Gen
         end
       end
     end
+
+    VEX = KwStruct.new :rex_w, :reg_reg_param, :rm_reg_param, :vex_m, :vex_v, :vex_l, :vex_p, :modrm, :rm_reg_type do
+      include REXUtil
+      include StateDSL
+
+      alias_method :modrm?, :modrm
+
+      state def two_byte_vex
+        state do
+          log :trace, 'writing vex'
+          write 0b11000101, 8
+          write [
+                  [:neg, :_rex_r],
+                  [:neg, vex_v || :vex_v],
+                  (vex_l || :vex_l),
+                  vex_p
+                ], [1, 4, 1, 2]
+          ret
+        end
+      end
+
+      state def three_byte_vex
+        state do
+          log :trace, 'writing vex'
+          write 0b11000100, 8
+          write [[:neg, :_rex_r],
+                 [:neg, :_rex_x],
+                 [:neg, :_rex_b],
+                 vex_m], [1, 1, 1, 5]
+          write [rex_w || :rex_w,
+                 [:neg, vex_v || :vex_v],
+                 vex_l || :vex_l,
+                 vex_p], [1, 4, 1, 2]
+          ret
+        end
+      end
+
+      def zero_rex?
+        cond =
+          [:and,
+           [:eq, :_rex_x, 0b0],
+           [:eq, :_rex_b, 0b0]
+          ]
+
+        cond << [:eq, :rex_w, 0b0] unless rex_w == 0x0
+
+        cond
+      end
+
+      state def rex_locals_set
+        state do
+          # assume rex_w and vex_l set
+          # default unset 0 is ok for both
+          if vex_m == 0x01 && rex_w != 0x1
+            to_if :and, zero_rex?, [:false?, :force_long_vex?], two_byte_vex
+            else_to three_byte_vex
+          else
+            to three_byte_vex
+          end
+        end
+      end
+
+      state def root_state
+        state do
+          comment 'VEX'
+
+          to rex_rx
+        end
+      end
+    end
+
   end
 end

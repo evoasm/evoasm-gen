@@ -613,10 +613,12 @@ module Evoasm
           vex = VEX.new rex_w: rex_w,
                         reg_reg_param: reg_op&.param,
                         rm_reg_param: rm_op&.param,
+                        rm_reg_type: rm_op&.type,
                         vex_m: vex_m,
                         vex_v: vex_v,
                         vex_l: vex_l,
-                        vex_p: vex_p
+                        vex_p: vex_p,
+                        modrm: encodes_modrm?
 
           call vex
           to(&block)
