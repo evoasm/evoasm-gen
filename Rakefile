@@ -1,5 +1,6 @@
 require "bundler/gem_tasks"
 require "rake/testtask"
+require "evoasm/gen"
 
 Rake::TestTask.new(:test) do |t|
   t.libs << "test"

@@ -1322,21 +1322,21 @@ VEX.NDS.LZ.F2.0F38.W1 F7 /r,SHRX,RMV,r64:mew; r/m64:mer; r64:mer,pref67:operand/
 1D iw,SBB,I,AX:mrw; imm16:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,pref66:required/1,,SSX; GPX; PF; AC
 1D id,SBB,I,EAX:mrw; imm32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,rex_w:optional/0,,SSX; GPX; PF; AC
 1D id,SBB,I,RAX:mrw; imm32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,rex_w:required/1,,SSX; GPX; PF; AC
-80 /3 ib,SBB,MI,r/m8:mew; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:operand/any; pref67:operand/1,,SSX; GPX; PF; AC
-81 /3 iw,SBB,MI,r/m16:mew; imm16:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
-81 /3 id,SBB,MI,r/m32:mew; imm32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
-81 /3 id,SBB,MI,r/m64:mew; imm32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
-83 /3 ib,SBB,MI,r/m16:mew; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
-83 /3 ib,SBB,MI,r/m32:mew; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
-83 /3 ib,SBB,MI,r/m64:mew; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
-18 /r,SBB,MR,r/m8:mew; r8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:operand/any; pref67:operand/1,,SSX; GPX; PF; AC
-19 /r,SBB,MR,r/m16:mew; r16:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
-19 /r,SBB,MR,r/m32:mew; r32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
-19 /r,SBB,MR,r/m64:mew; r64:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
-1A /r,SBB,RM,r8:mew; r/m8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,rex_w:operand/any; pref67:operand/1,,SSX; GPX; PF; AC
-1B /r,SBB,RM,r16:mew; r/m16:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
-1B /r,SBB,RM,r32:mew; r/m32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
-1B /r,SBB,RM,r64:mew; r/m64:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
+80 /3 ib,SBB,MI,r/m8:merw; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:operand/any; pref67:operand/1,,SSX; GPX; PF; AC
+81 /3 iw,SBB,MI,r/m16:merw; imm16:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
+81 /3 id,SBB,MI,r/m32:merw; imm32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
+81 /3 id,SBB,MI,r/m64:merw; imm32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
+83 /3 ib,SBB,MI,r/m16:merw; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
+83 /3 ib,SBB,MI,r/m32:merw; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
+83 /3 ib,SBB,MI,r/m64:merw; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
+18 /r,SBB,MR,r/m8:merw; r8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:operand/any; pref67:operand/1,,SSX; GPX; PF; AC
+19 /r,SBB,MR,r/m16:merw; r16:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
+19 /r,SBB,MR,r/m32:merw; r32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
+19 /r,SBB,MR,r/m64:merw; r64:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,lock:optional/1; rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
+1A /r,SBB,RM,r8:merw; r/m8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,rex_w:operand/any; pref67:operand/1,,SSX; GPX; PF; AC
+1B /r,SBB,RM,r16:merw; r/m16:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
+1B /r,SBB,RM,r32:merw; r/m32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
+1B /r,SBB,RM,r64:merw; r/m64:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
 AE,SCAS,NP,SIL:rw; DIL:rw; [DIL]:r; AL:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0,,GP; PF; AC
 AF,SCAS,NP,SI:rw; DI:rw; [DI]:r; AX:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0; pref66:required/1,,GP; PF; AC
 AF,SCAS,NP,ESI:rw; EDI:rw; [EDI]:r; EAX:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0; rex_w:optional/0,,GP; PF; AC
@@ -1641,10 +1641,10 @@ VEX.256.66.0F38.W0 0F /r,VTESTPD,RM,ymm:mer; ymm/m256:mer; AF:w; PF:rw; SF:rw; Z
 VEX.256.0F.WIG 77,VZEROALL,NP,,,AVX,UD
 VEX.128.0F.WIG 77,VZEROUPPER,NP,,,AVX,UD
 C6 F8 ib,XABORT,I,imm8:mer,,RTM,
-0F C0 /r,XADD,MR,r/m8:merw; r8:mew; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; rex_w:operand/any; pref67:operand/1,,SSX; GPX; PF; AC
-0F C1 /r,XADD,MR,r/m16:merw; r16:mew; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
-0F C1 /r,XADD,MR,r/m32:merw; r32:mew; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
-0F C1 /r,XADD,MR,r/m64:merw; r64:mew; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
+0F C0 /r,XADD,MR,r/m8:merw; r8:merw; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; rex_w:operand/any; pref67:operand/1,,SSX; GPX; PF; AC
+0F C1 /r,XADD,MR,r/m16:merw; r16:merw; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
+0F C1 /r,XADD,MR,r/m32:merw; r32:merw; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
+0F C1 /r,XADD,MR,r/m64:merw; r64:merw; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
 C7 F8 cw,XBEGIN,D,rel16:mer,pref66:required/1,RTM,
 C7 F8 cd,XBEGIN,D,rel32:mer,rex_w:optional/0,RTM,
 90+rw,XCHG,O,AX:mrw; r16:merw,pref66:required/1,,SSX; GP; PF; AC
