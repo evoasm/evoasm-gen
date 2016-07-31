@@ -13,7 +13,8 @@ task :default => :test
 begin
   require 'evoasm/scrapers'
   Evoasm::Scrapers::X64.new do |t|
-    t.output_filename = "#{Evoasm::Gen::GenTask::X64_TABLE_FILENAME}.auto"
+    t.output_filename = File.join File.dirname(Evoasm::Gen::GenTask::X64_TABLE_FILENAME),
+                                  "scraped-#{File.basename(Evoasm::Gen::GenTask::X64_TABLE_FILENAME)}"
   end
 rescue LoadError
 end
