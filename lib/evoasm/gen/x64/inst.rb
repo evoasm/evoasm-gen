@@ -111,7 +111,9 @@ module Evoasm
         end
 
         def self.load(rows)
-          insts = rows.map.with_index do |row, index|
+          insts = rows.reject do |row|
+            row[COL_FEATURES] =~ /AVX512/
+          end.map.with_index do |row, index|
             X64::Inst.new(index, row)
           end
 
