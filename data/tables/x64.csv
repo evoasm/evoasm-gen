@@ -1188,10 +1188,10 @@ VEX.NDS.128.66.0F3A.W1 22 /r ib,VPINSRQ,RVMI,xmm:mew; xmm:mer; r/m64:mer; imm8:m
 EVEX.NDS.128.66.0F3A.WIG 20 /r ib,VPINSRB,T1S-RVMI,xmm:mew; xmm:mer; r32/m8:mer; imm8:mer,pref67:operand/1,AVX512BW,UD; GP
 EVEX.NDS.128.66.0F3A.W0 22 /r ib,VPINSRD,T1S-RVMI,xmm:mew; xmm:mer; r/m32:mer; imm8:mer,pref67:operand/1,AVX512DQ,UD; GP
 EVEX.NDS.128.66.0F3A.W1 22 /r ib,VPINSRQ,T1S-RVMI,xmm:mew; xmm:mer; r/m64:mer; imm8:mer,pref67:operand/1,AVX512DQ,UD; GP
-0F C4 /r ib,PINSRW,RMI,mm:mew[0..127]; r32/m16:mer; imm8:mer,pref67:operand/1,,UD; GP
-66 0F C4 /r ib,PINSRW,RMI,xmm:mew[0..127]; r32/m16:mer; imm8:mer,pref67:operand/1,,UD; GP
-VEX.NDS.128.66.0F.W0 C4 /r ib,VPINSRW,RVMI,xmm:mew; xmm:mer; r32/m16:mer; imm8:mer,pref67:operand/1,,UD; GP
-EVEX.NDS.128.66.0F.WIG C4 /r ib,VPINSRW,T1S-RVMI,xmm:mew; xmm:mer; r32/m16:mer; imm8:mer,pref67:operand/1,,UD; GP
+0F C4 /r ib,PINSRW,RMI,mm:mew[0..127]; r32/m16:mer; imm8:mer,pref67:operand/1,SSE,UD; GP
+66 0F C4 /r ib,PINSRW,RMI,xmm:mew[0..127]; r32/m16:mer; imm8:mer,pref67:operand/1,SSE2,UD; GP
+VEX.NDS.128.66.0F.W0 C4 /r ib,VPINSRW,RVMI,xmm:mew; xmm:mer; r32/m16:mer; imm8:mer,pref67:operand/1,AVX,UD; GP
+EVEX.NDS.128.66.0F.WIG C4 /r ib,VPINSRW,T1S-RVMI,xmm:mew; xmm:mer; r32/m16:mer; imm8:mer,pref67:operand/1,AVX512BW,UD; GP
 0F 38 04 /r,PMADDUBSW,RM,mm:merw[0..127]; mm/m64:mer,pref67:operand/1,SSSE3,UD; GP
 66 0F 38 04 /r,PMADDUBSW,RM,xmm:merw[0..127]; xmm/m128:mer,pref67:operand/1,SSSE3,UD; GP
 VEX.NDS.128.66.0F38.WIG 04 /r,VPMADDUBSW,RVM,xmm:mew; xmm:mer; xmm/m128:mer,pref67:operand/1,AVX,UD; GP
@@ -2069,13 +2069,13 @@ VEX.NDS.256.66.0F.WIG 15 /r,VUNPCKHPD,RVM,ymm:mew; ymm:mer; ymm/m256:mer,pref67:
 EVEX.NDS.128.66.0F.W1 15 /r,VUNPCKHPD,FV,xmm {k1}{z}:mew; xmm:mer; xmm/m128/m64bcst:mer,,AVX512VL+AVX512F,UD; GPS; AC; PFS
 EVEX.NDS.256.66.0F.W1 15 /r,VUNPCKHPD,FV,ymm {k1}{z}:mew; ymm:mer; ymm/m256/m64bcst:mer,,AVX512VL+AVX512F,UD; GPS; AC; PFS
 EVEX.NDS.512.66.0F.W1 15 /r,VUNPCKHPD,FV,zmm {k1}{z}:mew; zmm:mer; zmm/m512/m64bcst:mer,,AVX512F,UD; GPS; AC; PFS
-0 F 15 /r,UNPCKHPS,RM,xmm:merw[0..127]; xmm/m128:mer,pref67:operand/1,SSE,UD; GPS; AC; PFS
+0F 15 /r,UNPCKHPS,RM,xmm:merw[0..127]; xmm/m128:mer,pref67:operand/1,SSE,UD; GPS; AC; PFS
 VEX.NDS.128.0F.WIG 15 /r,VUNPCKHPS,RVM,xmm:mew; xmm:mer; xmm/m128:mer,pref67:operand/1,AVX,UD; GPS; AC; PFS
 VEX.NDS.256.0F.WIG 15 /r,VUNPCKHPS,RVM,ymm:mew; ymm:mer; ymm/m256:mer,pref67:operand/1,AVX,UD; GPS; AC; PFS
 EVEX.NDS.128.0F.W0 15 /r,VUNPCKHPS,FV,xmm {k1}{z}:mew; xmm:mer; xmm/m128/m32bcst:mer,,AVX512VL+AVX512F,UD; GPS; AC; PFS
 EVEX.NDS.256.0F.W0 15 /r,VUNPCKHPS,FV,ymm {k1}{z}:mew; ymm:mer; ymm/m256/m32bcst:mer,,AVX512VL+AVX512F,UD; GPS; AC; PFS
 EVEX.NDS.512.0F.W0 15 /r,VUNPCKHPS,FV,zmm {k1}{z}:mew; zmm:mer; zmm/m512/m32bcst:mer,,AVX512F,UD; GPS; AC; PFS
-6 6 0F 14 /r,UNPCKLPD,RM,xmm:merw[0..127]; xmm/m128:mer,pref67:operand/1,SSE2,UD; GPS; AC; PFS
+66 0F 14 /r,UNPCKLPD,RM,xmm:merw[0..127]; xmm/m128:mer,pref67:operand/1,SSE2,UD; GPS; AC; PFS
 VEX.NDS.128.66.0F.WIG 14 /r,VUNPCKLPD,RVM,xmm:mew; xmm:mer; xmm/m128:mer,pref67:operand/1,AVX,UD; GPS; AC; PFS
 VEX.NDS.256.66.0F.WIG 14 /r,VUNPCKLPD,RVM,ymm:mew; ymm:mer; ymm/m256:mer,pref67:operand/1,AVX,UD; GPS; AC; PFS
 EVEX.NDS.128.66.0F.W1 14 /r,VUNPCKLPD,FV,xmm {k1}{z}:mew; xmm:mer; xmm/m128/m64bcst:mer,,AVX512VL+AVX512F,UD; GPS; AC; PFS
@@ -2125,16 +2125,16 @@ EVEX.512.0F.W1 79 /r,VCVTPD2UDQ,FV,ymm {k1}{z}:mew; zmm/m512/m64bcst{er}:mer,,AV
 EVEX.128.66.0F.W1 79 /r,VCVTPD2UQQ,FV,xmm {k1}{z}:mew; xmm/m128/m64bcst:mer,,AVX512VL+AVX512DQ,
 EVEX.256.66.0F.W1 79 /r,VCVTPD2UQQ,FV,ymm {k1}{z}:mew; ymm/m256/m64bcst:mer,,AVX512VL+AVX512DQ,
 EVEX.512.66.0F.W1 79 /r,VCVTPD2UQQ,FV,zmm {k1}{z}:mew; zmm/m512/m64bcst{er}:mer,,AVX512DQ,
-VEX.128.66.0F38.W0 1313 /r,VCVTPH2PS,RM,xmm:mew; xmm/m64:mer; IE:w,pref67:operand/1,F16C,UD; NM; SS; GP; AC; PF; XF
-VEX.256.66.0F38.W0 1313 /r,VCVTPH2PS,RM,ymm:mew; xmm/m128:mer; IE:w,pref67:operand/1,F16C,UD; NM; SS; GP; AC; PF; XF
+VEX.128.66.0F38.W0 13 /r,VCVTPH2PS,RM,xmm:mew; xmm/m64:mer; IE:w,pref67:operand/1,F16C,UD; NM; SS; GP; AC; PF; XF
+VEX.256.66.0F38.W0 13 /r,VCVTPH2PS,RM,ymm:mew; xmm/m128:mer; IE:w,pref67:operand/1,F16C,UD; NM; SS; GP; AC; PF; XF
 EVEX.128.66.0F38.W0 /r,VCVTPH2PS,HVM,xmm {k1}{z}:mew; xmm/m64:mer; IE:w,pref67:operand/1,AVX512VL+AVX512F,UD; NM; SS; GP; AC; PF; XF
 EVEX.256.66.0F38.W0 /r,VCVTPH2PS,HVM,ymm {k1}{z}:mew; xmm/m128:mer; IE:w,pref67:operand/1,AVX512VL+AVX512F,UD; NM; SS; GP; AC; PF; XF
 EVEX.512.66.0F38.W0 /r,VCVTPH2PS,HVM,zmm {k1}{z}:mew; ymm/m256 {sae}:mer; IE:w,pref67:operand/1,AVX512F,UD; NM; SS; GP; AC; PF; XF
-VEX.128.66.0F3A.W0 1Dib /?,VCVTPS2PH,MRI,xmm/m64:mew; xmm:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,F16C,UD; NM; SS; GP; AC; PF; XF
-VEX.256.66.0F3A.W0 /r ib,VCVTPS2PH,MRI,xmm/m128:mew; ymm:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,F16C,UD; NM; SS; GP; AC; PF; XF
-EVEX.128.66.0F3A.W0 /r ib,VCVTPS2PH,MRI,xmm/m64 {k1}{z}:mew; xmm:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,AVX512VL+AVX512F,UD; NM; SS; GP; AC; PF; XF
-EVEX.256.66.0F3A.W0 /r ib,VCVTPS2PH,MRI,xmm/m128 {k1}{z}:mew; ymm:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,AVX512VL+AVX512F,UD; NM; SS; GP; AC; PF; XF
-EVEX.512.66.0F3A.W0 /r ib,VCVTPS2PH,MRI,ymm/m256 {k1}{z}:mew; zmm{sae}:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,AVX512F,UD; NM; SS; GP; AC; PF; XF
+VEX.128.66.0F3A.W0 1D /r ib,VCVTPS2PH,MRI,xmm/m64:mew; xmm:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,F16C,UD; NM; SS; GP; AC; PF; XF
+VEX.256.66.0F3A.W0 1D /r ib,VCVTPS2PH,MRI,xmm/m128:mew; ymm:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,F16C,UD; NM; SS; GP; AC; PF; XF
+EVEX.128.66.0F3A.W0 1D /r ib,VCVTPS2PH,MRI,xmm/m64 {k1}{z}:mew; xmm:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,AVX512VL+AVX512F,UD; NM; SS; GP; AC; PF; XF
+EVEX.256.66.0F3A.W0 1D /r ib,VCVTPS2PH,MRI,xmm/m128 {k1}{z}:mew; ymm:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,AVX512VL+AVX512F,UD; NM; SS; GP; AC; PF; XF
+EVEX.512.66.0F3A.W0 1D /r ib,VCVTPS2PH,MRI,ymm/m256 {k1}{z}:mew; zmm{sae}:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,AVX512F,UD; NM; SS; GP; AC; PF; XF
 EVEX.128.0F.W0 79 /r,VCVTPS2UDQ,FV,xmm {k1}{z}:mew; xmm/m128/m32bcst:mer,,AVX512VL+AVX512F,
 EVEX.256.0F.W0 79 /r,VCVTPS2UDQ,FV,ymm {k1}{z}:mew; ymm/m256/m32bcst:mer,,AVX512VL+AVX512F,
 EVEX.512.0F.W0 79 /r,VCVTPS2UDQ,FV,zmm {k1}{z}:mew; zmm/m512/m32bcst{er}:mer,,AVX512F,
