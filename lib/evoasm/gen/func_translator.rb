@@ -53,7 +53,7 @@ module Evoasm
       def emit_func_prolog(root_state, acc)
         local_params = root_state.local_params
         unless local_params.empty?
-          io.puts "#{param_val_c_type} #{local_params.join ', '};"
+          io.puts "#{inst_param_val_c_type} #{local_params.join ', '};"
           local_params.each do |param|
             io.puts "(void) #{param};"
           end
@@ -266,11 +266,11 @@ module Evoasm
       def emit_log(_state, level, msg, *exprs)
         expr_part =
           if !exprs.empty?
-            ", #{exprs.map { |expr| "(#{param_val_c_type}) #{expr_to_c expr}" }.join(', ')}"
+            ", #{exprs.map { |expr| "(#{inst_param_val_c_type}) #{expr_to_c expr}" }.join(', ')}"
           else
             ''
           end
-        msg = msg.gsub('%', '%" EVOASM_PARAM_VAL_FORMAT "')
+        msg = msg.gsub('%', '%" EVOASM_INST_PARAM_VAL_FORMAT "')
         io.puts %[evoasm_#{level}("#{msg}" #{expr_part});]
       end
 

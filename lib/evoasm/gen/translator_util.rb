@@ -23,7 +23,7 @@ module Evoasm
       end
 
       def params_c_args
-        "#{param_val_c_type} *param_vals, "\
+        "#{inst_param_val_c_type} *param_vals, "\
           "#{bitmap_c_type} *set_params"
       end
 

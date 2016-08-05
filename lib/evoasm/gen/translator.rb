@@ -220,7 +220,7 @@ module Evoasm
           if params.empty?
             io.puts 'NULL,'
           else
-            io.puts "(#{param_c_type} *)" + inst_params_var_name(inst), eol: ','
+            io.puts "(#{inst_param_c_type} *)" + inst_params_var_name(inst), eol: ','
           end
           io.puts '(evoasm_x64_inst_enc_func_t)' + inst_enc_func_name(inst), eol: ','
 
@@ -250,7 +250,7 @@ module Evoasm
 
       def inst_param_to_c(io, inst, params, param_domains)
         return if params.empty?
-        io.puts "static const #{param_c_type} #{inst_params_var_name inst}[] = {"
+        io.puts "static const #{inst_param_c_type} #{inst_params_var_name inst}[] = {"
         io.indent do
           params.each do |param|
             next if local_param? param

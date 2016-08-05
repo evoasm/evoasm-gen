@@ -136,8 +136,8 @@ module Evoasm
         name_to_c :operand, arch_prefix, type: true
       end
 
-      def param_c_type
-        name_to_c :arch_param, type: true
+      def inst_param_c_type
+        name_to_c :inst_param, type: true
       end
 
       def acc_c_type
@@ -148,12 +148,12 @@ module Evoasm
         name_to_c arch, type: true
       end
 
-      def param_val_c_type
-        name_to_c 'arch_param_val', type: true
+      def inst_param_val_c_type
+        name_to_c :inst_param_val, type: true
       end
 
       def bitmap_c_type
-        name_to_c 'bitmap', type: true
+        name_to_c :bitmap, type: true
       end
 
       def inst_id_c_type
