@@ -33,7 +33,7 @@ module Evoasm
 
       def param_to_c(name)
         register_param name.to_sym
-        param_name_to_c name
+        inst_param_name_to_c name
       end
 
       def register_param(name)

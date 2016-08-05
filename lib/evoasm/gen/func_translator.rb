@@ -367,7 +367,7 @@ module Evoasm
           func_name = pref_func_name(id)
 
           call_c = call_to_c(func_name,
-                             [*params_args, param_name_to_c(param_name)],
+                             [*params_args, inst_param_name_to_c(param_name)],
                              arch_prefix)
 
           io.puts call_c, eol: ';'

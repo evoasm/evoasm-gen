@@ -35,7 +35,7 @@ module Evoasm
         @called_funcs = {}
         @registered_param_domains = Set.new
 
-        @param_names = Enum.new :param_id, STATIC_PARAMS, prefix: arch
+        @param_names = Enum.new :inst_param_id, STATIC_PARAMS, prefix: arch
 
         send :"initialize_#{arch}"
       end
@@ -260,7 +260,7 @@ module Evoasm
 
             io.puts '{'
             io.indent do
-              io.puts param_name_to_c(param), eol: ','
+              io.puts inst_param_name_to_c(param), eol: ','
               io.puts '(evoasm_domain_t *) &' + param_domain_var_name(param_domain)
             end
             io.puts '},'

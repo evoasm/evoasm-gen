@@ -89,8 +89,8 @@ module Evoasm
         const_name_to_c flag, arch_prefix(:inst_flag)
       end
 
-      def param_name_to_c(name)
-        const_name_to_c name, arch_prefix(:param)
+      def inst_param_name_to_c(name)
+        const_name_to_c name, arch_prefix(:inst_param)
       end
 
       def inst_params_var_name(inst)
