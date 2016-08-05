@@ -78,7 +78,7 @@ module Evoasm
       end
 
       def operand_size_to_c(size)
-        const_name_to_c size, :operand_size
+        const_name_to_c size, arch_prefix(:operand_size)
       end
 
       def feature_name_to_c(name)

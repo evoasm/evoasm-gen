@@ -303,7 +303,7 @@ module Evoasm
           if op.size
             io.puts operand_size_to_c(op.size), eol: ','
           else
-            io.puts 'EVOASM_N_OPERAND_SIZES', eol: ','
+            io.puts 'EVOASM_X64_N_OPERAND_SIZES', eol: ','
           end
 
           if op.reg
