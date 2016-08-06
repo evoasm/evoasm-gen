@@ -53,7 +53,7 @@ module Evoasm
           case param_name
           when :rex_b, :rex_r, :rex_x, :rex_w,
             :vex_l, :force_rex?, :lock?, :force_sib?,
-            :force_disp32?, :force_long_vex?
+            :force_disp32?, :force_long_vex?, :high_byte_reg?
             (0..1)
           when :address_size
             [16, 32, 64]
@@ -478,18 +478,49 @@ module Evoasm
           to(&block)
         end
 
-        def encode_opcode
+        def encode_opcode(&block)
           write_byte_str opcode.shift while opcode.first =~ HEX_BYTE_REGEXP
+
+          if encoding.include? 'O'
+            encode_o_opcode &block
+          else
+            block[]
+          end
         end
 
-        def encode_o_opcode
-          return unless encoding.include? 'O'
+        def encode_o_opcode(&block)
           opcode.shift =~ /^([[:xdigit:]]{2})\+r(?:b|w|d|q)$/ || fail
           byte = Integer($1, 16)
-          write [:add, byte, [:mod, [:reg_code, :reg0], 8]], 8
           reg_op, = reg_operands
           reg_op.param == :reg0 or fail "expected reg_op to have param reg0 not #{reg_op.param}"
-          access :reg0, reg_op.access
+
+          set :_reg_code, [:reg_code, :reg0]
+
+          rest = proc do
+            write [:add, byte, [:mod, :_reg_code, 8]], 8
+            access :reg0, reg_op.access
+          end
+
+          if reg_op.size == 8
+            to_if :set?, :high_byte_reg? do
+              to_if :in?, :reg0, :A, :C, :D, :B do
+                set :_reg_code, [:add, :_reg_code, 4]
+                rest[]
+                to &block
+              end
+              else_to do
+                error :not_encodable, 'inexistent high-byte register', param: :reg0
+              end
+            end
+            else_to do
+              rest[]
+              to &block
+            end
+          else
+            rest[]
+            block[]
+          end
+
         end
 
         def encodes_modrm?
@@ -737,12 +768,11 @@ module Evoasm
             encode_legacy_prefs do
               encode_mand_pref
               encode_rex_or_vex do
-                encode_opcode
-                encode_o_opcode
-
-                encode_modrm_sib do
-                  encode_imm_or_imm_reg
-                  done
+                encode_opcode do
+                  encode_modrm_sib do
+                    encode_imm_or_imm_reg
+                    done
+                  end
                 end
               end
             end
