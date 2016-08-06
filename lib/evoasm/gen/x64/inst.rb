@@ -305,6 +305,12 @@ module Evoasm
             size = Integer(size_match)
             raise "invalid reg size #{size}" unless ALLOWED_REG_SIZES.include?(size)
             [:gp, size]
+          # special case
+          # for PINSRB/PINSRD/PINSRQ
+          # uses the low byte of r32
+          # r8 would allow high byte registers
+          # Could be changed to r8l, and restrict to only low
+          # byte register ?
           when 'r32'
             [:gp, 32]
           when 'xmm'
