@@ -9,7 +9,7 @@ module Evoasm::Gen
     end
 
     module ClassMethods
-      def state(name)
+      def static_state(name)
         f = instance_method(name)
         var_name = :"@#{name}"
 

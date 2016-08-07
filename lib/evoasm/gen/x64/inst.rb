@@ -53,7 +53,8 @@ module Evoasm
           case param_name
           when :rex_b, :rex_r, :rex_x, :rex_w,
             :vex_l, :force_rex?, :lock?, :force_sib?,
-            :force_disp32?, :force_long_vex?, :high_byte_reg?
+            :force_disp32?, :force_long_vex?, :reg0_high_byte?,
+            :reg1_high_byte?
             (0..1)
           when :address_size
             [16, 32, 64]
@@ -488,39 +489,18 @@ module Evoasm
           end
         end
 
+        include EncodeUtil # for set_reg_cide
         def encode_o_opcode(&block)
           opcode.shift =~ /^([[:xdigit:]]{2})\+r(?:b|w|d|q)$/ || fail
           byte = Integer($1, 16)
           reg_op, = reg_operands
           reg_op.param == :reg0 or fail "expected reg_op to have param reg0 not #{reg_op.param}"
 
-          set :_reg_code, [:reg_code, :reg0]
-
-          rest = proc do
+          set_reg_bits(:_reg_code, :reg0, reg_op.size == 8) do
             write [:add, byte, [:mod, :_reg_code, 8]], 8
             access :reg0, reg_op.access
+            to(&block)
           end
-
-          if reg_op.size == 8
-            to_if :set?, :high_byte_reg? do
-              to_if :in?, :reg0, :A, :C, :D, :B do
-                set :_reg_code, [:add, :_reg_code, 4]
-                rest[]
-                to &block
-              end
-              else_to do
-                error :not_encodable, 'inexistent high-byte register', param: :reg0
-              end
-            end
-            else_to do
-              rest[]
-              to &block
-            end
-          else
-            rest[]
-            block[]
-          end
-
         end
 
         def encodes_modrm?
@@ -530,7 +510,7 @@ module Evoasm
         def encode_modrm_sib(&block)
           return block[] unless encodes_modrm?
 
-          # modrm_reg is the bitstring
+          # modrm_reg_bits is the bitstring
           # that is used directly to set the ModRM.reg bits
           # and can be an opcode extension
           # reg_reg is a *register*.
@@ -540,7 +520,7 @@ module Evoasm
           byte = opcode.shift
           byte =~ %r{/(r|\d|\?)} or fail "unexpected opcode byte #{byte} in #{mnem}"
 
-          reg_reg_param, rm_reg_param, modrm_reg =
+          reg_param, rm_reg_param, modrm_reg_bits =
             case $1
             when 'r'
               [reg_op.param, rm_op.param, nil]
@@ -553,16 +533,18 @@ module Evoasm
             end
 
           rm_reg_access = rm_op&.access
-          reg_reg_access = reg_op&.access
+          reg_access = reg_op&.access
 
           rm_type = rm_op.type
+          byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-          modrm_sib = ModRMSIB.new reg_reg_param: reg_reg_param,
+          modrm_sib = ModRMSIB.new reg_param: reg_param,
                                    rm_reg_param: rm_reg_param,
                                    rm_type: rm_type,
-                                   modrm_reg: modrm_reg,
+                                   modrm_reg_bits: modrm_reg_bits,
                                    rm_reg_access: rm_reg_access,
-                                   reg_reg_access: reg_reg_access
+                                   reg_access: reg_access,
+                                   byte_regs: byte_regs
 
           call modrm_sib
 
@@ -647,14 +629,14 @@ module Evoasm
             end
 
           vex = VEX.new rex_w: rex_w,
-                        reg_reg_param: reg_op&.param,
+                        reg_param: reg_op&.param,
                         rm_reg_param: rm_op&.param,
                         rm_reg_type: rm_op&.type,
                         vex_m: vex_m,
                         vex_v: vex_v,
                         vex_l: vex_l,
                         vex_p: vex_p,
-                        modrm: encodes_modrm?
+                        encodes_modrm: encodes_modrm?
 
           call vex
           to(&block)
@@ -707,13 +689,15 @@ module Evoasm
           end
 
           reg_op, rm_op, _ = reg_operands
+          byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
           rex = REX.new force: force_rex,
                         rex_w: rex_w,
-                        reg_reg_param: reg_op&.param,
+                        reg_param: reg_op&.param,
                         rm_reg_param: rm_op&.param,
                         rm_reg_type: rm_op&.type,
-                        modrm: encodes_modrm?
+                        encodes_modrm: encodes_modrm?,
+                        byte_regs: byte_regs
 
           call rex
           to(&block)
@@ -758,7 +742,7 @@ module Evoasm
           end
         end
 
-        state def root_state
+        static_state def root_state
           state do
             comment mnem
             log :debug, name

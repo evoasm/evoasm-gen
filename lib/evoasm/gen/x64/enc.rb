@@ -11,7 +11,7 @@ module Evoasm::Gen
         [:div, [:reg_code, reg], 8]
       end
 
-      state def rex_b
+      static_state def rex_b
         state do
           log :trace, 'setting rex_b... modrm_rm='
 
@@ -25,7 +25,7 @@ module Evoasm::Gen
           end
 
           rex_b_reg_reg = proc do
-            set :_rex_b, rex_bit(reg_reg_param)
+            set :_rex_b, rex_bit(reg_param)
             to rex_locals_set
           end
 
@@ -35,8 +35,8 @@ module Evoasm::Gen
             to rex_locals_set
           end
 
-          if !modrm?
-            if reg_reg_param
+          if !encodes_modrm?
+            if reg_param
               rex_b_reg_reg[]
             else
               # currently only taken for NP and VEX
@@ -66,7 +66,7 @@ module Evoasm::Gen
         end
       end
 
-      state def rex_rx
+      static_state def rex_rx
         state do
           # MI and other encodings
           # do not use the MODRM.reg field
@@ -88,9 +88,9 @@ module Evoasm::Gen
             to rex_b
           end
 
-          if modrm?
-            if reg_reg_param
-              set :_rex_r, rex_bit(reg_reg_param)
+          if encodes_modrm?
+            if reg_param
+              set :_rex_r, rex_bit(reg_param)
             else
               set_rex_r_free[]
             end
@@ -116,33 +116,40 @@ module Evoasm::Gen
       end
     end
 
-    REX = KwStruct.new :rex_w, :reg_reg_param, :rm_reg_param, :force, :rm_reg_type, :modrm do
+    REX = KwStruct.new :rex_w, :reg_param, :rm_reg_param, :force, :rm_reg_type, :encodes_modrm, :byte_regs do
       include REXUtil
       include StateDSL
 
-      alias_method :modrm?, :modrm
-      # reg_reg_param
+      alias_method :encodes_modrm?, :encodes_modrm
+      # reg_param
       # and rm_reg_param
       # are REGISTERS
       # and NOT register ids
       # or bitfield values
 
       def base_or_index?
-        modrm? && rm_reg_type != :reg
+        encodes_modrm? && rm_reg_type != :reg
+      end
+
+      def rex_byte_reg?(reg_param)
+        [:in?, reg_param, :SP, :BP, :SI, :DI]
       end
 
       def need_rex?
         cond = [:or]
-        cond << [:neq, rex_bit(reg_reg_param), 0] if reg_reg_param
+        cond << [:neq, rex_bit(reg_param), 0] if reg_param
         cond << [:and, [:set?, rm_reg_param], [:neq, rex_bit(rm_reg_param), 0]] if rm_reg_param
 
         cond << [:and, [:set?, :reg_base],  [:neq, rex_bit(:reg_base), 0]] if  base_or_index?
         cond << [:and, [:set?, :reg_index], [:neq, rex_bit(:reg_index), 0]] if base_or_index?
 
+        cond << rex_byte_reg?(reg_param) if reg_param && byte_regs
+        cond << rex_byte_reg?(rm_reg_param) if rm_reg_param && byte_regs
+
         cond == [:or] ? false : cond
       end
 
-      state def root_state
+      static_state def root_state
         if force
           rex_rx
         else
@@ -161,7 +168,7 @@ module Evoasm::Gen
         write_rex
       end
 
-      state def write_rex
+      static_state def write_rex
         state do
           comment 'REX prefix'
           rex_w = self.rex_w
@@ -179,32 +186,75 @@ module Evoasm::Gen
       end
     end
 
-    ModRMSIB = KwStruct.new :reg_reg_param, :rm_reg_param, :rm_type, :modrm_reg, :rm_reg_access,
-                            :reg_reg_access do
-      include StateDSL
-
-      def reg_bits(reg, reg_code: false)
-        reg_code = if reg_code
-                   reg
-                 else
-                   [:reg_code, reg]
-                 end
-        [:mod, reg_code, 8]
+    module EncodeUtil
+      def reg_bits(reg_param)
+        [:mod, [:reg_code, reg_param], 8]
       end
 
-      def write_modrm(mod, rm)
-        reg = if modrm_reg
-                modrm_reg
-              elsif reg_reg_param
-                # register, use register parameter specified
-                # in reg_reg_param
-                reg_bits(reg_reg_param)
-              else
-                # ModRM.reg is free, use a parameter
-                reg_bits(:modrm_reg, reg_code: true)
+      def set_reg_bits(local_name, reg_param, byte_reg, other_reg_param = nil, &block)
+        set local_name, reg_bits(reg_param)
+        if byte_reg
+          to_if :true?, :"#{reg_param}_high_byte?" do
+            to_if :in?, reg_param, :A, :C, :D, :B do
+
+              if other_reg_param
+                to_if :in?, other_reg_param, :BP, :SP, :SI, : do
               end
 
-        write [mod, reg, rm], [2, 3, 3]
+              set local_name, [:add, local_name, 4]
+              to &block
+            end
+            else_to do
+              error :not_encodable, 'inexistent high-byte register', param: reg_param
+            end
+          end
+          else_to do
+            to &block
+          end
+        else
+          block[]
+        end
+      end
+    end
+
+    ModRMSIB = KwStruct.new :reg_param, :rm_reg_param, :rm_type, :modrm_reg_bits, :rm_reg_access,
+                            :reg_access, :byte_regs do
+      include StateDSL
+      include EncodeUtil
+
+      def write_modrm__(mod_bits, &block)
+        write [mod_bits, :_reg_bits, :_rm_bits], [2, 3, 3]
+        to &block
+      end
+
+      def write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
+        if rm_bits
+          set :_rm_bits, rm_bits
+          write_modrm__(mod_bits, &block)
+        else
+          set_reg_bits :_rm_bits, rm_reg_param, byte_regs do
+            write_modrm__(mod_bits, &block)
+          end
+        end
+      end
+
+      def write_modrm(mod_bits:, rm_bits: nil, rm_reg_param: nil, byte_regs: false, &block)
+        raise ArgumentError, 'must provide either rm_bits or rm_reg_param' unless rm_bits || rm_reg_param
+
+        if modrm_reg_bits
+          set :_reg_bits, modrm_reg_bits
+          write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
+        elsif reg_param
+          # register, use register parameter specified
+          # in reg_param
+          set_reg_bits :_reg_bits, reg_param, byte_regs do
+            write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
+          end
+        else
+          # ModRM.reg is free, use a parameter
+          set :_reg_bits, :modrm_reg
+          write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
+        end
       end
 
       def write_sib(scale = nil, index = nil, base = nil)
@@ -247,33 +297,36 @@ module Evoasm::Gen
         rm_type == :mem
       end
 
-      def modrm_sib_disp(rm:, sib:)
+      def modrm_sib_disp(rm_bits: nil, sib:, rm_reg_param: nil)
         to_if :and, zero_disp?,
               matching_disp_size?,
               [reg_code_not_in?(:reg_base, 5, 13)] do
-          write_modrm 0b00, rm
-          write_sib if sib
-          ret
+          write_modrm(mod_bits: 0b00, rm_bits: rm_bits, rm_reg_param: rm_reg_param) do
+            write_sib if sib
+            ret
+          end
         end
         else_to do
           to_if :and, disp_fits?(8), [:false?, :force_disp32?] do
-            write_modrm 0b01, rm
-            write_sib if sib
-            write :disp, 8
-            ret
+            write_modrm(mod_bits: 0b01, rm_bits: rm_bits, rm_reg_param: rm_reg_param) do
+              write_sib if sib
+              write :disp, 8
+              ret
+            end
           end
           else_to do
-            write_modrm 0b10, rm
-            write_sib if sib
-            write :disp, 32
-            ret
+            write_modrm mod_bits: 0b10, rm_bits: rm_bits, rm_reg_param: rm_reg_param do
+              write_sib if sib
+              write :disp, 32
+              ret
+            end
           end
         end
       end
 
-      state def _scale_index_base
+      static_state def scale_index_base_
         state do
-          modrm_sib_disp rm: 0b100, sib: true
+          modrm_sib_disp rm_bits: 0b100, sib: true
         end
       end
 
@@ -281,15 +334,15 @@ module Evoasm::Gen
         [:neq, [:reg_code, :reg_index], 0b0100]
       end
 
-      state def scale_index_base
+      static_state def scale_index_base
         state do
           log :trace, 'scale, index, base'
           set :_reg_index, :reg_index
 
           if vsib?
-            to _scale_index_base
+            to scale_index_base_
           else
-            to_if index_encodable?, _scale_index_base
+            to_if index_encodable?, scale_index_base_
             else_to do
               # not encodable
               error :not_encodable, 'index not encodable', param: :reg_index
@@ -298,18 +351,19 @@ module Evoasm::Gen
         end
       end
 
-      state def disp_only
+      static_state def disp_only
         state do
           log :trace, 'disp only'
           set :_reg_index, :reg_index
-          write_modrm 0b00, 0b100
-          write_sib nil, nil, 0b101
-          write :disp, 32
-          ret
+          write_modrm mod_bits: 0b00, rm_bits: 0b100 do
+            write_sib nil, nil, 0b101
+            write :disp, 32
+            ret
+          end
         end
       end
 
-      state def index_only
+      static_state def index_only
         state do
           log :trace, 'index only'
 
@@ -321,10 +375,11 @@ module Evoasm::Gen
 
           to_if cond do
             set :_reg_index, :reg_index
-            write_modrm 0b00, 0b100
-            write_sib nil, nil, 0b101
-            write :disp, 32
-            ret
+            write_modrm mod_bits: 0b00, rm_bits: 0b100 do
+              write_sib nil, nil, 0b101
+              write :disp, 32
+              ret
+            end
           end
           if cond != true
             else_to do
@@ -334,11 +389,11 @@ module Evoasm::Gen
         end
       end
 
-      state def base_only_w_sib
+      static_state def base_only_w_sib
         state do
           # need index to encode as 0b100 (RSP, ESP, SP)
           set :_reg_index, :SP
-          to _scale_index_base
+          to scale_index_base_
         end
       end
 
@@ -350,19 +405,20 @@ module Evoasm::Gen
         [:not_in?, [:reg_code, reg], *ids]
       end
 
-      state def base_only_wo_sib
+      static_state def base_only_wo_sib
         state do
-          modrm_sib_disp rm: reg_bits(:reg_base), sib: false
+          modrm_sib_disp rm_reg_param: :reg_base, sib: false
         end
       end
 
-      state def base_only
+      static_state def base_only
         state do
           log :trace, 'base only'
           to_if ip_base? do
-            write_modrm 0b00, 0b101
-            write :disp, 32
-            ret
+            write_modrm mod_bits: 0b00, rm_bits: 0b101 do
+              write :disp, 32
+              ret
+            end
           end
           else_to do
             to_if :and, [:false?, :force_sib?], reg_code_not_in?(:reg_base, 4, 12), base_only_wo_sib
@@ -379,7 +435,7 @@ module Evoasm::Gen
         [:unset?, :reg_base]
       end
 
-      state def indirect
+      static_state def indirect
         state do
           log :trace, 'indirect addressing'
           # VSIB does not allow to omit index
@@ -412,9 +468,9 @@ module Evoasm::Gen
       def direct
         state do
           access rm_reg_param, rm_reg_access if rm_reg_param
-
-          write_modrm 0b11, reg_bits(rm_reg_param)
-          ret
+          write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param, byte_regs: byte_regs do
+            ret
+          end
         end
       end
 
@@ -426,12 +482,12 @@ module Evoasm::Gen
         ]
       end
 
-      state def root_state
+      static_state def root_state
         state do
           comment 'ModRM'
           log :trace, 'ModRM'
 
-          access reg_reg_param, reg_reg_access if reg_reg_param
+          access reg_param, reg_access if reg_param
 
           if direct_only?
             to direct
@@ -451,13 +507,13 @@ module Evoasm::Gen
       end
     end
 
-    VEX = KwStruct.new :rex_w, :reg_reg_param, :rm_reg_param, :vex_m, :vex_v, :vex_l, :vex_p, :modrm, :rm_reg_type do
+    VEX = KwStruct.new :rex_w, :reg_param, :rm_reg_param, :vex_m, :vex_v, :vex_l, :vex_p, :encodes_modrm, :rm_reg_type do
       include REXUtil
       include StateDSL
 
-      alias_method :modrm?, :modrm
+      alias_method :encodes_modrm?, :encodes_modrm
 
-      state def two_byte_vex
+      static_state def two_byte_vex
         state do
           log :trace, 'writing vex'
           write 0b11000101, 8
@@ -471,7 +527,7 @@ module Evoasm::Gen
         end
       end
 
-      state def three_byte_vex
+      static_state def three_byte_vex
         state do
           log :trace, 'writing vex'
           write 0b11000100, 8
@@ -499,7 +555,7 @@ module Evoasm::Gen
         cond
       end
 
-      state def rex_locals_set
+      static_state def rex_locals_set
         state do
           # assume rex_w and vex_l set
           # default unset 0 is ok for both
@@ -512,7 +568,7 @@ module Evoasm::Gen
         end
       end
 
-      state def root_state
+      static_state def root_state
         state do
           comment 'VEX'
 
