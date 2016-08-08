@@ -51,10 +51,10 @@ module Evoasm
       end
 
       def emit_func_prolog(root_state, acc)
-        local_params = root_state.local_params
-        unless local_params.empty?
-          io.puts "#{inst_param_val_c_type} #{local_params.join ', '};"
-          local_params.each do |param|
+        local_variables = root_state.transitive_local_variables
+        unless local_variables.empty?
+          io.puts "#{inst_param_val_c_type} #{local_variables.join ', '};"
+          local_variables.each do |param|
             io.puts "(void) #{param};"
           end
         end
@@ -85,15 +85,14 @@ module Evoasm
             '(uint8_t) -1'
           end
 
-        io.write <<-EOL
-        evoasm_arch_error_data_t error_data = {
-          .reg = #{reg_c_val},
-          .param = #{param_c_val},
-          .arch = #{arch_var_name arch_indep: true},
-        };
-        EOL
+        io.puts 'evoasm_arch_error_data_t error_data = {'
+        io.puts "  .reg = #{reg_c_val},"
+        io.puts "  .param = #{param_c_val},"
+        io.puts "  .arch = #{arch_var_name arch_indep: true}"
+        io.puts '};'
 
         io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ARCH, #{error_code_to_c code}, &error_data, "#{msg}");}
+        io.puts call_to_c 'arch_reset', [arch_var_name(true)], eol: ';'
         io.puts 'retval = false;'
       end
 
@@ -178,33 +177,34 @@ module Evoasm
         io.puts "goto #{state_label child};"
       end
 
-      def emit_transitions(state, unemitted_states, &block)
-        state
-          .children
-          .sort_by { |_, _, attrs| attrs[:priority] }
-          .each do |child, expr|
-          emit_cond expr do
-            if inlineable?(child)
-              block[] if block
-              emit_body(child, unemitted_states, true)
-              true
-            else
-              unemitted_states << child unless id_map.key?(child)
-              block[] if block
-              emit_goto_transition(child)
-              false
-            end
+      def emit_transition(state, unemitted_states, expr, &block)
+        emit_cond expr do
+          if inlineable?(state)
+            block[] if block
+            emit_body(state, unemitted_states, true)
+            true
+          else
+            unemitted_states << state unless id_map.key?(state)
+            block[] if block
+            emit_goto_transition(state)
+            false
           end
         end
+      end
 
-        fail 'missing else branch' if can_get_stuck?(state)
+      def emit_transitions(state, unemitted_states, &block)
+        state.children
+             .sort_by { |_, _, attrs| attrs[:priority] }
+             .each { |child, expr| emit_transition child, unemitted_states, expr, &block}
+
+        raise 'missing else branch' if can_get_stuck?(state)
       end
 
       def can_get_stuck?(state)
         return false if state.ret?
         return false if has_else? state
 
-        fail state.actions.inspect if state.children.empty?
+        raise state.actions.inspect if state.children.empty?
 
         return false if state.children.any? do |_child, cond|
           cond.nil? || cond == [true]
@@ -284,25 +284,34 @@ module Evoasm
                   eol: eol
       end
 
-      def get_to_c(key, eol: false)
-        if local_param? key
-          key.to_s
+      def shared_variable_to_c(name)
+        "#{arch_var_name(false)}->shared_vars.#{name.to_s[1..-1]}"
+      end
+
+      def get_to_c(name, eol: false)
+        if State.local_variable_name? name
+          name.to_s
+        elsif State.shared_variable_name? name
+          shared_variable_to_c(name)
         else
-          "param_vals[#{param_to_c(key)}]" + (eol ? ';' : '')
+          "param_vals[#{param_to_c(name)}]" + (eol ? ';' : '')
         end
       end
 
-      def emit_set(_state, key, value, c_value: false)
-        fail "setting non-local param '#{key}' is not allowed" unless local_param? key
+      def emit_set(_state, name, value)
+        unless State.local_variable_name?(name) || State.shared_variable_name?(name)
+          raise "setting non-local param '#{name}' is not allowed"
+        end
 
-        c_value =
-          if c_value
-            value
-          else
-            expr_to_c value
-          end
+        c_value = expr_to_c value
 
-        io.puts "#{key} = #{c_value};"
+        if State.local_variable_name? name
+          io.puts "#{name} = #{c_value};"
+        elsif State.shared_variable_name? name
+          io.puts "#{shared_variable_to_c name} = #{c_value};"
+        else
+          raise
+        end
       end
 
       def merge_params(params)

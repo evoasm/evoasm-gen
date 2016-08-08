@@ -8,10 +8,6 @@ module Evoasm
       PARAMS_ARG_HELPERS = %i(address_size operand_size disp_size)
       NO_ARCH_HELPERS = %i(log2)
 
-      def local_param?(name)
-        name.to_s[0] == '_'
-      end
-
       def call_to_c(func, args, prefix = nil, eol: false)
         func_name = func.to_s.gsub('?', '_p')
 
@@ -37,7 +33,7 @@ module Evoasm
       end
 
       def register_param(name)
-        return if local_param? name
+        return if State.local_variable_name? name
         main_translator.register_param name
         registered_params << name
       end

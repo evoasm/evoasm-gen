@@ -150,14 +150,19 @@ module Evoasm::Gen
       end
 
       static_state def root_state
-        if force
-          rex_rx
-        else
-          # rex?: output REX even if not force
-          # need_rex?: REX is required (use of ext. reg.)
-          state do
-            to_if :or, [:true?, :force_rex?], need_rex?, rex_rx
+        state do
+          if force
+            set :@encode_rex, true
+            to rex_rx
+          else
+            # rex?: output REX even if not force
+            # need_rex?: REX is required (use of ext. reg.)
+            to_if :or, [:true?, :force_rex?], need_rex? do
+              set :@encode_rex, true
+              to rex_rx
+            end
             else_to do
+              set :@encode_rex, false
               ret
             end
           end
@@ -179,7 +184,7 @@ module Evoasm::Gen
           rex_w ||= :rex_w
 
           write [0b0100, rex_w, :_rex_r, :_rex_x, :_rex_b], [4, 1, 1, 1, 1]
-          log :trace, 'writing rex % % % %', :rex_w, :_rex_r, :_rex_x, :_rex_b
+          log :trace, 'writing rex % % % %', rex_w, :_rex_r, :_rex_x, :_rex_b
 
           ret
         end
@@ -191,18 +196,18 @@ module Evoasm::Gen
         [:mod, [:reg_code, reg_param], 8]
       end
 
-      def set_reg_bits(local_name, reg_param, byte_reg, other_reg_param = nil, &block)
+      def set_reg_bits(local_name, reg_param, byte_reg, &block)
         set local_name, reg_bits(reg_param)
         if byte_reg
           to_if :true?, :"#{reg_param}_high_byte?" do
             to_if :in?, reg_param, :A, :C, :D, :B do
-
-              if other_reg_param
-                to_if :in?, other_reg_param, :BP, :SP, :SI, : do
+              to_if :true?, :@encode_rex do
+                error :not_encodable, 'cannot be encoded with REX', param: reg_param
               end
-
-              set local_name, [:add, local_name, 4]
-              to &block
+              else_to do
+                set local_name, [:add, local_name, 4]
+                to &block
+              end
             end
             else_to do
               error :not_encodable, 'inexistent high-byte register', param: reg_param

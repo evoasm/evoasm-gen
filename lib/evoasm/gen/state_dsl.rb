@@ -40,15 +40,15 @@ module Evoasm::Gen
       @__state__.actions << [name, args]
     end
 
-    def set(param, value, options = {})
-      fail ArgumentError, 'nil not allowed' if value.nil?
-      exec :set, [param.to_sym, value, options]
-      @__state__.add_local_param param
+    def set(name, value)
+      raise ArgumentError, 'nil not allowed' if value.nil?
+      exec :set, [name.to_sym, value]
+      @__state__.add_local_variable name if State.local_variable_name?(name)
     end
 
     def write(value = nil, size = nil)
       if Array === size && Array === value
-        fail ArgumentError, 'values and sizes must have same length' unless value.size == size.size
+        raise ArgumentError, 'values and sizes must have same length' unless value.size == size.size
       end
       exec :write, [value, size]
     end

@@ -253,8 +253,6 @@ module Evoasm
         io.puts "static const #{inst_param_c_type} #{inst_params_var_name inst}[] = {"
         io.indent do
           params.each do |param|
-            next if local_param? param
-
             param_domain = param_domains[param] || inst.param_domain(param)
             register_param_domain param_domain
 
@@ -287,10 +285,10 @@ module Evoasm
           io.puts op.access.include?(:c) ? '1' : '0', eol: ','
           io.puts op.implicit? ? '1' : '0', eol: ','
 
-          params = translator.registered_params.reject { |p| local_param? p }
+          params = translator.registered_params.reject { |p| State.local_variable_name? p }
           if op.param
             param_idx = params.index(op.param) or \
-              raise "param #{op.param} not found in #{translator.params.inspect}" \
+              raise "param #{op.param} not found in #{params.inspect}" \
                       " (#{translator.inst.mnem}/#{translator.inst.index})"
 
             io.puts param_idx, eol: ','

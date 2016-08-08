@@ -1,33 +1,41 @@
 require 'set'
 
 module Evoasm::Gen
-  State = Struct.new(:children, :actions, :ret, :_local_params) do
+  State = Struct.new(:children, :actions, :ret, :local_variables) do
     attr_accessor :id, :comment, :parents
 
     def initialize
       self.children = []
       self.parents = []
       self.actions = []
-      self._local_params = []
+      self.local_variables = []
     end
 
-    def local_params
-      child_local_params = children.map do |child, _, _|
-        child.local_params
+    def transitive_local_variables
+      child_local_variables = children.map do |child, _, _|
+        child.transitive_local_variables
       end
-      all_local_params = (_local_params + child_local_params)
-      all_local_params.flatten!
-      all_local_params.uniq!
+      all_local_variables = (local_variables + child_local_variables)
+      all_local_variables.flatten!
+      all_local_variables.uniq!
 
-      all_local_params
+      all_local_variables
     end
 
-    def add_local_param(param)
-      if param.to_s[0] != '_'
-        fail ArgumentError, 'params must start with underscore'
+    def self.local_variable_name?(name)
+      name.to_s[0] == '_'
+    end
+
+    def self.shared_variable_name?(name)
+      name.to_s[0] == '@'
+    end
+
+    def add_local_variable(name)
+      unless self.class.local_variable_name? name
+        raise ArgumentError, 'local_variables must start with underscore'
       end
 
-      _local_params << param unless _local_params.include? param
+      local_variables << name unless local_variables.include? name
     end
 
     protected def add_parent(parent)

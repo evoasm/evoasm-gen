@@ -75,7 +75,7 @@ module Evoasm
             when :mem, :rm
               GP_REGISTERS
             else
-              fail
+              raise
             end
           when :imm0, :imm1, :imm, :moffs, :rel
             imm_op = encoded_operands.find { |op| op.param == param_name }
@@ -202,13 +202,12 @@ module Evoasm
           end
         end
 
-
         private def accessable(type, reg_types = [])
-         operands.each_with_object({}) do |op, hash|
+          operands.each_with_object({}) do |op, hash|
             params_or_regs = Array(op.send(type))
 
             next unless (op.type == :reg || op.type == :rm) &&
-                        !params_or_regs.empty?
+              !params_or_regs.empty?
 
             next unless reg_types.include? op.reg_type
 
@@ -427,12 +426,13 @@ module Evoasm
           MAND_PREF_BYTES.include? byte
         end
 
-        def encode_mand_pref
-          write_byte_str opcode.shift while mand_pref_byte? opcode.first
-        end
+        def encode_mand_pref(opcode_index, &block)
+          while mand_pref_byte? opcode[opcode_index]
+            write_byte_str opcode[opcode_index]
+            opcode_index += 1
+          end
 
-        def opcode_shift(first = nil)
-          opcode.shift if first.nil? || opcode.first == first
+          block[opcode_index]
         end
 
         LEGACY_PREF_BYTES = {
@@ -473,25 +473,29 @@ module Evoasm
             writes << [cond, [byte, 8]]
           end
 
-          return block[] if writes.empty?
+          unordered_writes(:legacy_pref_order, writes) if writes.any?
 
-          unordered_writes :legacy_pref_order, writes
-          to(&block)
+          block[]
         end
 
-        def encode_opcode(&block)
-          write_byte_str opcode.shift while opcode.first =~ HEX_BYTE_REGEXP
+        def encode_opcode(opcode_index, &block)
+          while opcode[opcode_index] =~ HEX_BYTE_REGEXP
+            write_byte_str opcode[opcode_index]
+            opcode_index += 1
+          end
 
           if encoding.include? 'O'
-            encode_o_opcode &block
+            encode_o_opcode opcode_index, &block
           else
-            block[]
+            block[opcode_index]
           end
         end
 
         include EncodeUtil # for set_reg_cide
-        def encode_o_opcode(&block)
-          opcode.shift =~ /^([[:xdigit:]]{2})\+r(?:b|w|d|q)$/ || fail
+        def encode_o_opcode(opcode_index, &block)
+          opcode[opcode_index] =~ /^([[:xdigit:]]{2})\+r(?:b|w|d|q)$/ || raise
+          opcode_index += 1
+
           byte = Integer($1, 16)
           reg_op, = reg_operands
           reg_op.param == :reg0 or fail "expected reg_op to have param reg0 not #{reg_op.param}"
@@ -499,7 +503,7 @@ module Evoasm
           set_reg_bits(:_reg_code, :reg0, reg_op.size == 8) do
             write [:add, byte, [:mod, :_reg_code, 8]], 8
             access :reg0, reg_op.access
-            to(&block)
+            block[opcode_index]
           end
         end
 
@@ -507,8 +511,8 @@ module Evoasm
           encoding.include? 'M'
         end
 
-        def encode_modrm_sib(&block)
-          return block[] unless encodes_modrm?
+        def encode_modrm_sib(opcode_index, &block)
+          return block[opcode_index] unless encodes_modrm?
 
           # modrm_reg_bits is the bitstring
           # that is used directly to set the ModRM.reg bits
@@ -517,8 +521,9 @@ module Evoasm
           # if given instead, it is properly handled and encoded
           reg_op, rm_op, = reg_operands
 
-          byte = opcode.shift
-          byte =~ %r{/(r|\d|\?)} or fail "unexpected opcode byte #{byte} in #{mnem}"
+          byte = opcode[opcode_index]
+          opcode_index += 1
+          byte =~ %r{/(r|\d|\?)} or raise "unexpected opcode byte #{byte} in #{mnem}"
 
           reg_param, rm_reg_param, modrm_reg_bits =
             case $1
@@ -547,27 +552,28 @@ module Evoasm
                                    byte_regs: byte_regs
 
           call modrm_sib
-
-          to(&block)
+          block[opcode_index]
         end
 
         def rex_possible?
           encoding =~ /M|O|R/
         end
 
-        def encode_rex_or_vex(&block)
+        def encode_rex_or_vex(opcode_index, &block)
           if vex?
-            encode_vex(&block)
+            encode_vex(opcode_index, &block)
           elsif rex_possible?
-            encode_rex(&block)
+            encode_rex(opcode_index, &block)
           else
-            block[]
+            block[opcode_index]
           end
         end
 
-        def encode_vex(&block)
-          vex = opcode.shift.split '.'
-          fail "invalid VEX start '#{vex.first}'" unless vex.first == 'VEX'
+        def encode_vex(opcode_index, &block)
+          vex = opcode[opcode_index].split '.'
+          opcode_index += 1
+
+          raise "invalid VEX start '#{vex.first}'" unless vex.first == 'VEX'
 
           vex_m =
             if vex.include? '0F38'
@@ -600,9 +606,7 @@ module Evoasm
 
           reg_op, rm_op, vex_op = reg_operands
 
-          if vex_op
-            access vex_op.param, vex_op.access
-          end
+          access(vex_op.param, vex_op.access) if vex_op
 
           vex_v =
             case encoding
@@ -639,7 +643,7 @@ module Evoasm
                         encodes_modrm: encodes_modrm?
 
           call vex
-          to(&block)
+          block[opcode_index]
         end
 
         private def encoded_operands
@@ -665,7 +669,7 @@ module Evoasm
           @regs = [reg_reg, reg_rm, reg_vex]
         end
 
-        def encode_rex(&block)
+        def encode_rex(opcode_index, &block)
           rex_w_required, rex_w_value = prefs[:rex_w]
 
           case rex_w_required
@@ -700,31 +704,33 @@ module Evoasm
                         byte_regs: byte_regs
 
           call rex
-          to(&block)
+          block[opcode_index]
         end
 
-        def imm_param_name
+        def imm_param_name(index)
           case encoding
           when 'FD', 'TD'
             :moffs
           when 'D'
             :rel
           else
-            @imm_counter ||= 0
-            :"imm#{@imm_counter}".tap do
-              @imm_counter += 1
-            end
+            :"imm#{index}"
           end
         end
 
-        def encode_imm_or_imm_reg
+        def encode_imm_or_imm_reg(opcode_index, &block)
+          imm_counter = 0
+
           loop do
-            byte = opcode.shift
+            byte = opcode[opcode_index]
+            opcode_index += 1
+
             break if byte.nil?
 
             case byte
             when /^(?:i|c)(?:b|w|d|o|q)$/
-              write imm_param_name, imm_code_size(byte)
+              write imm_param_name(imm_counter), imm_code_size(byte)
+              imm_counter += 1
             when '/is4'
               write [:shl, [:reg_code, :reg3], 4], 8
             else
@@ -732,6 +738,8 @@ module Evoasm
                   " found in immediate encoding #{mnem}" if encoding =~ /I$/
             end
           end
+
+          block[opcode_index] if block
         end
 
         def access_implicit_ops
@@ -750,12 +758,14 @@ module Evoasm
             access_implicit_ops
 
             encode_legacy_prefs do
-              encode_mand_pref
-              encode_rex_or_vex do
-                encode_opcode do
-                  encode_modrm_sib do
-                    encode_imm_or_imm_reg
-                    done
+              encode_mand_pref(0) do |opcode_index|
+                encode_rex_or_vex(opcode_index) do |opcode_index|
+                  encode_opcode(opcode_index) do |opcode_index|
+                    encode_modrm_sib(opcode_index) do |opcode_index|
+                      encode_imm_or_imm_reg(opcode_index) do |opcode_index|
+                        done
+                      end
+                    end
                   end
                 end
               end
