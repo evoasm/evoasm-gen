@@ -556,7 +556,7 @@ module Evoasm
         end
 
         def rex_possible?
-          encoding =~ /M|O|R/
+          encoding =~ /M|O|R|NP/
         end
 
         def encode_rex_or_vex(opcode_index, &block)
