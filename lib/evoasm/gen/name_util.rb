@@ -97,6 +97,10 @@ module Evoasm
         "params_#{inst.name}"
       end
 
+      def inst_mnem_var_name(inst)
+        "name_#{inst.name}"
+      end
+
       def insts_var_name
         "_evoasm_#{arch}_insts"
       end

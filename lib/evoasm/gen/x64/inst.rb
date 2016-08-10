@@ -29,7 +29,7 @@ module Evoasm
         REG_OP_REGEXP = /^(r|xmm|ymm|zmm|mm)(8|16|32|64)?$/
 
         Operand = Struct.new :name, :param, :type, :size, :access,
-                             :encoded, :mnem, :reg, :implicit,
+                             :encoded, :mnem, :reg, :imm, :implicit,
                              :reg_type, :accessed_bits do
           alias_method :encoded?, :encoded
           alias_method :mnem?, :mnem
@@ -46,7 +46,7 @@ module Evoasm
         end
 
         # NOTE: enum domains need to be sorted
-        # (i.e. by their corresponding C enum numberic value)
+        # (i.e. by their corresponding C enum numeric value)
         GP_REGISTERS = X64::REGISTERS.fetch(:gp)[0..-5] - [:SP]
 
         def param_domain(param_name)
@@ -306,11 +306,11 @@ module Evoasm
             raise "invalid reg size #{size}" unless ALLOWED_REG_SIZES.include?(size)
             [:gp, size]
           # special case
-          # for PINSRB/PINSRD/PINSRQ
+          # for PINSRB/PINSRW
+          # and PEXTRB/PEXTRW etc.
           # uses the low byte of r32
           # r8 would allow high byte registers
-          # Could be changed to r8l, and restrict to only low
-          # byte register ?
+          # It is customary to use r32 there (r16 would work as well, I guess)
           when 'r32'
             [:gp, 32]
           when 'xmm'
@@ -353,9 +353,10 @@ module Evoasm
             return
           end
 
-          if op_name =~ /^\d$/
+          if op_name =~ /^(\d)$/
             operand = build_operand op_name, flags
             operand.type = :imm
+            operand.imm = $1
           else
             reg_name = op_name.gsub(/\[|\]/, '')
             operand = build_operand reg_name, flags
@@ -373,10 +374,13 @@ module Evoasm
             if RFLAGS.include?(sym_reg)
               operand.reg = sym_reg
               operand.reg_type = :rflags
+              operand.size = 1
             elsif MXCSR.include?(sym_reg)
               operand.reg = sym_reg
               operand.reg_type = :mxcsr
+              operand.size = 32
             else
+              operand.reg_type = :gp
               operand.reg =
                 case reg_name
                 when 'RAX', 'EAX', 'AX', 'AL'
@@ -391,9 +395,9 @@ module Evoasm
                   :SP
                 when 'RBP', 'BP'
                   :BP
-                when 'RSI', 'ESI', 'SIL', 'SI'
+                when 'RSI', 'ESI', 'SI', 'SIL'
                   :SI
-                when 'RDI', 'EDI', 'DIL', 'DI'
+                when 'RDI', 'EDI', 'DI', 'DIL'
                   :DI
                 when 'RIP'
                   operand.reg_type = :ip
@@ -402,9 +406,24 @@ module Evoasm
                   operand.reg_type = :xmm
                   :XMM0
                 else
-                  fail ArgumentError, "unexpected register '#{reg_name}'"
+                  raise ArgumentError, "unexpected register '#{reg_name}'"
                 end
-              operand.reg_type = :gp
+
+              operand.size =
+                case reg_name
+                when 'RAX', 'RCX', 'RDX', 'RBX', 'RSP', 'RBP', 'RSI', 'RDI', 'RIP'
+                  64
+                when 'EAX', 'ECX', 'EDX', 'EBX', 'ESI', 'EDI'
+                  32
+                when 'AX', 'CX', 'DX', 'SP', 'BP', 'SI', 'DI'
+                  16
+                when 'AL', 'CL', 'SIL', 'DIL'
+                  8
+                when 'XMM0'
+                  128
+                else
+                  raise ArgumentError, "unexpected register '#{reg_name}'"
+                end
             end
           end
 
@@ -556,7 +575,7 @@ module Evoasm
         end
 
         def rex_possible?
-          encoding =~ /M|O|R|NP/
+          prefs.key? :rex_w
         end
 
         def encode_rex_or_vex(opcode_index, &block)

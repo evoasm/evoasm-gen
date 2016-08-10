@@ -157,6 +157,7 @@ module Evoasm
         called_funcs = called_funcs_to_c
         insts_c = insts_to_c
         inst_operands = inst_operands_to_c
+        inst_mnems = inst_mnems_to_c
         inst_params = inst_params_to_c
         param_domains = param_domains_to_c
 
@@ -215,8 +216,13 @@ module Evoasm
       def inst_to_c(io, inst, params)
         io.puts '{'
         io.indent do
+          io.puts inst.operands.size, eol: ','
           io.puts inst_name_to_c(inst), eol: ','
           io.puts params.size, eol: ','
+          io.puts exceptions_bitmap(inst), eol: ','
+          io.puts inst_flags_to_c(inst), eol: ','
+          io.puts "#{features_bitmap(inst)}ull", eol: ','
+
           if params.empty?
             io.puts 'NULL,'
           else
@@ -224,15 +230,13 @@ module Evoasm
           end
           io.puts '(evoasm_x64_inst_enc_func_t)' + inst_enc_func_name(inst), eol: ','
 
-          io.puts "#{features_bitmap(inst)}ull", eol: ','
           if inst.operands.empty?
             io.puts 'NULL,'
           else
             io.puts "(#{operand_c_type} *)#{inst_operands_var_name inst}", eol: ','
           end
-          io.puts inst.operands.size, eol: ','
-          io.puts exceptions_bitmap(inst), eol: ','
-          io.puts inst_flags_to_c(inst)
+
+          io.puts "(char *) #{inst_mnem_var_name(inst)}"
         end
         io.puts '},'
       end
@@ -284,6 +288,7 @@ module Evoasm
           io.puts op.access.include?(:u) ? '1' : '0', eol: ','
           io.puts op.access.include?(:c) ? '1' : '0', eol: ','
           io.puts op.implicit? ? '1' : '0', eol: ','
+          io.puts op.mnem? ? '1' : '0', eol: ','
 
           params = translator.registered_params.reject { |p| State.local_variable_name? p }
           if op.param
@@ -304,12 +309,6 @@ module Evoasm
             io.puts 'EVOASM_X64_N_OPERAND_SIZES', eol: ','
           end
 
-          if op.reg
-            io.puts reg_name_to_c(op.reg), eol: ','
-          else
-            io.puts reg_names.n_elem_const_name_to_c, eol: ','
-          end
-
           if op.reg_type
             io.puts reg_type_to_c(op.reg_type), eol: ','
           else
@@ -317,10 +316,31 @@ module Evoasm
           end
 
           if op.accessed_bits.key? :w
-            io.puts bit_mask_to_c(op.accessed_bits[:w])
+            io.puts bit_mask_to_c(op.accessed_bits[:w]), eol: ','
           else
-            io.puts bit_masks.all_to_c
+            io.puts bit_masks.all_to_c, eol: ','
           end
+
+          io.puts '{'
+          io.indent do
+            case op.type
+            when :reg, :rm
+              if op.reg
+                io.puts reg_name_to_c(op.reg), eol: ','
+              else
+                io.puts reg_names.n_elem_const_name_to_c, eol: ','
+              end
+            when :imm
+              if op.imm
+                io.puts op.imm, eol: ','
+              else
+                io.puts 255, eol: ','
+              end
+            else
+              io.puts '255'
+            end
+          end
+          io.puts '}'
         end
         io.puts '}', eol: eol
       end
@@ -336,6 +356,14 @@ module Evoasm
           end
           io.puts '};'
           io.puts
+        end
+
+        io.string
+      end
+
+      def inst_mnems_to_c(io = StrIO.new)
+        @inst_translators.each do |translator|
+          io.puts %Q{static const char #{inst_mnem_var_name translator.inst}[] = "#{translator.inst.mnem}";}
         end
 
         io.string
