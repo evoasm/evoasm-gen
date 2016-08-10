@@ -1,24 +1,24 @@
 module Evoasm
   module Gen
     module X64
-      MNEM_BLACKLIST = %w()
-
       # RFLAGS either not used at all
       # or not read by any non-system instruction
-      IGNORED_RFLAGS = %i(RF VIF AC VM NT TF DF IF AF)
+      IGNORED_RFLAGS = %i(RF VIF AC VM NT TF DF IF AF).freeze
 
       # Exception flag/mask bits. Mostly meant to be checked
       # by the user, which we are not doing at the moment
-      IGNORED_MXCSR = %i(PE UE OE ME ZE DE IE PM UM OM ZM DM IM MM)
+      IGNORED_MXCSR = %i(PE UE OE ME ZE DE IE PM UM OM ZM DM IM MM).freeze
       REGISTERS = {
         ip: %i(IP),
         rflags: %i(OF SF ZF PF CF),
         mxcsr: %i(FZ RC DAZ),
         gp: %i(A C D B SP BP SI DI 8 9 10 11 12 13 14 15),
         mm: %i(MM0 MM1 MM2 MM3 MM4 MM5 MM6 MM7),
-        xmm: %i(XMM0 XMM1 XMM2 XMM3 XMM4 XMM5 XMM6 XMM7 XMM8 XMM9 XMM10 XMM11 XMM12 XMM13 XMM14 XMM15),
-        zmm: %i(ZMM16 ZMM17 ZMM18 ZMM19 ZMM20 ZMM21 ZMM22 ZMM23 ZMM24 ZMM25 ZMM26 ZMM27 ZMM28 ZMM29 ZMM30 ZMM31)
-      }
+        xmm: %i(XMM0 XMM1 XMM2 XMM3 XMM4 XMM5 XMM6 XMM7
+                XMM8 XMM9 XMM10 XMM11 XMM12 XMM13 XMM14 XMM15),
+        zmm: %i(ZMM16 ZMM17 ZMM18 ZMM19 ZMM20 ZMM21 ZMM22 ZMM23
+                ZMM24 ZMM25 ZMM26 ZMM27 ZMM28 ZMM29 ZMM30 ZMM31)
+      }.freeze
 
       REGISTER_NAMES = REGISTERS.values.flatten
 
@@ -56,7 +56,8 @@ module Evoasm
             htt
             tm
             ia64
-            pbe),
+            pbe
+          ),
           c: %i(
             sse3
             pclmulqdq
@@ -233,7 +234,7 @@ module Evoasm
             reserved
           )
         }
-      }
+      }.freeze
     end
   end
 end
