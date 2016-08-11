@@ -40,16 +40,24 @@ module Evoasm
         end
       end
 
-      def indep_arch_prefix(name = nil)
+      def base_arch_ctx_prefix(name = nil)
+        ['arch_ctx', name]
+      end
+
+      def base_arch_prefix(name = nil)
         ['arch', name]
       end
 
+      def arch_ctx_prefix(name = nil)
+        ["#{arch}_ctx", name]
+      end
+
       def arch_prefix(name = nil)
-        [arch, name]
+        ["#{arch}", name]
       end
 
       def error_code_to_c(name)
-        prefix = name == :ok ? :error_code : indep_arch_prefix(:error_code)
+        prefix = name == :ok ? :error_code : base_arch_prefix(:error_code)
         const_name_to_c name, prefix
       end
 
@@ -148,8 +156,8 @@ module Evoasm
         name_to_c :bitmap128, type: true
       end
 
-      def arch_c_type
-        name_to_c arch, type: true
+      def arch_ctx_c_type
+        name_to_c "#{arch}_ctx", type: true
       end
 
       def inst_param_val_c_type
@@ -173,8 +181,8 @@ module Evoasm
         "#{func.class.name.split('::').last.downcase}_#{attrs}_#{id}"
       end
 
-      def arch_var_name(indep_arch = false)
-        "#{indep_arch ? '((evoasm_arch_t *)' : ''}#{arch}#{indep_arch ? ')' : ''}"
+      def arch_ctx_var_name(indep_arch = false)
+        "#{indep_arch ? '((evoasm_arch_ctx_t *)' : ''}#{arch}_ctx#{indep_arch ? ')' : ''}"
       end
     end
   end

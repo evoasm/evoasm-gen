@@ -6,13 +6,14 @@ module Evoasm
       include NameUtil
 
       PARAMS_ARG_HELPERS = %i(address_size operand_size disp_size)
-      NO_ARCH_HELPERS = %i(log2)
+      UTIL_HELPERS = %i(log2)
+      NO_ARCH_CTX_ARG_HELPERS = %i(reg_code disp_size)
 
       def call_to_c(func, args, prefix = nil, eol: false)
         func_name = func.to_s.gsub('?', '_p')
 
-        if prefix
-          args.unshift arch_var_name(Array(prefix).first != arch)
+        if prefix && !NO_ARCH_CTX_ARG_HELPERS.include?(func)
+          args.unshift arch_ctx_var_name(Array(prefix).first !~ /#{arch}/)
         end
 
         "#{name_to_c func_name, prefix}(#{args.join ','})" + (eol ? ';' : '')
@@ -77,7 +78,7 @@ module Evoasm
             .join(" ||\n#{io.indent_str + '   '}")
         else
           if !name.is_a?(Symbol)
-            fail unless args.empty?
+            raise unless args.empty?
             expr_to_c name
           else
             call_args = args.map { |a| expr_to_c(a) }
@@ -114,7 +115,7 @@ module Evoasm
             name_to_c s, const_prefix, const: true
           end
         else
-          fail "invalid expression #{expr.inspect}"
+          raise "invalid expression #{expr.inspect}"
         end
       end
 
@@ -129,7 +130,7 @@ module Evoasm
               "#{type} #{param_name}"
             end.join(', ').prepend ', '
           end
-        "#{static ? 'static ' : ''}evoasm_success_t\n#{func_name}(#{arch_c_type} *#{arch_var_name},"\
+        "#{static ? 'static ' : ''}evoasm_success_t\n#{func_name}(#{arch_ctx_c_type} *#{arch_ctx_var_name},"\
         " #{params_c_args}#{func_params_c})"
       end
     end

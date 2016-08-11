@@ -502,7 +502,7 @@ module Evoasm::Gen
             # VSIB does not allow this
             if vsib? || indirect_only?
               else_to do
-                error :not_encodable, (vsib? ? "VSIB does not allow indirect addressing" : "indirect addressing not allowed")
+                error :not_encodable, (vsib? ? "VSIB does not allow direct addressing" : "direct addressing not allowed")
               end
             else
               else_to direct

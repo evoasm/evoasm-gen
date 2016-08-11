@@ -43,7 +43,7 @@ module Evoasm
 
       def emit_acc_ary_copy(back_copy = false)
         var_name = 'acc'
-        src = "#{arch_var_name arch_indep: true}->#{var_name}"
+        src = "#{arch_ctx_var_name arch_indep: true}->#{var_name}"
         dst = var_name
 
         dst, src = src, dst if back_copy
@@ -68,7 +68,7 @@ module Evoasm
       end
 
       def error_data_field_to_c(field_name)
-        "#{arch_var_name arch_indep: true}->error_data.#{field_name}"
+        "#{arch_ctx_var_name arch_indep: true}->error_data.#{field_name}"
       end
 
       def emit_error(_state, code, msg, reg = nil, param = nil)
@@ -88,11 +88,11 @@ module Evoasm
         io.puts 'evoasm_arch_error_data_t error_data = {'
         io.puts "  .reg = #{reg_c_val},"
         io.puts "  .param = #{param_c_val},"
-        io.puts "  .arch = #{arch_var_name arch_indep: true}"
+        io.puts "  .arch = #{arch_ctx_var_name arch_indep: true}"
         io.puts '};'
 
         io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ARCH, #{error_code_to_c code}, &error_data, "#{msg}");}
-        io.puts call_to_c 'arch_reset', [arch_var_name(true)], eol: ';'
+        io.puts call_to_c 'arch_ctx_reset', [arch_ctx_var_name(true)], eol: ';'
         io.puts 'retval = false;'
       end
 
@@ -215,10 +215,12 @@ module Evoasm
 
       def helper_call_to_c(name, args)
         prefix =
-          if NO_ARCH_HELPERS.include?(name)
+          if UTIL_HELPERS.include? name
             nil
-          else
+          elsif NO_ARCH_CTX_ARG_HELPERS.include? name
             arch_prefix
+          else
+            arch_ctx_prefix
           end
 
         call_to_c name, args, prefix
@@ -285,7 +287,7 @@ module Evoasm
       end
 
       def shared_variable_to_c(name)
-        "#{arch_var_name(false)}->shared_vars.#{name.to_s[1..-1]}"
+        "#{arch_ctx_var_name(false)}->shared_vars.#{name.to_s[1..-1]}"
       end
 
       def get_to_c(name, eol: false)
@@ -377,7 +379,7 @@ module Evoasm
 
           call_c = call_to_c(func_name,
                              [*params_args, inst_param_name_to_c(param_name)],
-                             arch_prefix)
+                             arch_ctx_prefix)
 
           io.puts call_c, eol: ';'
 
@@ -392,7 +394,7 @@ module Evoasm
       end
 
       def emit_read_access(_state, op)
-        call = access_call_to_c 'read', op, "#{arch_var_name(true)}->acc",
+        call = access_call_to_c 'read', op, "#{arch_ctx_var_name(true)}->acc",
                                 [inst && inst_name_to_c(inst) || 'inst']
 
         #emit_c_block "if(!#{call})" do
@@ -408,7 +410,7 @@ module Evoasm
                     "(#{regs.c_type}) #{expr_to_c(op)}",
                     *params
                   ],
-                  indep_arch_prefix,
+                  base_arch_ctx_prefix,
                   eol: eol)
       end
 
@@ -437,7 +439,7 @@ module Evoasm
           size_c = expr_to_c size
         end
 
-        call_to_c "write#{size_c}", [value_c], indep_arch_prefix, eol: true
+        call_to_c "write#{size_c}", [value_c], base_arch_ctx_prefix, eol: true
       end
 
       def emit_write(_state, value, size)
@@ -478,9 +480,9 @@ module Evoasm
       def emit_pref_func(io, writes, id)
         with_io io do
           table_var_name, _table_size = main_translator.request_permutation_table writes.size
-          func_name = name_to_c pref_func_name(id), arch_prefix
+          func_name = name_to_c pref_func_name(id), arch_ctx_prefix
 
-          emit_c_block "static void\n#{func_name}(#{arch_c_type} *#{arch_var_name},"\
+          emit_c_block "static void\n#{func_name}(#{arch_ctx_c_type} *#{arch_ctx_var_name},"\
             " #{params_c_args}, #{main_translator.param_names.c_type} order)" do
             io.puts 'int i;'
             emit_c_block "for(i = 0; i < #{writes.size}; i++)" do

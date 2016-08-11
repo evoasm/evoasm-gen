@@ -280,6 +280,16 @@ module Evoasm
         io.string
       end
 
+      def max_params_per_inst
+        @inst_translators.map do |translator|
+          translator.registered_params.size
+        end.max
+      end
+
+      def param_idx_bitsize
+        Math.log2(max_params_per_inst + 1).ceil.to_i
+      end
+
       def inst_operand_to_c(translator, op, io = StrIO.new, eol:)
         io.puts '{'
         io.indent do
@@ -303,8 +313,14 @@ module Evoasm
 
           io.puts operand_type_to_c(op.type), eol: ','
 
-          if op.size
-            io.puts operand_size_to_c(op.size), eol: ','
+          if op.size1
+            io.puts operand_size_to_c(op.size1), eol: ','
+          else
+            io.puts 'EVOASM_X64_N_OPERAND_SIZES', eol: ','
+          end
+
+          if op.size2
+            io.puts operand_size_to_c(op.size2), eol: ','
           else
             io.puts 'EVOASM_X64_N_OPERAND_SIZES', eol: ','
           end

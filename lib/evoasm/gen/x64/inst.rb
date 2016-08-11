@@ -1,5 +1,6 @@
 require 'evoasm/gen/state_dsl'
 require 'evoasm/gen/x64/enc'
+require 'evoasm/gen/x64/operand'
 require 'evoasm/gen/core_ext/array'
 require 'evoasm/gen/core_ext/integer'
 
@@ -21,20 +22,6 @@ module Evoasm
 
         HEX_BYTE_REGEXP = /^[A-F0-9]{2}$/
 
-        IMM_OP_REGEXP = /^(imm|rel)(\d+)?$/
-        MEM_OP_REGEXP = /^m(\d*)$/
-        MOFFS_OP_REGEXP = /^moffs(\d+)$/
-        VSIB_OP_REGEXP = /^vm(\d+)(?:x|y)$/
-        RM_OP_REGEXP = %r{^(r\d*|xmm|ymm|zmm|mm)?/m(\d+)$}
-        REG_OP_REGEXP = /^(r|xmm|ymm|zmm|mm)(8|16|32|64)?$/
-
-        Operand = Struct.new :name, :param, :type, :size, :access,
-                             :encoded, :mnem, :reg, :imm, :implicit,
-                             :reg_type, :accessed_bits do
-          alias_method :encoded?, :encoded
-          alias_method :mnem?, :mnem
-          alias_method :implicit?, :implicit
-        end
 
         include Evoasm::Gen::StateDSL
 
@@ -217,114 +204,15 @@ module Evoasm
           end
         end
 
-        IGNORED_OPERAND_NAMES = X64::IGNORED_RFLAGS + X64::IGNORED_MXCSR
         def load_operands(row)
           ops = row[COL_OPS].split('; ').map do |op|
-            op =~ /(.*?):([a-z]+(?:\[\d+\.\.\d+\])?)/ || fail
+            op =~ /(.*?):([a-z]+(?:\[\d+\.\.\d+\])?)/ || raise
             [$1, $2]
           end
 
-          imm_counter = 0
-          reg_counter = 0
-
-          self.operands = []
-
-          ops.each do |op_name, flags|
-            next if IGNORED_OPERAND_NAMES.include? op_name.to_sym
-
-            if op_name.upcase == op_name
-              add_implicit_operand op_name, flags
-            else
-              reg_counter, imm_counter = add_operand op_name, flags, reg_counter, imm_counter
-            end
-          end
+          self.operands = Operand.load ops
         end
 
-        private def build_operand(op_name, flags)
-          Operand.new.tap do |operand|
-            operand.name = op_name
-            operand.access = flags.gsub(/[^crwu]/, '').each_char.map(&:to_sym)
-            operand.accessed_bits = {}
-            flags.scan(/([crwu])\[(\d+)\.\.(\d+)\]/) do |acc, from, to|
-              operand.accessed_bits[acc.to_sym] = (from.to_i..to.to_i)
-            end
-            operand.encoded = flags.include? 'e'
-            # mnem operand
-            operand.mnem = flags.include? 'm'
-          end
-        end
-
-        private def add_operand(op_name, flags, reg_counter, imm_counter)
-          operand = build_operand op_name, flags
-
-          case op_name
-          when IMM_OP_REGEXP
-            operand.type = :imm
-            operand.size = $2 && $2.to_i
-
-            if $1 == 'imm'
-              operand.param = :"imm#{imm_counter}"
-              imm_counter += 1
-            else
-              operand.param = $1.to_sym
-            end
-          when RM_OP_REGEXP
-            operand.type = :rm
-            operand.reg_type, operand.size = reg_type_and_size($1, $2)
-          when REG_OP_REGEXP
-            operand.type = :reg
-            operand.reg_type, operand.size = reg_type_and_size($1, $2)
-          when MEM_OP_REGEXP
-            operand.type = :mem
-            operand.size = $1.empty? ? nil : $1.to_i
-          when MOFFS_OP_REGEXP
-            operand.type = :mem
-            operand.size = Integer($1)
-            operand.param = :moffs
-          when VSIB_OP_REGEXP
-            operand.type = :vsib
-            operand.size = $1.to_i
-          else
-            raise "unexpected operand '#{op_name}'"
-          end
-
-          if operand.type == :rm || operand.type == :reg
-            operand.param = :"reg#{reg_counter}"
-            reg_counter += 1
-          end
-
-          self.operands << operand
-
-          [reg_counter, imm_counter]
-        end
-
-        ALLOWED_REG_SIZES = [8, 16, 32, 64].freeze
-        private def reg_type_and_size(type_match, size_match)
-          case type_match
-          when 'r'
-            size = Integer(size_match)
-            raise "invalid reg size #{size}" unless ALLOWED_REG_SIZES.include?(size)
-            [:gp, size]
-          # special case
-          # for PINSRB/PINSRW
-          # and PEXTRB/PEXTRW etc.
-          # uses the low byte of r32
-          # r8 would allow high byte registers
-          # It is customary to use r32 there (r16 would work as well, I guess)
-          when 'r32'
-            [:gp, 32]
-          when 'xmm'
-            [:xmm, 128]
-          when 'ymm'
-            [:xmm, 256]
-          when 'zmm'
-            [:zmm, 512]
-          when 'mm'
-            [:mm, 64]
-          else
-            fail "unexpected reg type '#{type_match}/#{size_match}'"
-          end
-        end
 
         def load_flags
           flags = []
@@ -337,99 +225,6 @@ module Evoasm
           flags.compact!
 
           self.flags = flags
-        end
-
-        RFLAGS = X64::REGISTERS.fetch :rflags
-        MXCSR = X64::REGISTERS.fetch :mxcsr
-
-        private def add_implicit_operand(op_name, flags)
-          if op_name == 'FLAGS' || op_name == 'RFLAGS'
-            # NOTE: currently all used flags
-            # fall within the bits of 32-bit FLAGS
-            # i.e. all upper bits of RFLAGS are unused
-            RFLAGS.each do |reg_name|
-              add_implicit_operand(reg_name.to_s, flags)
-            end
-            return
-          end
-
-          if op_name =~ /^(\d)$/
-            operand = build_operand op_name, flags
-            operand.type = :imm
-            operand.imm = $1
-          else
-            reg_name = op_name.gsub(/\[|\]/, '')
-            operand = build_operand reg_name, flags
-            operand.type = op_name =~ /^\[/ ? :mem : :reg
-
-            #FIXME: find a way to handle
-            # this: memory expressions involving
-            # multiple registers e.g. [RBX + AL] in XLAT
-            if reg_name =~ /\+/
-              reg_name = reg_name.split(/\s*\+\s*/).first
-            end
-
-            sym_reg = reg_name.to_sym
-
-            if RFLAGS.include?(sym_reg)
-              operand.reg = sym_reg
-              operand.reg_type = :rflags
-              operand.size = 1
-            elsif MXCSR.include?(sym_reg)
-              operand.reg = sym_reg
-              operand.reg_type = :mxcsr
-              operand.size = 32
-            else
-              operand.reg_type = :gp
-              operand.reg =
-                case reg_name
-                when 'RAX', 'EAX', 'AX', 'AL'
-                  :A
-                when 'RCX', 'ECX', 'CX', 'CL'
-                  :C
-                when 'RDX', 'EDX', 'DX'
-                  :D
-                when 'RBX', 'EBX'
-                  :B
-                when 'RSP', 'SP'
-                  :SP
-                when 'RBP', 'BP'
-                  :BP
-                when 'RSI', 'ESI', 'SI', 'SIL'
-                  :SI
-                when 'RDI', 'EDI', 'DI', 'DIL'
-                  :DI
-                when 'RIP'
-                  operand.reg_type = :ip
-                  :IP
-                when 'XMM0'
-                  operand.reg_type = :xmm
-                  :XMM0
-                else
-                  raise ArgumentError, "unexpected register '#{reg_name}'"
-                end
-
-              operand.size =
-                case reg_name
-                when 'RAX', 'RCX', 'RDX', 'RBX', 'RSP', 'RBP', 'RSI', 'RDI', 'RIP'
-                  64
-                when 'EAX', 'ECX', 'EDX', 'EBX', 'ESI', 'EDI'
-                  32
-                when 'AX', 'CX', 'DX', 'SP', 'BP', 'SI', 'DI'
-                  16
-                when 'AL', 'CL', 'SIL', 'DIL'
-                  8
-                when 'XMM0'
-                  128
-                else
-                  raise ArgumentError, "unexpected register '#{reg_name}'"
-                end
-            end
-          end
-
-          operand.implicit = true
-
-          self.operands << operand
         end
 
         def vex?
@@ -510,7 +305,7 @@ module Evoasm
           end
         end
 
-        include EncodeUtil # for set_reg_cide
+        include EncodeUtil # for set_reg_code
         def encode_o_opcode(opcode_index, &block)
           opcode[opcode_index] =~ /^([[:xdigit:]]{2})\+r(?:b|w|d|q)$/ || raise
           opcode_index += 1

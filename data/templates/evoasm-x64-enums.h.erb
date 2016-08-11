@@ -29,6 +29,7 @@ typedef enum {
 <% insts.each do |inst| %>
   <%= inst_name_to_c inst %> = <%= inst.index %>,
 <% end %>
-EVOASM_X64_N_INSTS = <%= insts.size %>,
+  EVOASM_X64_N_INSTS = <%= insts.size %>,
 } evoasm_x64_inst_id_t;
 
+#define EVOASM_X64_PARAM_IDX_BITSIZE <%= param_idx_bitsize %>
