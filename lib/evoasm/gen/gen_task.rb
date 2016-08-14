@@ -73,7 +73,7 @@ module Evoasm
       end
 
       def load_x64_insts
-        require 'evoasm/gen/x64/inst'
+        require 'evoasm/gen/x64/instruction'
 
         rows = []
         File.open X64_TABLE_FILENAME do |file|
@@ -86,7 +86,7 @@ module Evoasm
           end
         end
 
-        Gen::X64::Inst.load(rows)
+        Gen::X64::Instruction.load_all(rows)
       end
     end
   end

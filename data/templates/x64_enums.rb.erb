@@ -9,6 +9,8 @@ module Evoasm
 <%= reg_names.to_ruby_ffi %>
 <%= param_names.to_ruby_ffi %>
 <%= operand_types.to_ruby_ffi %>
+<%= disp_sizes.to_ruby_ffi %>
+<%= addr_sizes.to_ruby_ffi %>
 
     enum :x64_inst_id, [
 <% insts.each do |inst| %>

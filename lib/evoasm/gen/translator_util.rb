@@ -5,7 +5,7 @@ module Evoasm
     module TranslatorUtil
       include NameUtil
 
-      PARAMS_ARG_HELPERS = %i(address_size operand_size disp_size)
+      PARAMS_ARG_HELPERS = %i(address_size disp_size)
       UTIL_HELPERS = %i(log2)
       NO_ARCH_CTX_ARG_HELPERS = %i(reg_code disp_size)
 

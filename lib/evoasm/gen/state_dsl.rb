@@ -15,7 +15,9 @@ module Evoasm::Gen
 
         define_method(name) do
           return instance_variable_get var_name if instance_variable_defined? var_name
-          instance_variable_set var_name, f.bind(self).call
+          state = State.new
+          call_with_state f.bind(self), state
+          state
         end
       end
     end
@@ -93,7 +95,7 @@ module Evoasm::Gen
     def to(child = nil, **attrs, &block)
       if child.nil?
         child = State.new
-        instance_eval_with_state child, &block
+        call_with_state block, child
       end
 
       @__state__.add_child child, nil, default_attrs(attrs)
@@ -115,7 +117,7 @@ module Evoasm::Gen
     def to_if(*args, **attrs, &block)
       if block
         child = State.new
-        instance_eval_with_state child, &block
+        call_with_state block, child
 
         args.compact!
       else
@@ -132,18 +134,18 @@ module Evoasm::Gen
 
     def state(*args, &block)
       if args.size == 1 && State === args.first
-        instance_eval_with_state(args.first, &block)
+        call_with_state(block, args.first)
       else
         State.new(*args).tap do |s|
-          instance_eval_with_state(s, &block)
+          call_with_state(block, s)
         end
       end
     end
 
-    def instance_eval_with_state(state, &block)
+    def call_with_state(block, state)
       prev_state = @__state__
       @__state__ = state
-      result = instance_eval(&block)
+      result = block.call
       @__state__ = prev_state
 
       result

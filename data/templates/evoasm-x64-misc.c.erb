@@ -25,7 +25,7 @@ evoasm_x64_ctx_load_cpuid(evoasm_x64_ctx_t *x64_ctx) {
 
   EVOASM_TRY(enc_failed, evoasm_x64_func_prolog, x64_ctx, &buf, EVOASM_X64_ABI_SYSV);
 
-<% remaining_flags = features.keys %>
+<% remaining_flags = features.symbols %>
 <% io = StrIO.new %>
 <% Evoasm::Gen::X64::CPUID.each_with_index do |((eax_val, ecx_val), out_regs), index0| %>
 
@@ -98,3 +98,4 @@ alloc_failed:
   return false;
 }
 
+<%= inst_params_set_func %>

@@ -19,42 +19,15 @@ module Evoasm
       attr_reader :operand_types
       attr_reader :arch
       attr_reader :features
+      attr_reader :disp_sizes
+      attr_reader :addr_sizes
       attr_reader :inst_flags
       attr_reader :insts
       attr_reader :options
 
-      STATIC_PARAMS = %i(reg0 reg1 reg2 reg3 reg4 imm operand_size address_size)
-      PARAM_ALIASES = {imm0: :imm}
+      STATIC_PARAMS = %i(reg0 reg1 reg2 reg3 imm)
+      PARAM_ALIASES = {imm0: :imm, imm1: :disp, moffs: :imm0, rel: :imm0}
       OUTPUT_FORMATS = %i(c h ruby_ffi)
-
-      def initialize(arch, insts, options = {})
-        @arch = arch
-        @insts = insts
-        @options = options
-        @pref_funcs = {}
-        @called_funcs = {}
-        @registered_param_domains = Set.new
-
-        @param_names = Enum.new :inst_param_id, STATIC_PARAMS, prefix: arch
-
-        send :"initialize_#{arch}"
-      end
-
-      def initialize_x64
-        @features = Enum.new :feature, prefix: arch
-        @inst_flags = Enum.new :inst_flag, prefix: arch, flags: true
-        @exceptions = Enum.new :exception, prefix: arch
-        @reg_types = Enum.new :reg_type, Evoasm::Gen::X64::REGISTERS.keys, prefix: arch
-        @operand_types = Enum.new :operand_type, Evoasm::Gen::X64::Inst::OPERAND_TYPES, prefix: arch
-        @reg_names = Enum.new :reg_id, Evoasm::Gen::X64::REGISTER_NAMES, prefix: arch
-        @bit_masks = Enum.new :bit_mask, %i(rest 64_127 32_63 0_31), prefix: arch, flags: true
-
-        insts.each do |inst|
-          @features.add_all inst.features
-          @inst_flags.add_all inst.flags
-          @exceptions.add_all inst.exceptions
-        end
-      end
 
       def self.target_filenames(arch, file_type)
         case arch
@@ -88,12 +61,47 @@ module Evoasm
         end
       end
 
+
+      def initialize(arch, insts, options = {})
+        @arch = arch
+        @insts = insts
+        @options = options
+        @pref_funcs = {}
+        @called_funcs = {}
+        @registered_param_domains = Set.new
+
+        @param_names = Enum.new :inst_param_id, STATIC_PARAMS, prefix: arch
+        PARAM_ALIASES.each do |alias_key, key|
+          @param_names.alias alias_key, key
+        end
+
+        send :"initialize_#{arch}"
+      end
+
+      def initialize_x64
+        @features = Enum.new :feature, prefix: arch
+        @inst_flags = Enum.new :inst_flag, prefix: arch, flags: true
+        @exceptions = Enum.new :exception, prefix: arch
+        @reg_types = Enum.new :reg_type, Evoasm::Gen::X64::REGISTERS.keys, prefix: arch
+        @operand_types = Enum.new :operand_type, Evoasm::Gen::X64::Instruction::OPERAND_TYPES, prefix: arch
+        @reg_names = Enum.new :reg_id, Evoasm::Gen::X64::REGISTER_NAMES, prefix: arch
+        @bit_masks = Enum.new :bit_mask, %i(rest 64_127 32_63 0_31), prefix: arch, flags: true
+        @addr_sizes = Enum.new :addr_size, %i(64 32), prefix: arch
+        @disp_sizes = Enum.new :disp_size, %i(16 32), prefix: arch
+
+        insts.each do |inst|
+          @features.add_all inst.features
+          @inst_flags.add_all inst.flags
+          @exceptions.add_all inst.exceptions
+        end
+      end
+
       def main_translator
         self
       end
 
       def register_param(name)
-        param_names.add name, PARAM_ALIASES[name]
+        param_names.add name
       end
 
       def request_pref_func(writes, translator)
@@ -159,6 +167,8 @@ module Evoasm
         inst_operands = inst_operands_to_c
         inst_mnems = inst_mnems_to_c
         inst_params = inst_params_to_c
+        inst_params_type_decl = inst_params_type_decl_to_c
+        inst_params_set_func = inst_params_set_func_to_c
         param_domains = param_domains_to_c
 
         render_templates(:c, binding, &block)
@@ -280,6 +290,87 @@ module Evoasm
         io.string
       end
 
+      def inst_params_type_decl_to_c(io = StrIO.new)
+        io.puts 'typedef struct {'
+        io.indent do
+          params = param_names.symbols.select { |key| !param_names.alias? key }.flat_map do |param_name|
+            field_name = inst_param_to_c_field_name param_name
+            [
+              [field_name, param_c_bitsize(param_name)],
+              ["#{field_name}_set", 1],
+            ]
+          end.sort_by { |n, s| [s, n]}
+
+          params.each do |param, size|
+            io.puts "uint64_t #{param} : #{size};"
+          end
+
+          p params.inject(0) {|acc, (n, s)| acc + s }./(64.0)
+        end
+
+        io.puts '} evoasm_x64_inst_params_t;'
+        io.string
+      end
+
+      def inst_param_to_c_field_name(param)
+        param.to_s.sub(/\?$/, '')
+      end
+
+      def inst_params_set_func_to_c(io = StrIO.new)
+        io.puts 'void evoasm_x64_inst_params_set(evoasm_x64_inst_params_t *params, evoasm_x64_inst_param_id_t param, evoasm_inst_param_val_t param_val) {'
+        io.indent do
+          io.puts "switch(param) {"
+          io.indent do
+            param_names.each do |param_name|
+              next if param_names.alias? param_name
+
+              field_name = inst_param_to_c_field_name param_name
+
+              io.puts "case #{param_names.symbol_to_c param_name}:"
+              io.puts "  params->#{field_name} = param_val;"
+              io.puts "  params->#{field_name}_set = true;"
+              io.puts "  break;"
+            end
+          end
+          io.puts '}'
+        end
+
+        io.puts '}'
+        io.string
+      end
+
+      def param_c_bitsize(param_name)
+        case param_name
+        when :rex_b, :rex_r, :rex_x, :rex_w,
+          :vex_l, :force_rex?, :lock?, :force_sib?,
+          :force_disp32?, :force_long_vex?, :reg0_high_byte?,
+          :reg1_high_byte?
+          1
+        when :addr_size
+          @addr_sizes.bitsize
+        when :disp_size
+          @disp_sizes.bitsize
+        when :scale
+          2
+        when :modrm_reg
+          3
+        when :vex_v
+          4
+        when :reg_base, :reg_index, :reg0, :reg1, :reg2, :reg3, :reg4
+          @reg_names.bitsize
+        when :imm
+          64
+        when :moffs, :rel
+          64
+        when :disp
+          32
+        when :legacy_pref_order
+          3
+        else
+          raise "missing C type for param #{param_name}"
+        end
+      end
+
       def max_params_per_inst
         @inst_translators.map do |translator|
           translator.registered_params.size
@@ -328,13 +419,13 @@ module Evoasm
           if op.reg_type
             io.puts reg_type_to_c(op.reg_type), eol: ','
           else
-            io.puts reg_types.n_elem_const_name_to_c, eol: ','
+            io.puts reg_types.n_symbol_to_c, eol: ','
           end
 
           if op.accessed_bits.key? :w
             io.puts bit_mask_to_c(op.accessed_bits[:w]), eol: ','
           else
-            io.puts bit_masks.all_to_c, eol: ','
+            io.puts bit_masks.all_symbol_to_c, eol: ','
           end
 
           io.puts '{'
@@ -344,7 +435,7 @@ module Evoasm
               if op.reg
                 io.puts reg_name_to_c(op.reg), eol: ','
               else
-                io.puts reg_names.n_elem_const_name_to_c, eol: ','
+                io.puts reg_names.n_symbol_to_c, eol: ','
               end
             when :imm
               if op.imm
@@ -390,8 +481,9 @@ module Evoasm
       def param_domain_to_c(io, domain)
         domain_c =
           case domain
-          when (:INT64_MIN..:INT64_MAX)
-            "{EVOASM_DOMAIN_TYPE_INTERVAL64, #{0}, #{0}}"
+          when /int(\d+)/
+            type = $1 == '64' ? 'EVOASM_DOMAIN_TYPE_INT64' : 'EVOASM_DOMAIN_TYPE_INTERVAL'
+            "{#{type}, #{expr_to_c :"INT#{$1}_MIN"}, #{expr_to_c :"INT#{$1}_MAX"}}"
           when Range
             min_c = expr_to_c domain.begin
             max_c = expr_to_c domain.end
@@ -408,7 +500,7 @@ module Evoasm
 
         domain_c_type =
           case domain
-          when Range
+          when Range, Symbol
             'evoasm_interval_t'
           when Array
             "evoasm_enum#{domain.size}_t"
@@ -476,7 +568,7 @@ module Evoasm
       end
 
       def bitmap(enum, &block)
-        enum.keys.each_with_index.inject(0) do |acc, (flag, index)|
+        enum.symbols.each_with_index.inject(0) do |acc, (flag, index)|
           if block[flag, index]
             acc | (1 << index)
           else

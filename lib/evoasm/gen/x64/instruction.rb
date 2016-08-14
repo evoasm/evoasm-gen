@@ -1,5 +1,6 @@
 require 'evoasm/gen/state_dsl'
-require 'evoasm/gen/x64/enc'
+require 'evoasm/gen/state_machine'
+require 'evoasm/gen/x64/encoding'
 require 'evoasm/gen/x64/operand'
 require 'evoasm/gen/core_ext/array'
 require 'evoasm/gen/core_ext/integer'
@@ -7,11 +8,13 @@ require 'evoasm/gen/core_ext/integer'
 module Evoasm
   module Gen
     module X64
-      Inst = Struct.new :mnem, :opcode,
-                        :operands,
-                        :encoding, :features,
-                        :prefs, :name, :index,
-                        :flags, :exceptions do
+      class Instruction < StateMachine
+        attr_reader :mnem, :opcode,
+                    :operands,
+                    :encoding, :features,
+                    :prefs, :name, :index,
+                    :flags, :exceptions
+
         COL_OPCODE = 0
         COL_MNEM = 1
         COL_OP_ENC = 2
@@ -22,14 +25,61 @@ module Evoasm
 
         HEX_BYTE_REGEXP = /^[A-F0-9]{2}$/
 
+        LEGACY_PREF_BYTES = {
+          cs_bt: 0x2E,
+          ss: 0x36,
+          ds_bnt: 0x3E,
+          es: 0x26,
+          fs: 0x64,
+          gs: 0x65,
+          lock: 0xF0,
+          pref66: 0x66,
+          pref67: 0x67
+        }.freeze
 
-        include Evoasm::Gen::StateDSL
+        LEGACY_PREF_CONDS = {
+          pref67: [:eq, :addr_size, :ADDR_SIZE32]
+        }.freeze
 
-        private def xmm_regs(zmm: false)
-          regs = X64::REGISTERS.fetch(:xmm).dup
-          regs.concat X64::REGISTERS.fetch(:zmm) if zmm
+        MAND_PREF_BYTES = %w(66 F2 F3 F0)
 
-          regs
+        OPERAND_TYPES = %i(reg rm vsib mem imm)
+
+        include StateDSL
+        include EncodeUtil # for set_reg_code
+
+        def self.load_all(rows)
+          insts = rows.reject do |row|
+            row[COL_FEATURES] =~ /AVX512/
+          end.map.with_index do |row, index|
+            X64::Instruction.new(index, row)
+          end
+
+          # make sure name is unique
+          insts.group_by(&:name).each do |_name, group|
+            next if group.size <= 1
+            group.each_with_index do |inst, index|
+              inst.name << "_#{index}"
+            end
+          end
+
+          insts
+        end
+
+        def initialize(index, row)
+          @index = index
+          @mnem = row[COL_MNEM]
+          @encoding = row[COL_OP_ENC]
+          @opcode = row[COL_OPCODE].split(/\s+/)
+
+          load_features row
+          load_exceptions row
+          load_operands row
+          load_prefs row
+
+          load_flags
+
+          @name = inst_name
         end
 
         # NOTE: enum domains need to be sorted
@@ -43,8 +93,8 @@ module Evoasm
             :force_disp32?, :force_long_vex?, :reg0_high_byte?,
             :reg1_high_byte?
             (0..1)
-          when :address_size
-            [16, 32, 64]
+          when :addr_size
+            [32, 64]
           when :disp_size
             [16, 32]
           when :scale
@@ -68,18 +118,18 @@ module Evoasm
             imm_op = encoded_operands.find { |op| op.param == param_name }
             case imm_op.size
             when 8
-              (:INT8_MIN..:INT8_MAX)
+              :int8
             when 16
-              (:INT16_MIN..:INT16_MAX)
+              :int16
             when 32
-              (:INT32_MIN..:INT32_MAX)
+              :int32
             when 64
-              (:INT64_MIN..:INT64_MAX)
+              :int64
             else
               raise "unexpected imm size '#{imm_op.size}'"
             end
           when :disp
-            (:INT32_MIN..:INT32_MAX)
+            :int32
           when :reg0, :reg1, :reg2, :reg3
             reg_op = encoded_operands.find { |op| op.param == param_name }
 
@@ -98,40 +148,6 @@ module Evoasm
           end
         end
 
-        def self.load(rows)
-          insts = rows.reject do |row|
-            row[COL_FEATURES] =~ /AVX512/
-          end.map.with_index do |row, index|
-            X64::Inst.new(index, row)
-          end
-
-          # make sure name is unique
-          insts.group_by(&:name).each do |_name, group|
-            next if group.size <= 1
-            group.each_with_index do |inst, index|
-              inst.name << "_#{index}"
-            end
-          end
-
-          insts
-        end
-
-        def initialize(index, row)
-          self.index = index
-          self.mnem = row[COL_MNEM]
-          self.encoding = row[COL_OP_ENC]
-          self.opcode = row[COL_OPCODE].split(/\s+/)
-
-          load_features row
-          load_exceptions row
-          load_operands row
-          load_prefs row
-
-          load_flags
-
-          self.name = inst_name
-        end
-
         def inst_name
           ops_str = operands.select(&:mnem?).map do |op|
             op.name.gsub('/m', 'm').downcase
@@ -142,30 +158,32 @@ module Evoasm
           name
         end
 
-        private def load_features(row)
-          self.features = row[COL_FEATURES].strip
-                          .tr('/', '_')
-                          .split('+')
-                          .delete_if(&:empty?)
-                          .map { |f| "#{f.downcase}".to_sym }
-                          .uniq
+        private
+
+        def load_features(row)
+          @features = row[COL_FEATURES].strip
+                        .tr('/', '_')
+                        .split('+')
+                        .delete_if(&:empty?)
+                        .map { |f| "#{f.downcase}".to_sym }
+                        .uniq
         end
 
-        private def load_exceptions(row)
+        def load_exceptions(row)
           exceptions = row[COL_EXCEPTIONS]
 
-          self.exceptions =
+          @exceptions =
             if exceptions.nil?
               []
             else
               exceptions.strip
-                        .split('; ')
-                        .map { |f| "#{f.downcase}".to_sym }
+                .split('; ')
+                .map { |f| "#{f.downcase}".to_sym }
             end
         end
 
-        private def load_prefs(row)
-          self.prefs =
+        def load_prefs(row)
+          @prefs =
             row[COL_PREFS].split('; ').map do |op|
               op =~ %r{(.+?):(.+?)/(.+)} or fail("invalid prefix op '#{op}'")
               value =
@@ -179,17 +197,29 @@ module Evoasm
             end.to_h
         end
 
-        def self.max_reg_params
-          4
-        end
-
-        def reg_param_operands
-          operands.select do |op|
-            (op.type == :reg || op.type == :rm) && op.param
+        def load_operands(row)
+          ops = row[COL_OPS].split('; ').map do |op|
+            op =~ /(.*?):([a-z]+(?:\[\d+\.\.\d+\])?)/ || raise
+            [$1, $2]
           end
+
+          @operands = Operand.load ops
         end
 
-        private def accessable(type, reg_types = [])
+        def load_flags
+          flags = []
+          operands.each do |op|
+            flags << op.reg_type
+            flags << :sp if op.reg == :SP
+            flags << :mem if op.type == :mem
+          end
+          flags.uniq!
+          flags.compact!
+
+          @flags = flags
+        end
+
+        def accessable(type, reg_types = [])
           operands.each_with_object({}) do |op, hash|
             params_or_regs = Array(op.send(type))
 
@@ -204,34 +234,17 @@ module Evoasm
           end
         end
 
-        def load_operands(row)
-          ops = row[COL_OPS].split('; ').map do |op|
-            op =~ /(.*?):([a-z]+(?:\[\d+\.\.\d+\])?)/ || raise
-            [$1, $2]
-          end
+        def xmm_regs(zmm: false)
+          regs = X64::REGISTERS.fetch(:xmm).dup
+          regs.concat X64::REGISTERS.fetch(:zmm) if zmm
 
-          self.operands = Operand.load ops
-        end
-
-
-        def load_flags
-          flags = []
-          operands.each do |op|
-            flags << op.reg_type
-            flags << :sp if op.reg == :SP
-            flags << :mem if op.type == :mem
-          end
-          flags.uniq!
-          flags.compact!
-
-          self.flags = flags
+          regs
         end
 
         def vex?
           opcode[0] =~ /^VEX/
         end
 
-        MAND_PREF_BYTES = %w(66 F2 F3 F0)
         def write_byte_str(byte_str)
           write Integer(byte_str, 16), 8
         end
@@ -248,22 +261,6 @@ module Evoasm
 
           block[opcode_index]
         end
-
-        LEGACY_PREF_BYTES = {
-          cs_bt: 0x2E,
-          ss: 0x36,
-          ds_bnt: 0x3E,
-          es: 0x26,
-          fs: 0x64,
-          gs: 0x65,
-          lock: 0xF0,
-          pref66: 0x66,
-          pref67: 0x67
-        }.freeze
-
-        LEGACY_PREF_CONDS = {
-          pref67: [:eq, :address_size, 32]
-        }.freeze
 
         def encode_legacy_prefs(&block)
           writes = []
@@ -305,7 +302,6 @@ module Evoasm
           end
         end
 
-        include EncodeUtil # for set_reg_code
         def encode_o_opcode(opcode_index, &block)
           opcode[opcode_index] =~ /^([[:xdigit:]]{2})\+r(?:b|w|d|q)$/ || raise
           opcode_index += 1
@@ -357,13 +353,13 @@ module Evoasm
           rm_type = rm_op.type
           byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-          modrm_sib = ModRMSIB.new reg_param: reg_param,
-                                   rm_reg_param: rm_reg_param,
-                                   rm_type: rm_type,
-                                   modrm_reg_bits: modrm_reg_bits,
-                                   rm_reg_access: rm_reg_access,
-                                   reg_access: reg_access,
-                                   byte_regs: byte_regs
+          modrm_sib = ModRMSIB.find_or_create reg_param: reg_param,
+                                              rm_reg_param: rm_reg_param,
+                                              rm_type: rm_type,
+                                              modrm_reg_bits: modrm_reg_bits,
+                                              rm_reg_access: rm_reg_access,
+                                              reg_access: reg_access,
+                                              byte_regs: byte_regs
 
           call modrm_sib
           block[opcode_index]
@@ -446,29 +442,25 @@ module Evoasm
               # [:if, [:eq, [:operand_size], 128], 0b0, 0b1]
             end
 
-          vex = VEX.new rex_w: rex_w,
-                        reg_param: reg_op&.param,
-                        rm_reg_param: rm_op&.param,
-                        rm_reg_type: rm_op&.type,
-                        vex_m: vex_m,
-                        vex_v: vex_v,
-                        vex_l: vex_l,
-                        vex_p: vex_p,
-                        encodes_modrm: encodes_modrm?
+          vex = VEX.find_or_create rex_w: rex_w,
+                                   reg_param: reg_op&.param,
+                                   rm_reg_param: rm_op&.param,
+                                   rm_reg_type: rm_op&.type,
+                                   vex_m: vex_m,
+                                   vex_v: vex_v,
+                                   vex_l: vex_l,
+                                   vex_p: vex_p,
+                                   encodes_modrm: encodes_modrm?
 
           call vex
           block[opcode_index]
         end
 
-        private def encoded_operands
+        def encoded_operands
           @encoded_operands ||= operands.select(&:encoded?)
         end
 
-        def encoded_operand_names
-          encoded_operands.map(&:name)
-        end
-
-        private def reg_operands
+        def reg_operands
           return @regs if @regs
 
           r_idx = encoding.index(/R|O/)
@@ -487,19 +479,22 @@ module Evoasm
           rex_w_required, rex_w_value = prefs[:rex_w]
 
           case rex_w_required
-          # 64-bit operand size
+            # 64-bit operand size
           when :required
             force_rex = true
             rex_w = rex_w_value
-          # non 64-bit operand size
-          # only to access extended regs
+            # non 64-bit operand size
+            # only to access extended regs
           when :optional
             force_rex = false
 
             rex_w = case rex_w_value
-                    when :any then nil
-                    when 0x0 then 0x0
-                    else fail "unexpected REX pref value #{rex_w_value}"
+                    when :any then
+                      nil
+                    when 0x0 then
+                      0x0
+                    else
+                      fail "unexpected REX pref value #{rex_w_value}"
                     end
           else
             force_rex = false
@@ -509,13 +504,13 @@ module Evoasm
           reg_op, rm_op, _ = reg_operands
           byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-          rex = REX.new force: force_rex,
-                        rex_w: rex_w,
-                        reg_param: reg_op&.param,
-                        rm_reg_param: rm_op&.param,
-                        rm_reg_type: rm_op&.type,
-                        encodes_modrm: encodes_modrm?,
-                        byte_regs: byte_regs
+          rex = REX.find_or_create force: force_rex,
+                                   rex_w: rex_w,
+                                   reg_param: reg_op&.param,
+                                   rm_reg_param: rm_op&.param,
+                                   rm_reg_type: rm_op&.type,
+                                   encodes_modrm: encodes_modrm?,
+                                   byte_regs: byte_regs
 
           call rex
           block[opcode_index]
@@ -565,20 +560,18 @@ module Evoasm
         end
 
         static_state def root_state
-          state do
-            comment mnem
-            log :debug, name
+          comment mnem
+          log :debug, name
 
-            access_implicit_ops
+          access_implicit_ops
 
-            encode_legacy_prefs do
-              encode_mand_pref(0) do |opcode_index|
-                encode_rex_or_vex(opcode_index) do |opcode_index|
-                  encode_opcode(opcode_index) do |opcode_index|
-                    encode_modrm_sib(opcode_index) do |opcode_index|
-                      encode_imm_or_imm_reg(opcode_index) do |opcode_index|
-                        done
-                      end
+          encode_legacy_prefs do
+            encode_mand_pref(0) do |opcode_index|
+              encode_rex_or_vex(opcode_index) do |opcode_index|
+                encode_opcode(opcode_index) do |opcode_index|
+                  encode_modrm_sib(opcode_index) do |opcode_index|
+                    encode_imm_or_imm_reg(opcode_index) do |opcode_index|
+                      done
                     end
                   end
                 end
@@ -589,24 +582,23 @@ module Evoasm
 
         def imm_code_size(code)
           case code
-          when 'ib', 'cb' then 8
-          when 'iw', 'cw' then 16
-          when 'id', 'cd' then 32
-          when 'io', 'cq' then 64
-          else raise "invalid imm code #{code}"
+          when 'ib', 'cb' then
+            8
+          when 'iw', 'cw' then
+            16
+          when 'id', 'cd' then
+            32
+          when 'io', 'cq' then
+            64
+          else
+            raise "invalid imm code #{code}"
           end
         end
 
         def done
           ret
         end
-
       end
-
-      class Inst
-        OPERAND_TYPES = %i(reg rm vsib mem imm)
-      end
-
     end
   end
 end

@@ -19,6 +19,10 @@ module Evoasm
           if ruby_ffi_name =~ /^\d+$/
             if prefix && prefix.last =~ /reg/
               'r' + ruby_ffi_name
+            elsif prefix && prefix.last =~ /disp/
+              'disp' + ruby_ffi_name
+            elsif prefix && prefix.last =~ /addr/
+              'addr_size' + ruby_ffi_name
             else
               raise
             end
@@ -131,8 +135,10 @@ module Evoasm
           "param_domain__#{domain.begin.to_s.tr('-', 'm')}_#{domain.end}"
         when Array
           "param_domain_enum__#{domain.join '_'}"
+        when Symbol
+          "param_domain_#{domain}"
         else
-          fail "unexpected domain type #{domain.class} (#{domain.inspect})"
+          raise "unexpected domain type #{domain.class} (#{domain.inspect})"
         end
       end
 
