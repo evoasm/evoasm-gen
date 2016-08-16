@@ -9,11 +9,13 @@ module Evoasm
   module Gen
     module X64
       class Instruction < StateMachine
-        attr_reader :mnem, :opcode,
-                    :operands,
-                    :encoding, :features,
-                    :prefs, :name, :index,
-                    :flags, :exceptions
+        attrs :mnem, :opcode,
+              :operands,
+              :encoding, :features,
+              :prefs, :name, :index,
+              :flags, :exceptions
+
+        params :imm0
 
         COL_OPCODE = 0
         COL_MNEM = 1
@@ -67,10 +69,12 @@ module Evoasm
         end
 
         def initialize(index, row)
-          @index = index
-          @mnem = row[COL_MNEM]
-          @encoding = row[COL_OP_ENC]
-          @opcode = row[COL_OPCODE].split(/\s+/)
+          super({})
+
+          self.index = index
+          self.mnem = row[COL_MNEM]
+          self.encoding = row[COL_OP_ENC]
+          self.opcode = row[COL_OPCODE].split(/\s+/)
 
           load_features row
           load_exceptions row
@@ -79,7 +83,7 @@ module Evoasm
 
           load_flags
 
-          @name = inst_name
+          self.name = name
         end
 
         # NOTE: enum domains need to be sorted
@@ -148,7 +152,7 @@ module Evoasm
           end
         end
 
-        def inst_name
+        def name
           ops_str = operands.select(&:mnem?).map do |op|
             op.name.gsub('/m', 'm').downcase
           end.join('_')
@@ -161,7 +165,7 @@ module Evoasm
         private
 
         def load_features(row)
-          @features = row[COL_FEATURES].strip
+          self.features = row[COL_FEATURES].strip
                         .tr('/', '_')
                         .split('+')
                         .delete_if(&:empty?)
@@ -172,7 +176,7 @@ module Evoasm
         def load_exceptions(row)
           exceptions = row[COL_EXCEPTIONS]
 
-          @exceptions =
+          self.exceptions =
             if exceptions.nil?
               []
             else
@@ -183,7 +187,7 @@ module Evoasm
         end
 
         def load_prefs(row)
-          @prefs =
+          self.prefs =
             row[COL_PREFS].split('; ').map do |op|
               op =~ %r{(.+?):(.+?)/(.+)} or fail("invalid prefix op '#{op}'")
               value =
@@ -203,7 +207,7 @@ module Evoasm
             [$1, $2]
           end
 
-          @operands = Operand.load ops
+          self.operands = Operand.load ops
         end
 
         def load_flags
@@ -216,7 +220,7 @@ module Evoasm
           flags.uniq!
           flags.compact!
 
-          @flags = flags
+          self.flags = flags
         end
 
         def accessable(type, reg_types = [])
@@ -596,7 +600,7 @@ module Evoasm
         end
 
         def done
-          ret
+          return!
         end
       end
     end

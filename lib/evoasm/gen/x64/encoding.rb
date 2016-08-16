@@ -113,8 +113,8 @@ module Evoasm::Gen
     end
 
     class REX < StateMachine
-      attr_reader :rex_w, :reg_param, :rm_reg_param, :force,
-                  :rm_reg_type, :encodes_modrm, :byte_regs
+      attrs :rex_w, :reg_param, :rm_reg_param, :force,
+            :rm_reg_type, :encodes_modrm, :byte_regs
 
       include REXUtil
       include StateDSL
@@ -161,7 +161,7 @@ module Evoasm::Gen
           end
           else_to do
             set :@encode_rex, false
-            ret
+            return!
           end
         end
       end
@@ -182,7 +182,7 @@ module Evoasm::Gen
         write [0b0100, rex_w, :_rex_r, :_rex_x, :_rex_b], [4, 1, 1, 1, 1]
         log :trace, 'writing rex % % % %', rex_w, :_rex_r, :_rex_x, :_rex_b
 
-        ret
+        return!
       end
     end
 
@@ -218,9 +218,9 @@ module Evoasm::Gen
     end
 
     class ModRMSIB < StateMachine
-      attr_reader :reg_param, :rm_reg_param, :rm_type,
-                  :modrm_reg_bits, :rm_reg_access,
-                  :reg_access, :byte_regs
+      attrs :reg_param, :rm_reg_param, :rm_type,
+            :modrm_reg_bits, :rm_reg_access,
+            :reg_access, :byte_regs
 
       include StateDSL
       include EncodeUtil
@@ -307,7 +307,7 @@ module Evoasm::Gen
               [reg_code_not_in?(:reg_base, 5, 13)] do
           write_modrm(mod_bits: 0b00, rm_bits: rm_bits, rm_reg_param: rm_reg_param) do
             write_sib if sib
-            ret
+            return!
           end
         end
         else_to do
@@ -315,14 +315,14 @@ module Evoasm::Gen
             write_modrm(mod_bits: 0b01, rm_bits: rm_bits, rm_reg_param: rm_reg_param) do
               write_sib if sib
               write :disp, 8
-              ret
+              return!
             end
           end
           else_to do
             write_modrm mod_bits: 0b10, rm_bits: rm_bits, rm_reg_param: rm_reg_param do
               write_sib if sib
               write :disp, 32
-              ret
+              return!
             end
           end
         end
@@ -357,7 +357,7 @@ module Evoasm::Gen
         write_modrm mod_bits: 0b00, rm_bits: 0b100 do
           write_sib nil, nil, 0b101
           write :disp, 32
-          ret
+          return!
         end
       end
 
@@ -376,7 +376,7 @@ module Evoasm::Gen
           write_modrm mod_bits: 0b00, rm_bits: 0b100 do
             write_sib nil, nil, 0b101
             write :disp, 32
-            ret
+            return!
           end
         end
         if cond != true
@@ -409,7 +409,7 @@ module Evoasm::Gen
         to_if ip_base? do
           write_modrm mod_bits: 0b00, rm_bits: 0b101 do
             write :disp, 32
-            ret
+            return!
           end
         end
         else_to do
@@ -458,7 +458,7 @@ module Evoasm::Gen
         state do
           access rm_reg_param, rm_reg_access if rm_reg_param
           write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param, byte_regs: byte_regs do
-            ret
+            return!
           end
         end
       end
@@ -496,8 +496,8 @@ module Evoasm::Gen
     end
 
     class VEX < StateMachine
-      attr_reader :rex_w, :reg_param, :rm_reg_param, :vex_m,
-                  :vex_v, :vex_l, :vex_p, :encodes_modrm, :rm_reg_type
+      attrs :rex_w, :reg_param, :rm_reg_param, :vex_m,
+            :vex_v, :vex_l, :vex_p, :encodes_modrm, :rm_reg_type
 
       include REXUtil
       include StateDSL
@@ -513,7 +513,7 @@ module Evoasm::Gen
                 (vex_l || :vex_l),
                 vex_p
               ], [1, 4, 1, 2]
-        ret
+        return!
       end
 
       static_state def three_byte_vex
@@ -527,7 +527,7 @@ module Evoasm::Gen
                [:neg, vex_v || :vex_v],
                vex_l || :vex_l,
                vex_p], [1, 4, 1, 2]
-        ret
+        return!
       end
 
       def zero_rex?

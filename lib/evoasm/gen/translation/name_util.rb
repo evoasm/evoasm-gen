@@ -6,14 +6,14 @@ module Evoasm
       end
 
       def const_name_to_c(name, prefix)
-        name_to_c name, prefix, const: true
+        symbol_to_c name, prefix, const: true
       end
 
       def const_name_to_ruby_ffi(name, prefix)
-        name_to_ruby_ffi name, prefix, const: true
+        symbol_to_ruby_ffi name, prefix, const: true
       end
 
-      def name_to_ruby_ffi(name, prefix = nil, const: false, type: false)
+      def symbol_to_ruby_ffi(name, prefix = nil, const: false, type: false)
         ruby_ffi_name = name.to_s.downcase
         ruby_ffi_name =
           if ruby_ffi_name =~ /^\d+$/
@@ -33,7 +33,7 @@ module Evoasm
         ruby_ffi_name
       end
 
-      def name_to_c(name, prefix = nil, const: false, type: false)
+      def symbol_to_c(name, prefix = nil, const: false, type: false)
         c_name = [namespace, *prefix, name.to_s.sub(/\?$/, '')].compact.join '_'
         if const
           c_name.upcase
@@ -57,7 +57,7 @@ module Evoasm
       end
 
       def arch_prefix(name = nil)
-        ["#{arch}", name]
+        ["#{unit.arch}", name]
       end
 
       def error_code_to_c(name)
@@ -65,7 +65,7 @@ module Evoasm
         const_name_to_c name, prefix
       end
 
-      def reg_name_to_c(name)
+      def register_name_to_c(name)
         const_name_to_c name, arch_prefix(:reg)
       end
 
@@ -147,48 +147,43 @@ module Evoasm
       end
 
       def inst_enc_func_name(inst)
-        name_to_c inst.name, arch_prefix
+        symbol_to_c inst.name, arch_prefix
       end
 
       def operand_c_type
-        name_to_c :operand, arch_prefix, type: true
+        symbol_to_c :operand, arch_prefix, type: true
       end
 
       def inst_param_c_type
-        name_to_c :inst_param, type: true
+        symbol_to_c :inst_param, type: true
       end
 
       def acc_c_type
-        name_to_c :bitmap128, type: true
+        symbol_to_c :bitmap128, type: true
       end
 
-      def arch_ctx_c_type
-        name_to_c "#{arch}_ctx", type: true
+      def inst_enc_ctx_c_type
+        symbol_to_c "#{unit.arch}_inst_enc_ctx", type: true
       end
 
       def inst_param_val_c_type
-        name_to_c :inst_param_val, type: true
+        symbol_to_c :inst_param_val, type: true
       end
 
       def bitmap_c_type
-        name_to_c :bitmap, type: true
+        symbol_to_c :bitmap, type: true
       end
 
       def inst_id_c_type
-        name_to_c :inst_id, type: true
+        symbol_to_c :inst_id, type: true
       end
 
       def pref_func_name(id)
         "prefs_#{id}"
       end
 
-      def called_func_name(func, id)
-        attrs = func.each_pair.map { |k, v| [k, v].join('_') }.flatten.join('__')
-        "#{func.class.name.split('::').last.downcase}_#{attrs}_#{id}"
-      end
-
-      def arch_ctx_var_name(indep_arch = false)
-        "#{indep_arch ? '((evoasm_arch_ctx_t *)' : ''}#{arch}_ctx#{indep_arch ? ')' : ''}"
+      def state_machine_ctx_var_name
+        'ctx'
       end
     end
   end

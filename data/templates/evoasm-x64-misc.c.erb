@@ -54,7 +54,7 @@ evoasm_x64_ctx_load_cpuid(evoasm_x64_ctx_t *x64_ctx) {
     EVOASM_X64_ENC(mov_r64_imm64);
     evoasm_arch_ctx_save(arch_ctx, &buf);
 
-    EVOASM_X64_SET(EVOASM_X64_INST_PARAM_REG1, <%= reg_name_to_c reg %>);
+    EVOASM_X64_SET(EVOASM_X64_INST_PARAM_REG1, <%= register_name_to_c reg %>);
     EVOASM_X64_SET(EVOASM_X64_INST_PARAM_REG_BASE, EVOASM_X64_REG_DI);
     EVOASM_X64_ENC(mov_rm32_r32);
     evoasm_arch_ctx_save(arch_ctx, &buf);

@@ -12,9 +12,9 @@ module Evoasm
         @indent = prev_indent
       end
 
-      def block(head = '', start_sym = '{', end_sym = '}')
+      def block(head = '', start_sym = '{', end_sym = '}', &block)
         puts "#{head} #{start_sym}"
-        indent Proc.new
+        indent &block
         puts end_sym
       end
 

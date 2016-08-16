@@ -1,7 +1,7 @@
 require 'set'
 
 module Evoasm::Gen
-  State = Struct.new(:children, :actions, :ret, :local_variables) do
+  State = Struct.new(:children, :actions, :returns, :local_variables) do
     attr_accessor :id, :comment, :parents
 
     def initialize
@@ -42,16 +42,16 @@ module Evoasm::Gen
       parents << parent unless parents.include? parent
     end
 
-    def add_child(child, cond = nil, priority)
+    def add_child(child, condition = nil, priority)
       child.add_parent self
-      children << [child, cond, priority]
+      children << [child, condition, priority]
     end
 
     %i(sets asserts calls writes debugs).each do |name|
       action_name = name.to_s[0..-2].to_sym
       define_method name do
         actions.select { |action, _| action == action_name }
-        .map { |_, args| args }
+          .map { |_, args| args }
       end
     end
 
@@ -62,7 +62,7 @@ module Evoasm::Gen
 
     def root
       roots = self.roots
-      fail 'multiple roots' if roots.size > 1
+      raise 'multiple roots' if roots.size > 1
       roots.first
     end
 
@@ -74,8 +74,8 @@ module Evoasm::Gen
       children.empty?
     end
 
-    def ret?
-      ret != nil
+    def returns?
+      !!returns
     end
 
     def to_gv
@@ -88,7 +88,7 @@ module Evoasm::Gen
       graph
     end
 
-    def __to_gv__(graph, gv_parent = nil, cond = nil, attrs = {}, index = nil, seen = {})
+    def __to_gv__(graph, gv_parent = nil, condition = nil, attrs = {}, index = nil, seen = {})
       if seen.key?(self)
         # return
       else
@@ -98,12 +98,14 @@ module Evoasm::Gen
       edge_label = ''
       state_label = ''
 
-      if cond
-        if cond.first == :else
-          edge_label << "<b> else</b><br></br>\n"
-        else
-          edge_label << "<b> if</b> #{expr_to_s cond}<br></br>\n"
-        end
+      if condition
+        edge_label <<
+          if condition.first == :else
+            "<b> else</b><br></ br> \ n "
+          else
+            "<b> if
+                                                                                           </b> #{expr_to_s condition}<br></ br> \ n "
+          end
       end
 
       if attrs
@@ -119,11 +121,11 @@ module Evoasm::Gen
       state_label << "<i>#{comment}</i>\n" if comment
 
       gv_state = graph.node object_id.to_s,
-                            shape: (self.ret? ? :house : (state_label.empty? ? :point : :box)),
+                            shape: (self.returns? ? :house : (state_label.empty? ? :point : :box)),
                             label: graph.html(state_label)
 
-      children.each_with_index do |(child, cond, attrs), index|
-        child.__to_gv__(graph, gv_state, cond, attrs, index, seen)
+      children.each_with_index do |(child, condition, attrs), index|
+        child.__to_gv__(graph, gv_state, condition, attrs, index, seen)
       end
 
       if gv_parent
@@ -141,8 +143,8 @@ module Evoasm::Gen
       "<b>set</b> #{name} := #{expr_to_s value}<br></br>"
     end
 
-    def label_assert(cond)
-      "<b>assert</b> #{expr_to_s cond}<br></br>"
+    def label_assert(condition)
+      "<b>assert</b> #{expr_to_s condition}<br></br>"
     end
 
     def label_call(name)
@@ -171,14 +173,5 @@ module Evoasm::Gen
       "<b>output</b> #{label}<br></br>"
     end
 
-    def expr_to_s(pred)
-      case pred
-      when Array
-        pred, *args = *pred
-        "#{pred}(#{args.map { |a| expr_to_s(a) }.join(', ')})"
-      else
-        pred
-      end
-    end
   end
 end

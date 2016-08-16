@@ -11,6 +11,6 @@
 
 
 <% insts.each do |inst| %>
-<%= func_prototype_to_c(inst.name, static: false) %>;
+<%= prototype_to_c(inst.name, static: false) %>;
 <% end %>
 

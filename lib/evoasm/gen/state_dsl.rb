@@ -1,4 +1,5 @@
 require 'evoasm/gen/state'
+require 'evoasm/gen/nodes'
 
 module Evoasm::Gen
   module StateDSL
@@ -38,13 +39,9 @@ module Evoasm::Gen
       end
     end
 
-    def exec(name, args)
-      @__state__.actions << [name, args]
-    end
-
     def set(name, value)
       raise ArgumentError, 'nil not allowed' if value.nil?
-      exec :set, [name.to_sym, value]
+      action :set, name.to_sym, expression(value)
       @__state__.add_local_variable name if State.local_variable_name?(name)
     end
 
@@ -52,19 +49,19 @@ module Evoasm::Gen
       if Array === size && Array === value
         raise ArgumentError, 'values and sizes must have same length' unless value.size == size.size
       end
-      exec :write, [value, size]
+      action :write, expression(value), expression(size)
     end
 
     def unordered_writes(param_name, writes)
-      exec :unordered_writes, [param_name, writes]
+      action :unordered_writes, param_name, writes
     end
 
     def call(func)
-      exec :call, [func]
+      action :call, func
     end
 
     def access(op, modes)
-      exec :access, [op, modes]
+      action :access, op, modes
     end
 
     def recover_with(param, range = nil, **opts)
@@ -72,24 +69,24 @@ module Evoasm::Gen
     end
 
     def log(level, msg, *args)
-      exec :log, [level, msg, *args]
+      action :log, level, msg, *expressions(args)
     end
 
     def assert(*args)
-      exec :assert, args
+      action :assert, expressions(args)
     end
 
     def calls?(name)
       @__state__.calls.include? name
     end
 
-    def ret
-      @__state__.ret = true
+    def return!
+      @__state__.returns = true
     end
 
     def error(code = nil, msg = nil, reg: nil, param: nil)
-      exec :error, [code, msg, reg, param]
-      ret
+      action :error, code, msg, reg, param
+      return!
     end
 
     def to(child = nil, **attrs, &block)
@@ -107,24 +104,24 @@ module Evoasm::Gen
     end
 
     def default_attrs(attrs)
-      { priority: lowest_priority + 1 }.merge attrs
+      {priority: lowest_priority + 1}.merge attrs
     end
 
     def else_to(state = nil, &block)
       to_if(:else, state, priority: LOWEST_PRIORITY, &block)
     end
 
-    def to_if(*args, **attrs, &block)
+    def to_if(*condition, **attrs, &block)
       if block
         child = State.new
         call_with_state block, child
 
-        args.compact!
+        condition.compact!
       else
-        child = args.pop
+        child = condition.pop
       end
 
-      @__state__.add_child child, args, default_attrs(attrs)
+      @__state__.add_child child, expression(condition), default_attrs(attrs)
       child
     end
 
@@ -140,6 +137,34 @@ module Evoasm::Gen
           call_with_state(block, s)
         end
       end
+    end
+
+    private
+
+    def expressions(args)
+      args.map { |arg| expression(arg) }
+    end
+
+    def expression(arg)
+      case arg
+      when Array
+        Expression.build arg.first, arg[1..-1]
+      when Symbol
+        expr_s = arg.to_s
+        if expr_s == expr_s.upcase
+          Constant.new arg
+        elsif param_name? arg
+          Parameter.new arg
+        else
+          raise "unknown symbol '#{arg}'"
+        end
+      else
+        arg
+      end
+    end
+
+    def action(*args)
+      @__state__.actions << Action.build(*args)
     end
 
     def call_with_state(block, state)

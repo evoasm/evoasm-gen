@@ -1,32 +1,15 @@
 require 'erubis'
 require 'evoasm/gen/strio'
-require 'evoasm/gen/enum'
-require 'evoasm/gen/translator_util'
-require 'evoasm/gen/func_translator'
+require 'evoasm/gen/translation/translation_unit'
 require 'evoasm/gen/x64'
 
 module Evoasm
   module Gen
     class Translator
-      include TranslatorUtil
+      include NameUtil
 
-      attr_reader :param_names
-      attr_reader :bit_masks
-      attr_reader :registered_param_domains
-      attr_reader :reg_names
-      attr_reader :exceptions
-      attr_reader :reg_types
-      attr_reader :operand_types
-      attr_reader :arch
-      attr_reader :features
-      attr_reader :disp_sizes
-      attr_reader :addr_sizes
-      attr_reader :inst_flags
-      attr_reader :insts
-      attr_reader :options
+      attr_reader :unit, :arch
 
-      STATIC_PARAMS = %i(reg0 reg1 reg2 reg3 imm)
-      PARAM_ALIASES = {imm0: :imm, imm1: :disp, moffs: :imm0, rel: :imm0}
       OUTPUT_FORMATS = %i(c h ruby_ffi)
 
       def self.target_filenames(arch, file_type)
@@ -61,83 +44,23 @@ module Evoasm
         end
       end
 
-
       def initialize(arch, insts, options = {})
         @arch = arch
         @insts = insts
         @options = options
-        @pref_funcs = {}
-        @called_funcs = {}
-        @registered_param_domains = Set.new
 
-        @param_names = Enum.new :inst_param_id, STATIC_PARAMS, prefix: arch
-        PARAM_ALIASES.each do |alias_key, key|
-          @param_names.alias alias_key, key
-        end
-
-        send :"initialize_#{arch}"
-      end
-
-      def initialize_x64
-        @features = Enum.new :feature, prefix: arch
-        @inst_flags = Enum.new :inst_flag, prefix: arch, flags: true
-        @exceptions = Enum.new :exception, prefix: arch
-        @reg_types = Enum.new :reg_type, Evoasm::Gen::X64::REGISTERS.keys, prefix: arch
-        @operand_types = Enum.new :operand_type, Evoasm::Gen::X64::Instruction::OPERAND_TYPES, prefix: arch
-        @reg_names = Enum.new :reg_id, Evoasm::Gen::X64::REGISTER_NAMES, prefix: arch
-        @bit_masks = Enum.new :bit_mask, %i(rest 64_127 32_63 0_31), prefix: arch, flags: true
-        @addr_sizes = Enum.new :addr_size, %i(64 32), prefix: arch
-        @disp_sizes = Enum.new :disp_size, %i(16 32), prefix: arch
-
-        insts.each do |inst|
-          @features.add_all inst.features
-          @inst_flags.add_all inst.flags
-          @exceptions.add_all inst.exceptions
-        end
-      end
-
-      def main_translator
-        self
-      end
-
-      def register_param(name)
-        param_names.add name
-      end
-
-      def request_pref_func(writes, translator)
-        _, table_size = request_permutation_table(writes.size)
-        [request(@pref_funcs, writes, translator), table_size]
-      end
-
-      def request_func_call(func, translator)
-        request @called_funcs, func, translator
-      end
-
-      def request_permutation_table(n)
-        @permutation_tables ||= Hash.new { |h, k| h[k] = (0...k).to_a.permutation }
-        [permutation_table_var_name(n), @permutation_tables[n].size]
+        @unit = TranslationUnit.new arch, insts
       end
 
       def translate!(&block)
-        send :"translate_#{arch}", &block
+        unit.translate!
+
+        render_templates(:c, binding, &block)
+        render_templates(:h, binding, &block)
+        render_templates(:ruby_ffi, binding, &block)
       end
 
       private
-      def register_param_domain(domain)
-        @registered_param_domains << domain
-      end
-
-      def translate_x64(&block)
-        translate_x64_c(&block)
-
-        # NOTE: must be done after
-        # translating C file
-        # as we are collecting information
-        # in the translation process
-        translate_x64_h(&block)
-
-        translate_x64_ruby_ffi(&block)
-      end
 
       def render_templates(file_type, binding, &block)
         target_filenames = self.class.target_filenames(arch, file_type)
@@ -149,34 +72,26 @@ module Evoasm
         end
       end
 
-      def translate_x64_ruby_ffi(&block)
-        render_templates(:ruby_ffi, binding, &block)
-      end
-
-      def translate_x64_h(&block)
-        render_templates(:h, binding, &block)
-      end
-
       def translate_x64_c(&block)
         # NOTE: keep in correct order
-        inst_funcs = inst_funcs_to_c
-        pref_funcs = pref_funcs_to_c
-        permutation_tables = permutation_tables_to_c
-        called_funcs = called_funcs_to_c
-        insts_c = insts_to_c
-        inst_operands = inst_operands_to_c
-        inst_mnems = inst_mnems_to_c
-        inst_params = inst_params_to_c
-        inst_params_type_decl = inst_params_type_decl_to_c
-        inst_params_set_func = inst_params_set_func_to_c
-        param_domains = param_domains_to_c
+        #inst_funcs = inst_funcs_to_c
+        #pref_funcs = pref_funcs_to_c
+        #permutation_tables = permutation_tables_to_c
+        #called_funcs = called_funcs_to_c
+        #insts_c = insts_to_c
+        #inst_operands = inst_operands_to_c
+        #inst_mnems = inst_mnems_to_c
+        #inst_params = inst_params_to_c
+        #inst_params_type_decl = inst_params_type_decl_to_c
+        #inst_params_set_func = inst_params_set_func_to_c
+        #param_domains = param_domains_to_c
 
-        render_templates(:c, binding, &block)
+        #render_templates(:c, binding, &block)
       end
 
       def inst_funcs_to_c(io = StrIO.new)
         @inst_translators = insts.map do |inst|
-          inst_translator = FuncTranslator.new arch, self
+          inst_translator = StateMachineTranslator.new arch, self
           inst_translator.emit_inst_func io, inst
 
           inst_translator
@@ -212,11 +127,11 @@ module Evoasm
 
       def called_funcs_to_c(io = StrIO.new)
         @called_funcs.each do |func, (id, translators)|
-          func_translator = FuncTranslator.new arch, self
+          func_translator = StateMachineTranslator.new arch, self
           func_translator.emit_called_func io, func, id
 
           translators.each do |translator|
-            translator.merge_params func_translator.registered_params
+            translator.merge_params func_translator.params
           end
         end
 
@@ -254,7 +169,7 @@ module Evoasm
       def insts_to_c(io = StrIO.new)
         io.puts "static const evoasm_x64_inst_t #{static_insts_var_name}[] = {"
         @inst_translators.each do |translator|
-          inst_to_c io, translator.inst, translator.registered_params
+          inst_to_c io, translator.inst, translator.params
         end
         io.puts '};'
         io.puts "const evoasm_x64_inst_t *#{insts_var_name} = #{static_insts_var_name};"
@@ -284,7 +199,7 @@ module Evoasm
 
       def inst_params_to_c(io = StrIO.new)
         @inst_translators.each do |translator|
-          inst_param_to_c io, translator.inst, translator.registered_params, translator.param_domains
+          inst_param_to_c io, translator.inst, translator.params, translator.param_domains
         end
 
         io.string
@@ -373,7 +288,7 @@ module Evoasm
 
       def max_params_per_inst
         @inst_translators.map do |translator|
-          translator.registered_params.size
+          translator.params.size
         end.max
       end
 
@@ -391,7 +306,7 @@ module Evoasm
           io.puts op.implicit? ? '1' : '0', eol: ','
           io.puts op.mnem? ? '1' : '0', eol: ','
 
-          params = translator.registered_params.reject { |p| State.local_variable_name? p }
+          params = translator.params.reject { |p| State.local_variable_name? p }
           if op.param
             param_idx = params.index(op.param) or \
               raise "param #{op.param} not found in #{params.inspect}" \
@@ -433,7 +348,7 @@ module Evoasm
             case op.type
             when :reg, :rm
               if op.reg
-                io.puts reg_name_to_c(op.reg), eol: ','
+                io.puts register_name_to_c(op.reg), eol: ','
               else
                 io.puts reg_names.n_symbol_to_c, eol: ','
               end
@@ -535,11 +450,11 @@ module Evoasm
 
       def pref_funcs_to_c(io = StrIO.new)
         @pref_funcs.each do |writes, (id, translators)|
-          func_translator = FuncTranslator.new arch, self
+          func_translator = StateMachineTranslator.new arch, self
           func_translator.emit_pref_func io, writes, id
 
           translators.each do |translator|
-            translator.merge_params func_translator.registered_params
+            translator.merge_params func_translator.params
           end
         end
 

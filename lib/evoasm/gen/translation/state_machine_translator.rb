@@ -1,56 +1,45 @@
-
+require 'evoasm/gen/translation/translator_util'
 
 module Evoasm
   module Gen
-    class FuncTranslator
+    class StateMachineTranslator
       include TranslatorUtil
 
       INST_STATE_ID_MIN = 32
       INST_STATE_ID_MAX = 2000
 
-      attr_reader :inst, :registered_params, :root_state
-      attr_reader :main_translator, :id_map
-      attr_reader :arch, :io, :param_domains
-
-      def initialize(arch, main_translator)
-        @arch = arch
-        @main_translator = main_translator
+      def initialize(unit, state_machine)
+        @unit = unit
+        @state_machine = state_machine
         @id = INST_STATE_ID_MAX
         @id_map = Hash.new { |h, k| h[k] = (@id += 1) }
-        @registered_params = Set.new
-        @param_domains = {}
+        @io = StrIO.new
       end
 
-      def with_io(io)
-        @io = io
-        yield
-        @io = nil
+      private
+
+      attr_reader :io
+      attr_reader :unit, :id_map
+      attr_reader :state_machine
+
+      def translate!(translate_acc = false)
+        translate_func_prolog state_machine.root_state, translate_acc
+        translate_state state_machine.root_state
+        translate_func_epilog translate_acc
+
+        io.string
       end
 
-      def emit_func(name, root_state, func_params = [], local_acc: true, static: true)
-        io.puts func_prototype_to_c(name, func_params, static: static), eol: ' {'
-
-        io.indent do
-          emit_func_prolog root_state, local_acc
-          emit_state root_state
-          emit_func_epilog local_acc
-        end
-
-
-        io.puts '}'
-        io.puts
-      end
-
-      def emit_acc_ary_copy(back_copy = false)
+      def translate_acc_ary_copy(back_copy = false)
         var_name = 'acc'
-        src = "#{arch_ctx_var_name arch_indep: true}->#{var_name}"
+        src = "#{state_machine_ctx_var_name}->#{var_name}"
         dst = var_name
 
         dst, src = src, dst if back_copy
         io.puts "#{dst} = #{src};"
       end
 
-      def emit_func_prolog(root_state, acc)
+      def translate_func_prolog(root_state, translate_acc)
         local_variables = root_state.transitive_local_variables
         unless local_variables.empty?
           io.puts "#{inst_param_val_c_type} #{local_variables.join ', '};"
@@ -61,20 +50,20 @@ module Evoasm
 
         io.puts 'bool retval = true;'
 
-        if acc
+        if translate_acc
           io.puts "#{acc_c_type} acc;"
-          emit_acc_ary_copy
+          translate_acc_ary_copy
         end
       end
 
       def error_data_field_to_c(field_name)
-        "#{arch_ctx_var_name arch_indep: true}->error_data.#{field_name}"
+        "#{state_machine_ctx_var_name arch_indep: true}->error_data.#{field_name}"
       end
 
-      def emit_error(_state, code, msg, reg = nil, param = nil)
+      def translate_error(_state, code, msg, reg = nil, param = nil)
         reg_c_val =
           if reg
-            reg_name_to_c reg
+            register_name_to_c reg
           else
             '(uint8_t) -1'
           end
@@ -88,19 +77,19 @@ module Evoasm
         io.puts 'evoasm_arch_error_data_t error_data = {'
         io.puts "  .reg = #{reg_c_val},"
         io.puts "  .param = #{param_c_val},"
-        io.puts "  .arch = #{arch_ctx_var_name arch_indep: true}"
+        io.puts "  .arch = #{state_machine_ctx_var_name arch_indep: true}"
         io.puts '};'
 
         io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ARCH, #{error_code_to_c code}, &error_data, "#{msg}");}
-        io.puts call_to_c 'arch_ctx_reset', [arch_ctx_var_name(true)], eol: ';'
+        io.puts call_to_c 'arch_ctx_reset', [state_machine_ctx_var_name(true)], eol: ';'
         io.puts 'retval = false;'
       end
 
-      def emit_func_epilog(acc)
+      def translate_func_epilog(acc)
         io.indent 0 do
           io.puts "exit:"
         end
-        emit_acc_ary_copy true if acc
+        translate_acc_ary_copy true if acc
         io.puts "return retval;"
 
         io.indent 0 do
@@ -111,41 +100,41 @@ module Evoasm
         io.puts 'goto exit;'
       end
 
-      def emit_state(state)
+      def translate_state(state)
         fail if state.nil?
 
-        unemitted_states = []
+        untranslated_states = []
 
-        fail if state.ret? && !state.terminal?
+        fail if state.returns? && !state.terminal?
 
-        emit_body state, unemitted_states
+        translate_body state, untranslated_states
 
-        unemitted_states.each do |unemitted_state|
-          emit_state unemitted_state
+        untranslated_states.each do |untranslated_state|
+          translate_state untranslated_state
         end
       end
 
-      def emit_body(state, unemitted_states, inlined = false)
+      def translate_body(state, untranslated_states, inlined = false)
         fail state.actions.inspect unless deterministic?(state)
         io.puts '/* begin inlined */' if inlined
 
-        emit_label state unless inlined
+        translate_label state unless inlined
 
         actions = state.actions.dup.reverse
-        emit_actions state, actions, unemitted_states
+        translate_actions state, actions, untranslated_states
 
-        emit_ret state if state.ret?
+        translate_ret state if state.returns?
 
-        emit_transitions(state, unemitted_states)
+        translate_transitions(state, untranslated_states)
 
         io.puts '/* end inlined */' if inlined
       end
 
-      def emit_comment(state)
+      def translate_comment(state)
         io.puts "/* #{state.comment} (#{state.object_id}) */" if state.comment
       end
 
-      def emit_label(state)
+      def translate_label(state)
         io.indent 0 do
           io.puts "#{state_label state}:;"
         end
@@ -155,7 +144,7 @@ module Evoasm
         state.children.any? { |_, cond| cond == [:else] }
       end
 
-      def emit_ret(_state)
+      def translate_ret(_state)
         io.puts 'goto exit;'
       end
 
@@ -163,45 +152,46 @@ module Evoasm
         "L#{id || id_map[state]}"
       end
 
-      def emit_call(_state, func)
-        id = main_translator.request_func_call func, self
+      def translate_call(_state, state_machine)
+        unit.translate_call
+        function = unit.find_state_machine_function state_machine
 
-        func_call = call_to_c called_func_name(func, id),
+        func_call = function.call_to_c called_func_name(state_machine, id),
                               [*params_args, inst_name_to_c(inst), '&acc'],
                               arch_prefix
 
         io.puts "if(!#{func_call}){goto error;}"
       end
 
-      def emit_goto_transition(child)
+      def translate_goto_transition(child)
         io.puts "goto #{state_label child};"
       end
 
-      def emit_transition(state, unemitted_states, expr, &block)
-        emit_cond expr do
+      def translate_transition(state, untranslated_states, expr, &block)
+        translate_condition expr do
           if inlineable?(state)
             block[] if block
-            emit_body(state, unemitted_states, true)
+            translate_body(state, untranslated_states, true)
             true
           else
-            unemitted_states << state unless id_map.key?(state)
+            untranslated_states << state unless id_map.key?(state)
             block[] if block
-            emit_goto_transition(state)
+            translate_goto_transition(state)
             false
           end
         end
       end
 
-      def emit_transitions(state, unemitted_states, &block)
+      def translate_transitions(state, untranslated_states, &block)
         state.children
              .sort_by { |_, _, attrs| attrs[:priority] }
-             .each { |child, expr| emit_transition child, unemitted_states, expr, &block}
+             .each { |child, expr| translate_transition child, untranslated_states, expr, &block}
 
         raise 'missing else branch' if can_get_stuck?(state)
       end
 
       def can_get_stuck?(state)
-        return false if state.ret?
+        return false if state.returns?
         return false if has_else? state
 
         raise state.actions.inspect if state.children.empty?
@@ -252,7 +242,7 @@ module Evoasm
         end
       end
 
-      def emit_cond(cond, else_if: false, &block)
+      def translate_condition(cond, else_if: false, &block)
         cond_str =
           if cond.nil? || cond == true
             ''
@@ -262,10 +252,10 @@ module Evoasm
             "#{else_if ? 'else ' : ''}if(#{expr_to_c cond})"
           end
 
-        emit_c_block cond_str, &block
+        io.block cond_str, &block
       end
 
-      def emit_log(_state, level, msg, *exprs)
+      def translate_log(_state, level, msg, *exprs)
         expr_part =
           if !exprs.empty?
             ", #{exprs.map { |expr| "(#{inst_param_val_c_type}) #{expr_to_c expr}" }.join(', ')}"
@@ -276,7 +266,7 @@ module Evoasm
         io.puts %[evoasm_#{level}("#{msg}" #{expr_part});]
       end
 
-      def emit_assert(_state, *expr)
+      def translate_assert(_state, *expr)
         io.puts "assert(#{expr_to_c expr});"
       end
 
@@ -287,7 +277,7 @@ module Evoasm
       end
 
       def shared_variable_to_c(name)
-        "#{arch_ctx_var_name(false)}->shared_vars.#{name.to_s[1..-1]}"
+        "#{state_machine_ctx_var_name(false)}->shared_vars.#{name.to_s[1..-1]}"
       end
 
       def get_to_c(name, eol: false)
@@ -300,7 +290,7 @@ module Evoasm
         end
       end
 
-      def emit_set(_state, name, value)
+      def translate_set(_state, name, value)
         unless State.local_variable_name?(name) || State.shared_variable_name?(name)
           raise "setting non-local param '#{name}' is not allowed"
         end
@@ -343,12 +333,12 @@ module Evoasm
         "(#{args.map { |a| expr_to_c a }.join(" #{op} ")})"
       end
 
-      def emit_actions(state, actions, _unemitted_states)
+      def translate_actions(state, actions, _untranslated_states)
         io.puts '/* actions */'
         until actions.empty?
-          name, args = actions.last
-          actions.pop
-          send :"emit_#{name}", state, *args
+          action = actions.pop
+          action.to_c unit, io
+          send :"translate_#{action.name}", state, *action.args
         end
       end
 
@@ -364,7 +354,7 @@ module Evoasm
           deterministic?(state.parents.first)
       end
 
-      def emit_c_block(code = nil, &block)
+      def translate_c_block(code = nil, &block)
         io.puts "#{code}{"
         io.indent do
           block[]
@@ -372,9 +362,9 @@ module Evoasm
         io.puts '}'
       end
 
-      def emit_unordered_writes(state, param_name, writes)
+      def translate_unordered_writes(state, param_name, writes)
         if writes.size > 1
-          id, table_size = main_translator.request_pref_func writes, self
+          id, table_size = unit.request_pref_func writes, self
           func_name = pref_func_name(id)
 
           call_c = call_to_c(func_name,
@@ -385,20 +375,20 @@ module Evoasm
 
           register_param param_name
           @param_domains[param_name] = (0..table_size - 1)
-        elsif writes.size > 0
+        elsif !writes.empty?
           cond, write_args = writes.first
-          emit_cond cond do
-            emit_write(state, *write_args)
+          translate_condition cond do
+            translate_write(state, *write_args)
           end
         end
       end
 
-      def emit_read_access(_state, op)
-        call = access_call_to_c 'read', op, "#{arch_ctx_var_name(true)}->acc",
+      def translate_read_access(_state, op)
+        call = access_call_to_c 'read', op, "#{state_machine_ctx_var_name(true)}->acc",
                                 [inst && inst_name_to_c(inst) || 'inst']
 
-        #emit_c_block "if(!#{call})" do
-        #  emit_exit error: true
+        #translate_c_block "if(!#{call})" do
+        #  translate_exit error: true
         #end
         io.puts call, eol: ';'
       end
@@ -414,83 +404,60 @@ module Evoasm
                   eol: eol)
       end
 
-      def emit_write_access(_state, op)
+      def translate_write_access(_state, op)
         io.puts access_call_to_c('write', op, eol: true)
       end
 
-      def emit_undefined_access(_state, op)
+      def translate_undefined_access(_state, op)
         io.puts access_call_to_c('undefined', op, eol: true)
       end
 
       def write_to_c(value, size)
-        if size.is_a?(Array) && value.is_a?(Array)
-          value_c, size_c = value.reverse.zip(size.reverse).inject(['0', 0]) do |(v_, s_), (v, s)|
-            [v_ + " | ((#{expr_to_c v} & ((1 << #{s}) - 1)) << #{s_})", s_ + s]
-          end
-        else
-          value_c =
-            case value
-            when Integer
-              '0x' + value.to_s(16)
-            else
-              expr_to_c value
-            end
-
-          size_c = expr_to_c size
-        end
-
-        call_to_c "write#{size_c}", [value_c], base_arch_ctx_prefix, eol: true
       end
 
-      def emit_write(_state, value, size)
+      def translate_write(_state, value, size)
         io.puts write_to_c(value, size)
+        
       end
 
-      def emit_access(_state, _op, _access)
+      def translate_access(_state, _op, _access)
         #access.each do |mode|
         #  case mode
         #  when :r
-        #    emit_read_access state, op
+        #    translate_read_access state, op
         #  when :w
-        #    emit_write_access state, op
+        #    translate_write_access state, op
         #  when :u
-        #    emit_undefined_access state, op
+        #    translate_undefined_access state, op
         #  else
         #    fail "unexpected access mode '#{rw.inspect}'"
         #  end
         #end
       end
 
-      def emit_inst_func(io, inst)
-        @inst = inst
+      def translate_called_func(io, func, id)
         with_io io do
-          emit_func inst.name, inst.root_state, static: false
-        end
-      end
-
-      def emit_called_func(io, func, id)
-        with_io io do
-          emit_func(called_func_name(func, id),
+          translate_func(called_func_name(func, id),
                     func.root_state,
                     {'inst' => inst_id_c_type, 'acc' => "#{acc_c_type} *"},
                     local_acc: false)
         end
       end
 
-      def emit_pref_func(io, writes, id)
+      def translate_pref_func(io, writes, id)
         with_io io do
-          table_var_name, _table_size = main_translator.request_permutation_table writes.size
-          func_name = name_to_c pref_func_name(id), arch_ctx_prefix
+          table_var_name, _table_size = unit.request_permutation_table writes.size
+          func_name = symbol_to_c pref_func_name(id), arch_ctx_prefix
 
-          emit_c_block "static void\n#{func_name}(#{arch_ctx_c_type} *#{arch_ctx_var_name},"\
-            " #{params_c_args}, #{main_translator.param_names.c_type} order)" do
+          io.block "static void\n#{func_name}(#{inst_enc_ctx_c_type} *#{state_machine_ctx_var_name},"\
+            " #{params_c_args}, #{unit.param_names.c_type} order)" do
             io.puts 'int i;'
-            emit_c_block "for(i = 0; i < #{writes.size}; i++)" do
-              emit_c_block "switch(#{table_var_name}[param_vals[order]][i])" do
+            io.block "for(i = 0; i < #{writes.size}; i++)" do
+              io.block "switch(#{table_var_name}[param_vals[order]][i])" do
                 writes.each_with_index do |write, index|
                   cond, write_args = write
-                  emit_c_block "case #{index}:" do
-                    emit_cond cond do
+                  io.block "case #{index}:" do
+                    translate_condition cond do
                       io.puts write_to_c(*write_args)
                     end
                     io.puts 'break;'

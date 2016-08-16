@@ -1,4 +1,4 @@
-require 'evoasm/gen/name_util'
+require 'evoasm/gen/translation/name_util'
 
 module Evoasm
   module Gen
@@ -8,16 +8,6 @@ module Evoasm
       PARAMS_ARG_HELPERS = %i(address_size disp_size)
       UTIL_HELPERS = %i(log2)
       NO_ARCH_CTX_ARG_HELPERS = %i(reg_code disp_size)
-
-      def call_to_c(func, args, prefix = nil, eol: false)
-        func_name = func.to_s.gsub('?', '_p')
-
-        if prefix && !NO_ARCH_CTX_ARG_HELPERS.include?(func)
-          args.unshift arch_ctx_var_name(Array(prefix).first !~ /#{arch}/)
-        end
-
-        "#{name_to_c func_name, prefix}(#{args.join ','})" + (eol ? ';' : '')
-      end
 
       def params_c_args
         "#{inst_param_val_c_type} *param_vals, "\
@@ -63,16 +53,17 @@ module Evoasm
           infix_op_to_c '+', args
         when :sub
           infix_op_to_c '-', args
-        when :set?
-          set_p_to_c(*args)
-        when :not
-          "!(#{expr_to_c args[0]})"
-        when :max, :min
-          "#{name.to_s.upcase}(#{args.map { |a| expr_to_c a }.join(', ')})"
         when :and
           infix_op_to_c '&&', args
         when :or
           infix_op_to_c '||', args
+        when :set?
+          set_p_to_c(*args)
+        when :not
+          "!(#{expr_to_c args[0]})"
+
+        when :max, :min
+          "#{name.to_s.upcase}(#{args.map { |a| expr_to_c a }.join(', ')})"
         when :in?
           args[1..-1].map { |a| "#{expr_to_c args[0]} == #{expr_to_c a}" }
             .join(" ||\n#{io.indent_str + '   '}")
@@ -112,26 +103,11 @@ module Evoasm
               const_prefix = nil
             end
 
-            name_to_c s, const_prefix, const: true
+            symbol_to_c s, const_prefix, const: true
           end
         else
           raise "invalid expression #{expr.inspect}"
         end
-      end
-
-      def func_prototype_to_c(name, func_params = [], static: true)
-        func_name = name_to_c name, arch
-
-        func_params_c =
-          if func_params.empty?
-            ''
-          else
-            func_params.map do |param_name, type|
-              "#{type} #{param_name}"
-            end.join(', ').prepend ', '
-          end
-        "#{static ? 'static ' : ''}evoasm_success_t\n#{func_name}(#{arch_ctx_c_type} *#{arch_ctx_var_name},"\
-        " #{params_c_args}#{func_params_c})"
       end
     end
   end
