@@ -41,7 +41,7 @@ module Evoasm::Gen
 
     def set(name, value)
       raise ArgumentError, 'nil not allowed' if value.nil?
-      action :set, name.to_sym, expression(value)
+      add_action :set, name.to_sym, expression(value)
       @__state__.add_local_variable name if State.local_variable_name?(name)
     end
 
@@ -49,19 +49,23 @@ module Evoasm::Gen
       if Array === size && Array === value
         raise ArgumentError, 'values and sizes must have same length' unless value.size == size.size
       end
-      action :write, expression(value), expression(size)
+      add_action :write, expression(value), expression(size)
     end
 
     def unordered_writes(param_name, writes)
-      action :unordered_writes, param_name, writes
+      writes = writes.map do |condition, write_args|
+        [expression(condition), WriteAction.new(*expressions(write_args))]
+      end
+
+      add_action :unordered_writes, param_name, writes
     end
 
     def call(func)
-      action :call, func
+      add_action :call, func
     end
 
     def access(op, modes)
-      action :access, op, modes
+      add_action :access, op, modes
     end
 
     def recover_with(param, range = nil, **opts)
@@ -69,11 +73,11 @@ module Evoasm::Gen
     end
 
     def log(level, msg, *args)
-      action :log, level, msg, *expressions(args)
+      add_action :log, level, msg, *expressions(args)
     end
 
     def assert(*args)
-      action :assert, expressions(args)
+      add_action :assert, expressions(args)
     end
 
     def calls?(name)
@@ -85,7 +89,7 @@ module Evoasm::Gen
     end
 
     def error(code = nil, msg = nil, reg: nil, param: nil)
-      action :error, code, msg, reg, param
+      add_action :error, code, msg, reg, param
       return!
     end
 
@@ -148,7 +152,9 @@ module Evoasm::Gen
     def expression(arg)
       case arg
       when Array
-        Expression.build arg.first, arg[1..-1]
+        Operation.build arg.first, arg[1..-1]
+      when String, Integer, FalseClass, TrueClass
+        Literal.build arg
       when Symbol
         expr_s = arg.to_s
         if expr_s == expr_s.upcase
@@ -159,11 +165,11 @@ module Evoasm::Gen
           raise "unknown symbol '#{arg}'"
         end
       else
-        arg
+        raise ArgumentError, "unhandled argument type #{arg.class}"
       end
     end
 
-    def action(*args)
+    def add_action(*args)
       @__state__.actions << Action.build(*args)
     end
 

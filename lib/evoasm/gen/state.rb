@@ -120,9 +120,9 @@ module Evoasm::Gen
 
       state_label << "<i>#{comment}</i>\n" if comment
 
-      gv_state = graph.node object_id.to_s,
-                            shape: (self.returns? ? :house : (state_label.empty? ? :point : :box)),
-                            label: graph.html(state_label)
+      gv_state = graph.expression object_id.to_s,
+                                  shape: (self.returns? ? :house : (state_label.empty? ? :point : :box)),
+                                  label: graph.html(state_label)
 
       children.each_with_index do |(child, condition, attrs), index|
         child.__to_gv__(graph, gv_state, condition, attrs, index, seen)

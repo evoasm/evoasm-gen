@@ -15,7 +15,7 @@ module Evoasm
               :prefs, :name, :index,
               :flags, :exceptions
 
-        params :imm0
+        params :imm0, :lock?
 
         COL_OPCODE = 0
         COL_MNEM = 1
@@ -273,7 +273,7 @@ module Evoasm
             next unless prefs.key? pref
             needed, = prefs.fetch pref
 
-            cond =
+            condition =
               case needed
               when :required
                 true
@@ -285,7 +285,7 @@ module Evoasm
                 fail
               end
 
-            writes << [cond, [byte, 8]]
+            writes << [condition, [byte, 8]]
           end
 
           unordered_writes(:legacy_pref_order, writes) if writes.any?

@@ -25,9 +25,6 @@ module Evoasm
         io.puts
       end
 
-      def call_to_c(args)
-        "#{name}(#{args.join ','})"
-      end
 
       private
 

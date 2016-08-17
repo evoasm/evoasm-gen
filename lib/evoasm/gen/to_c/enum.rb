@@ -1,5 +1,5 @@
 require 'evoasm/gen/strio'
-require 'evoasm/gen/translation/name_util'
+require 'evoasm/gen/to_c/name_util'
 
 module Evoasm
   module Gen

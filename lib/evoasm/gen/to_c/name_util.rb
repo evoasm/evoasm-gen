@@ -57,7 +57,7 @@ module Evoasm
       end
 
       def arch_prefix(name = nil)
-        ["#{unit.arch}", name]
+        ["#{arch}", name]
       end
 
       def error_code_to_c(name)

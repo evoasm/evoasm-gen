@@ -1,5 +1,5 @@
 require 'evoasm/gen/state'
-require 'evoasm/gen/translation/translator'
+require 'evoasm/gen/to_c/translator'
 require 'rake/tasklib'
 
 module Evoasm

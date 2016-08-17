@@ -2,14 +2,16 @@ require 'erubis'
 require 'evoasm/gen/strio'
 require 'evoasm/gen/enum'
 
-require 'evoasm/gen/translation/function'
-require 'evoasm/gen/translation/translator_util'
-require 'evoasm/gen/translation/instruction_translator'
+require 'evoasm/gen/to_c/function'
+require 'evoasm/gen/to_c/translator_util'
+require 'evoasm/gen/to_c/instruction'
 require 'evoasm/gen/x64'
 
 module Evoasm
   module Gen
     class TranslationUnit
+      include NameUtil
+
       attr_reader :param_names
       attr_reader :bit_masks
       attr_reader :registered_param_domains
@@ -48,9 +50,6 @@ module Evoasm
 
         send :"initialize_#{arch}_enums"
 
-        @instruction_translators = @insts.map do |instruction|
-          InstructionTranslator.new self, instruction
-        end
         @permutation_table_translators = []
 
       end
@@ -83,7 +82,7 @@ module Evoasm
         param_names.add name
       end
 
-      def request_pref_func(writes, translator)
+      def find_or_create_prefix_function(writes, translator)
         _, table_size = request_permutation_table(writes.size)
         [request(@pref_funcs, writes, translator), table_size]
       end
@@ -123,7 +122,20 @@ module Evoasm
       end
 
       def translate!(&block)
-        @instruction_translators.each(&:translate!)
+        io = StrIO.new
+        @insts.each do |inst|
+          inst.to_c self, io
+        end
+      end
+
+      def call_to_c(func, args, prefix = nil, eol: false)
+        func_name = func.to_s.gsub('?', '_p')
+
+        #if prefix && !NO_ARCH_CTX_ARG_HELPERS.include?(func)
+        #  args.unshift arch_ctx_var_name(Array(prefix).first !~ /#{arch}/)
+        #end
+
+        "#{name_to_c func_name, prefix}(#{args.join ','})" + (eol ? ';' : '')
       end
 
       private

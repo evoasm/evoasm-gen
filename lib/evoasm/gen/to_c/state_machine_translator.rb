@@ -1,4 +1,4 @@
-require 'evoasm/gen/translation/translator_util'
+require 'evoasm/gen/to_c/translator_util'
 
 module Evoasm
   module Gen
@@ -10,10 +10,20 @@ module Evoasm
 
       def initialize(unit, state_machine)
         @unit = unit
+        @id ||= INST_STATE_ID_MAX
+        @id_map ||= Hash.new { |h, k| h[k] = (@id += 1) }
         @state_machine = state_machine
-        @id = INST_STATE_ID_MAX
-        @id_map = Hash.new { |h, k| h[k] = (@id += 1) }
         @io = StrIO.new
+      end
+
+      def string
+        io.string
+      end
+
+      def translate!(translate_acc = false)
+        write_function_prolog translate_acc
+        translate_state state_machine.root_state
+        write_function_epilog translate_acc
       end
 
       private
@@ -21,14 +31,6 @@ module Evoasm
       attr_reader :io
       attr_reader :unit, :id_map
       attr_reader :state_machine
-
-      def translate!(translate_acc = false)
-        translate_func_prolog state_machine.root_state, translate_acc
-        translate_state state_machine.root_state
-        translate_func_epilog translate_acc
-
-        io.string
-      end
 
       def translate_acc_ary_copy(back_copy = false)
         var_name = 'acc'
@@ -39,8 +41,8 @@ module Evoasm
         io.puts "#{dst} = #{src};"
       end
 
-      def translate_func_prolog(root_state, translate_acc)
-        local_variables = root_state.transitive_local_variables
+      def write_function_prolog(translate_acc)
+        local_variables = state_machine.root_state.transitive_local_variables
         unless local_variables.empty?
           io.puts "#{inst_param_val_c_type} #{local_variables.join ', '};"
           local_variables.each do |param|
@@ -85,7 +87,7 @@ module Evoasm
         io.puts 'retval = false;'
       end
 
-      def translate_func_epilog(acc)
+      def write_function_epilog(acc)
         io.indent 0 do
           io.puts "exit:"
         end
@@ -256,14 +258,6 @@ module Evoasm
       end
 
       def translate_log(_state, level, msg, *exprs)
-        expr_part =
-          if !exprs.empty?
-            ", #{exprs.map { |expr| "(#{inst_param_val_c_type}) #{expr_to_c expr}" }.join(', ')}"
-          else
-            ''
-          end
-        msg = msg.gsub('%', '%" EVOASM_INST_PARAM_VAL_FORMAT "')
-        io.puts %[evoasm_#{level}("#{msg}" #{expr_part});]
       end
 
       def translate_assert(_state, *expr)
@@ -338,7 +332,6 @@ module Evoasm
         until actions.empty?
           action = actions.pop
           action.to_c unit, io
-          send :"translate_#{action.name}", state, *action.args
         end
       end
 
@@ -363,24 +356,6 @@ module Evoasm
       end
 
       def translate_unordered_writes(state, param_name, writes)
-        if writes.size > 1
-          id, table_size = unit.request_pref_func writes, self
-          func_name = pref_func_name(id)
-
-          call_c = call_to_c(func_name,
-                             [*params_args, inst_param_name_to_c(param_name)],
-                             arch_ctx_prefix)
-
-          io.puts call_c, eol: ';'
-
-          register_param param_name
-          @param_domains[param_name] = (0..table_size - 1)
-        elsif !writes.empty?
-          cond, write_args = writes.first
-          translate_condition cond do
-            translate_write(state, *write_args)
-          end
-        end
       end
 
       def translate_read_access(_state, op)
@@ -393,24 +368,6 @@ module Evoasm
         io.puts call, eol: ';'
       end
 
-      def access_call_to_c(name, op, acc = 'acc', params = [], eol: false)
-        call_to_c("#{name}_access",
-                  [
-                    "(#{bitmap_c_type} *) &#{acc}",
-                    "(#{regs.c_type}) #{expr_to_c(op)}",
-                    *params
-                  ],
-                  base_arch_ctx_prefix,
-                  eol: eol)
-      end
-
-      def translate_write_access(_state, op)
-        io.puts access_call_to_c('write', op, eol: true)
-      end
-
-      def translate_undefined_access(_state, op)
-        io.puts access_call_to_c('undefined', op, eol: true)
-      end
 
       def write_to_c(value, size)
       end
@@ -420,20 +377,6 @@ module Evoasm
         
       end
 
-      def translate_access(_state, _op, _access)
-        #access.each do |mode|
-        #  case mode
-        #  when :r
-        #    translate_read_access state, op
-        #  when :w
-        #    translate_write_access state, op
-        #  when :u
-        #    translate_undefined_access state, op
-        #  else
-        #    fail "unexpected access mode '#{rw.inspect}'"
-        #  end
-        #end
-      end
 
       def translate_called_func(io, func, id)
         with_io io do

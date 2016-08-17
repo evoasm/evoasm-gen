@@ -1,7 +1,8 @@
 require 'erubis'
 require 'evoasm/gen/strio'
-require 'evoasm/gen/translation/translation_unit'
+require 'evoasm/gen/to_c/translation_unit'
 require 'evoasm/gen/x64'
+require 'evoasm/gen/to_c'
 
 module Evoasm
   module Gen
