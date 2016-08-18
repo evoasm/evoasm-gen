@@ -14,7 +14,9 @@ module Evoasm
         StringLiteral IntegerLiteral
         TrueLiteral FalseLiteral
         Parameter CallAction
-      )
+        UnorderedWrites Expression
+        BinaryOperation SetAction
+      ).freeze
 
       CLASSES.each do |cls|
         Gen.const_get(cls).send :include, const_get(:"#{cls}ToC")

@@ -36,10 +36,24 @@ module Evoasm
       end
 
       module ExpressionToC
-        def if_to_c(_unit, _io)
-          io.puts "if(#{to_c}) {"
+        def if_to_c(unit, io)
+          io.puts "if(#{to_c unit}) {"
           yield
           io.puts '}'
+        end
+      end
+
+      module BinaryOperationToC
+        def c_operation
+          case name
+          when :and
+          else
+            raise "unknown operator '#{name}'"
+          end
+        end
+
+        def to_c(_unit)
+          "#{lhs} #{} #{rhs}"
         end
       end
 
@@ -60,6 +74,16 @@ module Evoasm
             size_c = size.to_c(unit)
           end
           io.puts "evoasm_inst_enc_ctx_write#{size_c}(ctx, #{value_c});"
+        end
+      end
+
+      module SetActionToC
+        def to_c(unit, io)
+          case variable
+          when LocalVariable
+          when SharedVariable
+
+          end
         end
       end
 
@@ -118,22 +142,51 @@ module Evoasm
 
       module UnorderedWritesActionToC
         def to_c(unit, io)
-          if writes.size > 1
-            id, table_size = unit.find_or_create_prefix_function writes, self
-            func_name = unit.pref_func_name(id)
+          unordered_writes.call_to_c unit, io, param
+        end
+      end
 
-            call_c = call_to_c(func_name,
-                               [*params_args, inst_param_name_to_c(param_name)],
-                               arch_ctx_prefix)
+      module UnorderedWritesToC
+        def c_function_name(_unit)
+          "unordered_write_#{object_id}"
+        end
 
-            io.puts call_c, eol: ';'
-
-            register_param param_name
-            @param_domains[param_name] = (0..table_size - 1)
-          elsif !writes.empty?
+        def call_to_c(unit, io, param)
+          if writes.size == 1
             condition, write_action = writes.first
             condition.if_to_c(unit, io) do
               write_action.to_c(unit, io)
+            end
+          else
+            "if(!#{c_function_name unit}(ctx, ctx->params.#{param.name})){goto error;}"
+          end
+        end
+
+        def to_c(unit, io)
+          # inline singleton writes
+          return if writes.size == 1
+
+          io.puts 'static void'
+          io.write c_function_name
+          io.write '('
+          io.write "#{StateMachineToC.c_context_type unit} *ctx,"
+          io.write "unsigned order"
+          io.write ')'
+          io.block do
+            io.puts 'int i;'
+            io.block "for(i = 0; i < #{writes.size}; i++)" do
+              io.block "switch(#{permutation_table.c_variable_name}[order][i])" do
+                writes.each_with_index do |write, index|
+                  condition, write_action = write
+                  io.block "case #{index}:" do
+                    condition.if_to_c(unit, io) do
+                      write_action.to_c unit, io
+                    end
+                    io.puts 'break;'
+                  end
+                end
+                io.puts 'default: evoasm_assert_not_reached();'
+              end
             end
           end
         end

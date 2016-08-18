@@ -51,7 +51,6 @@ module Evoasm
         send :"initialize_#{arch}_enums"
 
         @permutation_table_translators = []
-
       end
 
       def initialize_x64_enums
@@ -106,6 +105,14 @@ module Evoasm
         body = translator.emit
 
         Function.new io
+      end
+
+      def c_context_type
+        "evoasm_#{arch}_inst_enc_ctx"
+      end
+
+      def find_or_create_unordered_write_function(writes)
+
       end
 
       def create_instruction_function(instruction)

@@ -1,7 +1,7 @@
 module Evoasm
   module Gen
     class StateMachine
-      def self.find_or_create(attrs)
+      def self.cached(attrs)
         @cache ||= Hash.new { |h, k| h[k] = new k}
         @cache[attrs]
       end

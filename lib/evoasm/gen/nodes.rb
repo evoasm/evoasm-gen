@@ -21,6 +21,17 @@ module Evoasm
         @value = value
         @size = size
       end
+
+      def eql?(other)
+        other.is_a?(self.class) &&
+          value == other.value &&
+          size == other.size
+      end
+      alias == eql?
+
+      def hash
+        value.hash + size.hash
+      end
     end
 
     class LogAction < Action
@@ -50,13 +61,26 @@ module Evoasm
       end
     end
 
-    class UnorderedWritesAction < Action
-      attr_reader :params, :writes
+    class SetAction < Action
+      attr_reader :variable, :value
 
-      def initialize(params, writes)
-        @params = params
-        @writes = writes
+      def initialize(variable, value)
+        @variable = variable
+        @value = value
       end
+    end
+
+    class UnorderedWritesAction < Action
+      attr_reader :param, :unordered_writes
+
+      def initialize(param, writes)
+        @param = param
+        @unordered_writes = UnorderedWrites.cached writes
+      end
+    end
+
+    class ErrorAction < Action
+      attr_reader :code, msg, reg, param
     end
 
     class Expression
@@ -71,7 +95,7 @@ module Evoasm
 
       def self.operation_class(name)
         case name
-        when :and, :or, :eq
+        when :and, :or, :eq, :shl, :mod, :add
           BinaryOperation
         else
           raise "unknown operation '#{name}'"
@@ -89,11 +113,45 @@ module Evoasm
     end
 
     class BinaryOperation < Operation
+      def lhs
+        args[0]
+      end
+
+      def rhs
+        args[1]
+      end
     end
 
     class HelperOperation < Operation
     end
 
+    class PermutationTable
+      attr_reader :size
+
+      def self.cached(size)
+        @cache ||= Hash.new { |h, k| h[k] = new size}
+        @cache[size]
+      end
+
+      def initialize(size)
+        @size = size
+      end
+    end
+
+    class UnorderedWrites
+      attr_reader :writes
+      attr_reader :permutation_table
+
+      def self.cached(writes)
+        @cache ||= Hash.new { |h, k| h[k] = new k}
+        @cache[writes]
+      end
+
+      def initialize(writes)
+        @writes = writes
+        @permutation_table = PermutationTable.cached writes.size
+      end
+    end
 
     class Literal < Expression
       attr_reader :value
@@ -131,7 +189,33 @@ module Evoasm
     class FalseLiteral < Literal
     end
 
-    Parameter = Struct.new :name
-    Constant = Struct.new :name
+    class SymbolExpression < Expression
+      attr_reader :name
+
+      def initialize(name)
+        @name = name
+      end
+
+      def hash
+        name.hash
+      end
+
+      def eql?(other)
+        other.is_a?(self.class) && name == other.name
+      end
+      alias == eql?
+    end
+
+    class Parameter < SymbolExpression
+    end
+
+    class Constant < SymbolExpression
+    end
+
+    class LocalVariable < SymbolExpression
+    end
+
+    class SharedVariable < SymbolExpression
+    end
   end
 end

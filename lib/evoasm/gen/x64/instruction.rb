@@ -15,7 +15,7 @@ module Evoasm
               :prefs, :name, :index,
               :flags, :exceptions
 
-        params :imm0, :lock?
+        params :imm0, :lock?, :legacy_prefix_order, :rel, :imm1, :moffs
 
         COL_OPCODE = 0
         COL_MNEM = 1
@@ -27,7 +27,7 @@ module Evoasm
 
         HEX_BYTE_REGEXP = /^[A-F0-9]{2}$/
 
-        LEGACY_PREF_BYTES = {
+        LEGACY_PREFIX_BYTES = {
           cs_bt: 0x2E,
           ss: 0x36,
           ds_bnt: 0x3E,
@@ -39,7 +39,7 @@ module Evoasm
           pref67: 0x67
         }.freeze
 
-        LEGACY_PREF_CONDS = {
+        LEGACY_PREFIX_CONDITIONS = {
           pref67: [:eq, :addr_size, :ADDR_SIZE32]
         }.freeze
 
@@ -269,26 +269,26 @@ module Evoasm
         def encode_legacy_prefs(&block)
           writes = []
 
-          LEGACY_PREF_BYTES.each do |pref, byte|
-            next unless prefs.key? pref
-            needed, = prefs.fetch pref
+          LEGACY_PREFIX_BYTES.each do |prefix, byte|
+            next unless prefs.key? prefix
+            needed, = prefs.fetch prefix
 
             condition =
               case needed
               when :required
                 true
               when :optional
-                :"#{pref}?"
+                :"#{prefix}?"
               when :operand
-                LEGACY_PREF_CONDS.fetch pref
+                LEGACY_PREFIX_CONDITIONS.fetch prefix
               else
-                fail
+                raise
               end
 
             writes << [condition, [byte, 8]]
           end
 
-          unordered_writes(:legacy_pref_order, writes) if writes.any?
+          unordered_writes(:legacy_prefix_order, writes) if writes.any?
 
           block[]
         end
@@ -357,13 +357,13 @@ module Evoasm
           rm_type = rm_op.type
           byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-          modrm_sib = ModRMSIB.find_or_create reg_param: reg_param,
-                                              rm_reg_param: rm_reg_param,
-                                              rm_type: rm_type,
-                                              modrm_reg_bits: modrm_reg_bits,
-                                              rm_reg_access: rm_reg_access,
-                                              reg_access: reg_access,
-                                              byte_regs: byte_regs
+          modrm_sib = ModRMSIB.cached reg_param: reg_param,
+                                      rm_reg_param: rm_reg_param,
+                                      rm_type: rm_type,
+                                      modrm_reg_bits: modrm_reg_bits,
+                                      rm_reg_access: rm_reg_access,
+                                      reg_access: reg_access,
+                                      byte_regs: byte_regs
 
           call modrm_sib
           block[opcode_index]
@@ -446,15 +446,15 @@ module Evoasm
               # [:if, [:eq, [:operand_size], 128], 0b0, 0b1]
             end
 
-          vex = VEX.find_or_create rex_w: rex_w,
-                                   reg_param: reg_op&.param,
-                                   rm_reg_param: rm_op&.param,
-                                   rm_reg_type: rm_op&.type,
-                                   vex_m: vex_m,
-                                   vex_v: vex_v,
-                                   vex_l: vex_l,
-                                   vex_p: vex_p,
-                                   encodes_modrm: encodes_modrm?
+          vex = VEX.cached rex_w: rex_w,
+                           reg_param: reg_op&.param,
+                           rm_reg_param: rm_op&.param,
+                           rm_reg_type: rm_op&.type,
+                           vex_m: vex_m,
+                           vex_v: vex_v,
+                           vex_l: vex_l,
+                           vex_p: vex_p,
+                           encodes_modrm: encodes_modrm?
 
           call vex
           block[opcode_index]
@@ -508,13 +508,13 @@ module Evoasm
           reg_op, rm_op, _ = reg_operands
           byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-          rex = REX.find_or_create force: force_rex,
-                                   rex_w: rex_w,
-                                   reg_param: reg_op&.param,
-                                   rm_reg_param: rm_op&.param,
-                                   rm_reg_type: rm_op&.type,
-                                   encodes_modrm: encodes_modrm?,
-                                   byte_regs: byte_regs
+          rex = REX.cached force: force_rex,
+                           rex_w: rex_w,
+                           reg_param: reg_op&.param,
+                           rm_reg_param: rm_op&.param,
+                           rm_reg_type: rm_op&.type,
+                           encodes_modrm: encodes_modrm?,
+                           byte_regs: byte_regs
 
           call rex
           block[opcode_index]

@@ -57,7 +57,7 @@ module Evoasm::Gen
         [expression(condition), WriteAction.new(*expressions(write_args))]
       end
 
-      add_action :unordered_writes, param_name, writes
+      add_action :unordered_writes, expression(param_name), writes
     end
 
     def call(func)
