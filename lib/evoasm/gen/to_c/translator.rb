@@ -56,6 +56,8 @@ module Evoasm
       def translate!(&block)
         unit.translate!
 
+        permutation_tables = permutation_tables_to_c
+
         render_templates(:c, binding, &block)
         render_templates(:h, binding, &block)
         render_templates(:ruby_ffi, binding, &block)
@@ -111,7 +113,12 @@ module Evoasm
         const_name_to_c name, arch_prefix(:bit_mask)
       end
 
-      def permutation_tables_to_c(io = StrIO.new)
+      def permutation_tables_to_c
+        io = StrIO.new
+        @permutation_tables.each do |permutation_table|
+          io.puts permutation_table
+        end
+
         Hash(@permutation_tables).each do |n, perms|
           io.puts "static int #{permutation_table_var_name n}"\
                     "[#{perms.size}][#{perms.first.size}] = {"

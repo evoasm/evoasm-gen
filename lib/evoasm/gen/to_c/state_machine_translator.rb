@@ -63,28 +63,6 @@ module Evoasm
       end
 
       def translate_error(_state, code, msg, reg = nil, param = nil)
-        reg_c_val =
-          if reg
-            register_name_to_c reg
-          else
-            '(uint8_t) -1'
-          end
-        param_c_val =
-          if param
-            param_to_c param
-          else
-            '(uint8_t) -1'
-          end
-
-        io.puts 'evoasm_arch_error_data_t error_data = {'
-        io.puts "  .reg = #{reg_c_val},"
-        io.puts "  .param = #{param_c_val},"
-        io.puts "  .arch = #{state_machine_ctx_var_name arch_indep: true}"
-        io.puts '};'
-
-        io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ARCH, #{error_code_to_c code}, &error_data, "#{msg}");}
-        io.puts call_to_c 'arch_ctx_reset', [state_machine_ctx_var_name(true)], eol: ';'
-        io.puts 'retval = false;'
       end
 
       def write_function_epilog(acc)
@@ -117,7 +95,7 @@ module Evoasm
       end
 
       def translate_body(state, untranslated_states, inlined = false)
-        fail state.actions.inspect unless deterministic?(state)
+        raise state.actions.inspect unless deterministic?(state)
         io.puts '/* begin inlined */' if inlined
 
         translate_label state unless inlined
@@ -143,7 +121,7 @@ module Evoasm
       end
 
       def has_else?(state)
-        state.children.any? { |_, cond| cond == [:else] }
+        state.children.any? { |_, condition| condition.is_a?(Else)}
       end
 
       def translate_ret(_state)
@@ -169,8 +147,8 @@ module Evoasm
         io.puts "goto #{state_label child};"
       end
 
-      def translate_transition(state, untranslated_states, expr, &block)
-        translate_condition expr do
+      def translate_transition(state, untranslated_states, condition, &block)
+        condition.if_to_c unit, io do
           if inlineable?(state)
             block[] if block
             translate_body(state, untranslated_states, true)
@@ -187,7 +165,9 @@ module Evoasm
       def translate_transitions(state, untranslated_states, &block)
         state.children
              .sort_by { |_, _, attrs| attrs[:priority] }
-             .each { |child, expr| translate_transition child, untranslated_states, expr, &block}
+             .each do |child, condition|
+               translate_transition child, untranslated_states, condition, &block
+             end
 
         raise 'missing else branch' if can_get_stuck?(state)
       end
@@ -198,8 +178,8 @@ module Evoasm
 
         raise state.actions.inspect if state.children.empty?
 
-        return false if state.children.any? do |_child, cond|
-          cond.nil? || cond == [true]
+        return false if state.children.any? do |_child, condition|
+          condition.is_a?(TrueLiteral)
         end
 
         true
@@ -218,40 +198,15 @@ module Evoasm
         call_to_c name, args, prefix
       end
 
-      def simplify_helper(helper)
-        simplified_helper = simplify_helper_ helper
-        return simplified_helper if simplified_helper == helper
-        simplify_helper simplified_helper
-      end
 
-      def simplify_helper_(helper)
-        name, *args = helper
-        case name
-        when :neq
-          [:not, [:eq, *args]]
-        when :false?
-          [:eq, *args, 0]
-        when :true?
-          [:not, [:false?, *args]]
-        when :unset?
-          [:not, [:set?, args[0]]]
-        when :in?
-          [:or, *args[1..-1].map { |arg| [:eq, args.first, arg] }]
-        when :not_in?
-          [:not, [:in?, *args]]
-        else
-          helper
-        end
-      end
-
-      def translate_condition(cond, else_if: false, &block)
+      def translate_condition(condition, else_if: false, &block)
         cond_str =
-          if cond.nil? || cond == true
+          if condition.nil? || condition == true
             ''
-          elsif cond[0] == :else
+          elsif condition[0] == :else
             'else '
           else
-            "#{else_if ? 'else ' : ''}if(#{expr_to_c cond})"
+            "#{else_if ? 'else ' : ''}if(#{expr_to_c condition})"
           end
 
         io.block cond_str, &block

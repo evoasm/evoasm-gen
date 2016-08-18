@@ -15,7 +15,11 @@ module Evoasm
         TrueLiteral FalseLiteral
         Parameter CallAction
         UnorderedWrites Expression
-        BinaryOperation SetAction
+        Operation SetAction
+        ErrorAction Register
+        ErrorCode
+        LocalVariable SharedVariable
+        Else
       ).freeze
 
       CLASSES.each do |cls|

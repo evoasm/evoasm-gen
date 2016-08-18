@@ -41,7 +41,7 @@ module Evoasm::Gen
 
     def set(name, value)
       raise ArgumentError, 'nil not allowed' if value.nil?
-      add_action :set, name.to_sym, expression(value)
+      add_action :set, expression(name.to_sym), expression(value)
       @__state__.add_local_variable name if State.local_variable_name?(name)
     end
 
@@ -89,7 +89,7 @@ module Evoasm::Gen
     end
 
     def error(code = nil, msg = nil, reg: nil, param: nil)
-      add_action :error, code, msg, reg, param
+      add_action :error, ErrorCode.new(code), StringLiteral.new(msg), Register.new(reg), Parameter.new(param)
       return!
     end
 
@@ -99,7 +99,7 @@ module Evoasm::Gen
         call_with_state block, child
       end
 
-      @__state__.add_child child, nil, default_attrs(attrs)
+      @__state__.add_child child, TrueLiteral.new, default_attrs(attrs)
       child
     end
 
@@ -124,6 +124,8 @@ module Evoasm::Gen
       else
         child = condition.pop
       end
+
+      condition = condition.first if condition.size == 1
 
       @__state__.add_child child, expression(condition), default_attrs(attrs)
       child
@@ -152,15 +154,21 @@ module Evoasm::Gen
     def expression(arg)
       case arg
       when Array
-        Operation.build arg.first, arg[1..-1]
+        Operation.build arg.first, expressions(arg[1..-1])
       when String, Integer, FalseClass, TrueClass
         Literal.build arg
-      when Symbol
+      when ::Symbol
         expr_s = arg.to_s
         if expr_s == expr_s.upcase
           Constant.new arg
+        elsif expr_s[0] == '_'
+          LocalVariable.new arg[1..-1]
+        elsif expr_s[0] == '@'
+          SharedVariable.new arg[1..-1]
         elsif param_name? arg
           Parameter.new arg
+        elsif arg == :else
+          Else.new
         else
           raise "unknown symbol '#{arg}'"
         end

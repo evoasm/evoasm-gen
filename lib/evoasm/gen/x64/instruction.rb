@@ -15,7 +15,11 @@ module Evoasm
               :prefs, :name, :index,
               :flags, :exceptions
 
-        params :imm0, :lock?, :legacy_prefix_order, :rel, :imm1, :moffs
+        params :imm0, :lock?, :legacy_prefix_order, :rel,
+               :imm1, :moffs, :addr_size, :reg0, :reg1, :reg2, :reg3,
+               :reg0_high_byte?
+
+        local_vars :reg_code
 
         COL_OPCODE = 0
         COL_MNEM = 1

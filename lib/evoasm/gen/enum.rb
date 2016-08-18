@@ -89,7 +89,7 @@ module Evoasm
       end
 
       def valid_symbol?(symbol)
-        symbol.is_a?(Symbol) || symbol.is_a?(String)
+        symbol.is_a?(::Symbol) || symbol.is_a?(String)
       end
     end
 

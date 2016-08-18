@@ -36,24 +36,58 @@ module Evoasm
       end
 
       module ExpressionToC
-        def if_to_c(unit, io)
-          io.puts "if(#{to_c unit}) {"
-          yield
-          io.puts '}'
+        def if_to_c(unit, io, &block)
+          io.block "if(#{to_c unit})", &block
         end
       end
 
-      module BinaryOperationToC
+      module ElseToC
+        def if_to_c(_unit, io, &block)
+          io.block "else", &block
+        end
+      end
+
+      module OperationToC
         def c_operation
-          case name
-          when :and
-          else
-            raise "unknown operator '#{name}'"
-          end
         end
 
         def to_c(_unit)
-          "#{lhs} #{} #{rhs}"
+          c_op, arity =
+            case name
+            when :and
+              '&&'
+            when :or
+              '||'
+            when :eq
+              ['==', 2]
+            when :shl
+              ['<<', 2]
+            when :add
+              '+'
+            when :not
+              ['!', 1]
+            when :mod
+              '%'
+            else
+              raise "unknown operator '#{name}'"
+            end
+
+          check_arity! arity
+
+          if arity == 1
+            "(#{c_op}#{args})"
+          else
+            "(#{args.join " #{c_op} "})"
+          end
+        end
+
+        private
+
+        def check_arity!(arity)
+          if arity && arity != args.size
+            raise "wrong number of operands for"\
+                  " '#{name}' (#{args.inspect} for #{arity})"
+          end
         end
       end
 
@@ -79,11 +113,46 @@ module Evoasm
 
       module SetActionToC
         def to_c(unit, io)
-          case variable
-          when LocalVariable
-          when SharedVariable
+          io.puts "#{variable.to_c unit} = #{value.to_c unit};"
+        end
+      end
 
-          end
+      module LocalVariableToC
+        def to_c(_unit)
+          name
+        end
+      end
+
+      module SharedVariableToC
+        def to_c(_unit)
+          "ctx->shared.#{name}"
+        end
+      end
+
+      module ErrorActionToC
+        def to_c(unit, io)
+          reg_c_val =
+            if reg
+              reg.to_c unit
+            else
+              '(uint8_t) -1'
+            end
+          param_c_val =
+            if param
+              param.to_c unit
+            else
+              '(uint8_t) -1'
+            end
+
+          io.puts 'evoasm_arch_error_data_t error_data = {'
+          io.puts "  .reg = #{reg_c_val},"
+          io.puts "  .param = #{param_c_val},"
+          #io.puts "  .arch = #{state_machine_ctx_var_name arch_indep: true}"
+          io.puts '};'
+
+          io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ARCH, #{code.to_c unit}, &error_data, #{msg.to_c unit});}
+          #io.puts call_to_c 'arch_ctx_reset', [state_machine_ctx_var_name(true)], eol: ';'
+          io.puts 'retval = false;'
         end
       end
 
@@ -189,6 +258,18 @@ module Evoasm
               end
             end
           end
+        end
+      end
+
+      module RegisterToC
+        def to_c(unit)
+          unit.symbol_to_c name, [unit.arch], const: true
+        end
+      end
+
+      module ErrorCodeToC
+        def to_c(unit)
+          unit.symbol_to_c name, const: true
         end
       end
 

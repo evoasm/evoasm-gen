@@ -6,10 +6,22 @@ module Evoasm
         @cache[attrs]
       end
 
-      def self.params(*parameters)
-        return @params if parameters.empty?
+      def self.params(*params)
+        return @params if params.empty?
 
-        @params = parameters.freeze
+        @params = params.freeze
+      end
+
+      def self.local_vars(*local_vars)
+        return @local_vars if local_vars.empty?
+
+        @local_vars = local_vars.freeze
+      end
+
+      def self.shared_vars(*shared_vars)
+        return @shared_vars if shared_vars.empty?
+
+        @shared_vars = shared_vars.freeze
       end
 
       def self.attrs(*attrs)

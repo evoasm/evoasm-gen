@@ -27,6 +27,7 @@ module Evoasm
           value == other.value &&
           size == other.size
       end
+
       alias == eql?
 
       def hash
@@ -80,46 +81,76 @@ module Evoasm
     end
 
     class ErrorAction < Action
-      attr_reader :code, msg, reg, param
+      attr_reader :code, :msg, :reg, :param
+
+      def initialize(code, msg, reg, param)
+        @code = code
+        @msg = msg
+        @reg = reg
+        @param = param
+      end
     end
 
     class Expression
-      def to_s
-        args_to_s = args.map(&:to_s).join(', ')
-        "#{name}(#{args_to_s})"
-      end
     end
 
     class Operation < Expression
       attr_reader :name, :args
 
-      def self.operation_class(name)
-        case name
-        when :and, :or, :eq, :shl, :mod, :add
-          BinaryOperation
-        else
-          raise "unknown operation '#{name}'"
-        end
-      end
-
       def self.build(name, args)
-        operation_class(name).new name, args
+        new name, args
       end
 
       def initialize(name, args)
         @name = name
         @args = args
+
+        simplify!
+      end
+
+      def to_s
+        args_to_s = args.map(&:to_s).join(', ')
+        "#{name}(#{args_to_s})"
+      end
+
+      private
+
+      def simplify!
+        while simplify_
+        end
+      end
+
+      def simplify_
+        new_name, new_args =
+          case name
+          when :neq
+            [:not, [Operation.build(:eq, args)]]
+          when :false?
+            [:eq, [*args, 0]]
+          when :true?
+            [:not, [Operation.build(:false?, *args)]]
+          when :unset?
+            [:not, [Operation.build(:set?, *args)]]
+          when :in?
+            args = self.args[1..-1].map do |arg|
+              Operation.build(:eq, [self.args.first, arg])
+            end
+            [:or, args]
+          when :not_in?
+            [:not, [Operation.build(:in?, args)]]
+          end
+
+        if new_name
+          @name = new_name
+          @args = new_args
+          true
+        else
+          false
+        end
       end
     end
 
-    class BinaryOperation < Operation
-      def lhs
-        args[0]
-      end
-
-      def rhs
-        args[1]
-      end
+    class Else < Expression
     end
 
     class HelperOperation < Operation
@@ -129,7 +160,7 @@ module Evoasm
       attr_reader :size
 
       def self.cached(size)
-        @cache ||= Hash.new { |h, k| h[k] = new size}
+        @cache ||= Hash.new { |h, k| h[k] = new size }
         @cache[size]
       end
 
@@ -143,7 +174,7 @@ module Evoasm
       attr_reader :permutation_table
 
       def self.cached(writes)
-        @cache ||= Hash.new { |h, k| h[k] = new k}
+        @cache ||= Hash.new { |h, k| h[k] = new k }
         @cache[writes]
       end
 
@@ -154,12 +185,6 @@ module Evoasm
     end
 
     class Literal < Expression
-      attr_reader :value
-
-      def initialize(value)
-        @value = value
-      end
-
       def self.build(value)
         literal_class =
           case value
@@ -173,14 +198,26 @@ module Evoasm
             FalseLiteral
           end
 
-        literal_class.new value
+        if literal_class < ValueLiteral
+          literal_class.new value
+        else
+          literal_class.new
+        end
       end
     end
 
-    class StringLiteral < Literal
+    class ValueLiteral < Literal
+      attr_reader :value
+
+      def initialize(value)
+        @value = value
+      end
     end
 
-    class IntegerLiteral < Literal
+    class StringLiteral < ValueLiteral
+    end
+
+    class IntegerLiteral < ValueLiteral
     end
 
     class TrueLiteral < Literal
@@ -189,7 +226,7 @@ module Evoasm
     class FalseLiteral < Literal
     end
 
-    class SymbolExpression < Expression
+    class Symbol < Expression
       attr_reader :name
 
       def initialize(name)
@@ -203,19 +240,26 @@ module Evoasm
       def eql?(other)
         other.is_a?(self.class) && name == other.name
       end
+
       alias == eql?
     end
 
-    class Parameter < SymbolExpression
+    class Constant < Symbol
     end
 
-    class Constant < SymbolExpression
+    class ErrorCode < Constant
     end
 
-    class LocalVariable < SymbolExpression
+    class Register < Constant
     end
 
-    class SharedVariable < SymbolExpression
+    class Parameter < Constant
+    end
+
+    class LocalVariable < Symbol
+    end
+
+    class SharedVariable < Symbol
     end
   end
 end
