@@ -1,7 +1,6 @@
 require 'evoasm/gen/state_dsl'
 require 'evoasm/gen/nodes/state_machine'
 require 'evoasm/gen/nodes/x64/encoding'
-require 'evoasm/gen/nodes/x64/operand'
 require 'evoasm/gen/core_ext/array'
 require 'evoasm/gen/core_ext/integer'
 require 'evoasm/gen/x64'
@@ -11,6 +10,11 @@ module Evoasm
     module Nodes
       module X64
         class Instruction < StateMachine
+          include StateDSL
+          include EncodeUtil # for set_reg_code
+
+          require 'evoasm/gen/nodes/x64/operand'
+
           attrs :mnem, :opcode,
                 :operands,
                 :encoding, :features,
@@ -52,9 +56,6 @@ module Evoasm
           MAND_PREF_BYTES = %w(66 F2 F3 F0)
 
           OPERAND_TYPES = %i(reg rm vsib mem imm)
-
-          include StateDSL
-          include EncodeUtil # for set_reg_code
 
           def initialize(unit, index, row)
             super(unit, {})

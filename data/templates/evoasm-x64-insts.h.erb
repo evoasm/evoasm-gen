@@ -10,7 +10,7 @@
 #pragma once
 
 
-<% insts.each do |inst| %>
+<% unit.instructions.each do |inst| %>
 <%= prototype_to_c(inst.name, static: false) %>;
 <% end %>
 

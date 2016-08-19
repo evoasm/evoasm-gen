@@ -9,7 +9,7 @@ module Evoasm
     class CTranslator
       include NameUtil
 
-      attr_reader :unit, :arch
+      attr_reader :unit
 
       OUTPUT_FORMATS = %i(c h ruby_ffi)
 
@@ -45,23 +45,18 @@ module Evoasm
         end
       end
 
-      def initialize(arch, insts, options = {})
-        @arch = arch
-        @insts = insts
-        @options = options
-
-        @unit = CUnit.new arch, insts
+      def initialize(unit)
+        @unit = unit
       end
 
       def translate!(&block)
-        unit.to_c!
-
-        permutation_tables = unit.permutation_tables_to_c
-        unordered_writes = unit.unordered_writes_to_c
-
         render_templates(:c, binding, &block)
         render_templates(:h, binding, &block)
         render_templates(:ruby_ffi, binding, &block)
+      end
+
+      def arch
+        unit.arch
       end
 
       private
@@ -95,7 +90,7 @@ module Evoasm
 
       def inst_funcs_to_c(io = StrIO.new)
         @inst_translators = insts.map do |inst|
-          inst_translator = StateMachineToC.new arch, self
+          inst_translator = StateMachineCTranslator.new arch, self
           inst_translator.emit_inst_func io, inst
 
           inst_translator
@@ -128,7 +123,7 @@ module Evoasm
 
       def called_funcs_to_c(io = StrIO.new)
         @called_funcs.each do |func, (id, translators)|
-          func_translator = StateMachineToC.new arch, self
+          func_translator = StateMachineCTranslator.new arch, self
           func_translator.emit_called_func io, func, id
 
           translators.each do |translator|
@@ -236,9 +231,9 @@ module Evoasm
           :reg1_high_byte?
           1
         when :addr_size
-          @addr_sizes.bitsize
+          @address_sizes.bitsize
         when :disp_size
-          @disp_sizes.bitsize
+          @displacement_sizes.bitsize
         when :scale
           2
         when :modrm_reg
@@ -261,7 +256,7 @@ module Evoasm
       end
 
       def max_params_per_inst
-        @inst_translators.map do |translator|
+        @instructions.map do |translator|
           translator.parameters.size
         end.max
       end
@@ -424,7 +419,7 @@ module Evoasm
 
       def pref_funcs_to_c(io = StrIO.new)
         @pref_funcs.each do |writes, (id, translators)|
-          func_translator = StateMachineToC.new arch, self
+          func_translator = StateMachineCTranslator.new arch, self
           func_translator.emit_pref_func io, writes, id
 
           translators.each do |translator|

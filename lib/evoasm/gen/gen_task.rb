@@ -47,10 +47,10 @@ module Evoasm
 
             file target_path => prereqs do
               puts 'Translating'
-              unit = CUnit.new arch
-              insts = load_insts unit
-              translator = CTranslator.new(unit, insts)
-              translator.to_c! do |filename, content, file_type|
+              table = load_table arch
+              unit = CUnit.new arch, table
+              translator = CTranslator.new unit
+              translator.translate! do |filename, content, file_type|
                 next unless file_types.include? file_type
                 File.write gen_path(filename), content
               end
@@ -69,13 +69,11 @@ module Evoasm
         File.join @output_dir, filename
       end
 
-      def load_insts(arch)
-        send :"load_#{arch}_insts"
+      def load_table(arch)
+        send :"load_#{arch}_table"
       end
 
-      def load_x64_insts(unit)
-        require 'evoasm/gen/x64/nodes/instruction'
-
+      def load_x64_table
         rows = []
         File.open X64_TABLE_FILENAME do |file|
           file.each_line.with_index do |line, line_idx|
@@ -87,7 +85,7 @@ module Evoasm
           end
         end
 
-        Gen::X64::Instruction.load_all(unit, rows)
+        rows
       end
     end
   end

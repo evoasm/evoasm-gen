@@ -7,7 +7,7 @@ module Evoasm
       class Enum < Node
         attr_reader :name, :flags
 
-        def initialize(unit, name = nil, elems = [], prefix: nil, flags: false)
+        def initialize(unit, name, elems = [], prefix: nil, flags: false)
           super(unit)
 
           @name = name

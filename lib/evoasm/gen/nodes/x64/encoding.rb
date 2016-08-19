@@ -387,7 +387,7 @@ module Evoasm
           end
 
           static_state def base_only_w_sib
-                         # need index to encode as 0b100 (RSP, ESP, SP)
+            # need index to encode as 0b100 (RSP, ESP, SP)
             set :_reg_index, :SP
             to scale_index_base_
           end

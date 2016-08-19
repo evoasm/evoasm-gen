@@ -7,33 +7,33 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-<%= features.to_c %>
+<%= unit.features.to_c %>
 
-<%= inst_flags.to_c %>
+<%= unit.instruction_flags.to_c %>
 
-<%= exceptions.to_c %>
+<%= unit.exceptions.to_c %>
 
-<%= reg_types.to_c  %>
+<%= unit.register_types.to_c  %>
 
-<%= reg_names.to_c %>
+<%= unit.register_names.to_c %>
 
-<%= disp_sizes.to_c %>
+<%= unit.displacement_sizes.to_c %>
 
-<%= addr_sizes.to_c %>
+<%= unit.address_sizes.to_c %>
 
-<%= param_names.to_c %>
+<%= unit.parameters_enum.to_c %>
 
-<%= operand_types.to_c %>
+<%= unit.operand_types.to_c %>
 
-<%= bit_masks.to_c %>
+<%= unit.bit_masks.to_c %>
 #define <%= bit_mask_to_c 0..63 %> (<%= bit_mask_to_c 0..31 %> | <%= bit_mask_to_c 32..63 %>)
 #define <%= bit_mask_to_c 0..127 %> (<%= bit_mask_to_c 0..63 %> | <%= bit_mask_to_c 64..127 %>)
 
 typedef enum {
-<% insts.each do |inst| %>
+<% unit.instructions.each do |inst| %>
   <%= inst_name_to_c inst %> = <%= inst.index %>,
 <% end %>
-  EVOASM_X64_N_INSTS = <%= insts.size %>,
+  EVOASM_X64_N_INSTS = <%= unit.instructions.size %>,
 } evoasm_x64_inst_id_t;
 
-#define EVOASM_X64_PARAM_IDX_BITSIZE <%= param_idx_bitsize %>
+#define EVOASM_X64_PARAM_IDX_BITSIZE <%= unit.param_idx_bitsize %>

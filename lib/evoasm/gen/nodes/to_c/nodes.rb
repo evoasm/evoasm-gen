@@ -134,7 +134,7 @@ module Evoasm
           io.puts 'static void'
           io.write c_function_name
           io.write '('
-          io.write "#{StateMachineToC.c_context_type unit} *ctx,"
+          io.write "#{StateMachineCTranslator.c_context_type unit} *ctx,"
           io.write "unsigned order"
           io.write ')'
           io.block do

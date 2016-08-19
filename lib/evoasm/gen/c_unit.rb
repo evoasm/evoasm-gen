@@ -1,9 +1,13 @@
 require 'erubis'
 require 'evoasm/gen/strio'
 require 'evoasm/gen/nodes/enum'
+require 'evoasm/gen/core_ext/string'
 
 #require 'evoasm/gen/to_c/translator_util'
+require 'evoasm/gen/nodes/x64/instruction'
 require 'evoasm/gen/nodes/to_c/instruction'
+require 'evoasm/gen/nodes/to_c/state_machine'
+require 'evoasm/gen/nodes/to_c/enum'
 require 'evoasm/gen/x64'
 require 'evoasm/gen/x64_unit'
 
@@ -196,31 +200,20 @@ module Evoasm
         'ctx'
       end
     end
-    class CUnit < X64Unit
+
+    class CUnit
       include NameUtil
 
-      attr_reader :param_names
-      attr_reader :bit_masks
       attr_reader :registered_param_domains
-      attr_reader :reg_names
-      attr_reader :exceptions
-      attr_reader :reg_types
-      attr_reader :operand_types
-      attr_reader :arch
-      attr_reader :features
-      attr_reader :disp_sizes
-      attr_reader :addr_sizes
-      attr_reader :inst_flags
-      attr_reader :insts
 
-      STATIC_PARAMS = %i(reg0 reg1 reg2 reg3 imm)
-      PARAM_ALIASES = {imm0: :imm, imm1: :disp, moffs: :imm0, rel: :imm0}
+      attr_reader :arch
+
+      attr_reader :instructions
+
       OUTPUT_FORMATS = %i(c h ruby_ffi)
 
-      def initialize(arch)
+      def initialize(arch, table)
         @arch = arch
-        @insts = insts
-        @options = options
         @pref_funcs = {}
         @called_funcs = {}
 
@@ -230,22 +223,16 @@ module Evoasm
 
         @registered_param_domains = Set.new
 
-        @param_names = Enum.new :inst_param_id, STATIC_PARAMS, prefix: arch
-        PARAM_ALIASES.each do |alias_key, key|
-          @param_names.alias alias_key, key
-        end
-
-        extend const_get(:"#{arch.to_s.camelcase}Unit")
-        load
-
         @permutation_tables = []
         @unordered_writes = []
         @state_machines = []
-        @instructions = []
         @parameter_domains = []
         @parameters = []
         @operands = []
         @mnemonics = []
+
+        extend Gen.const_get(:"#{arch.to_s.camelcase}Unit")
+        load table
       end
 
       def load_x64_enums
@@ -282,7 +269,7 @@ module Evoasm
       end
 
       def create_state_machine_function(state_machine)
-        translator = StateMachineToC.new self, state_machine
+        translator = StateMachineCTranslator.new self, state_machine
         body = translator.emit
 
         Function.new io
@@ -309,13 +296,6 @@ module Evoasm
         [permutation_table_var_name(n), @permutation_tables[n].size]
       end
 
-      def translate!(&block)
-        io = StrIO.new
-        @insts.each do |inst|
-          inst.to_c self, io
-        end
-      end
-
       def call_to_c(func, args, prefix = nil, eol: false)
         func_name = func.to_s.gsub('?', '_p')
 
@@ -338,7 +318,7 @@ module Evoasm
 
       def all_to_c(array, io = StrIO.new)
         array.each do |el|
-          el.to_c self, io
+          el.to_c io
         end
         io.string
       end
@@ -348,12 +328,12 @@ module Evoasm
         io.indent do
           io.puts "switch(param) {"
           io.indent do
-            param_names.each do |param_name|
-              next if param_names.alias? param_name
+            @parameters_enum.each do |param_name|
+              next if @parameters_enum.alias? param_name
 
               field_name = inst_param_to_c_field_name param_name
 
-              io.puts "case #{param_names.symbol_to_c param_name}:"
+              io.puts "case #{parameters_enum.symbol_to_c param_name}:"
               io.puts "  params->#{field_name} = param_val;"
               io.puts "  params->#{field_name}_set = true;"
               io.puts "  break;"
@@ -364,6 +344,16 @@ module Evoasm
 
         io.puts '}'
         io.string
+      end
+
+      def max_params_per_inst
+        @instructions.map do |intruction|
+          intruction.parameters.size
+        end.max
+      end
+
+      def param_idx_bitsize
+        Math.log2(max_params_per_inst + 1).ceil.to_i
       end
 
       private
@@ -413,7 +403,7 @@ module Evoasm
 
       def inst_funcs_to_c(io = StrIO.new)
         @inst_translators = insts.map do |inst|
-          inst_translator = StateMachineToC.new arch, self
+          inst_translator = StateMachineCTranslator.new arch, self
           inst_translator.emit_inst_func io, inst
 
           inst_translator
@@ -434,7 +424,7 @@ module Evoasm
 
       def called_funcs_to_c(io = StrIO.new)
         @called_funcs.each do |func, (id, translators)|
-          func_translator = StateMachineToC.new arch, self
+          func_translator = StateMachineCTranslator.new arch, self
           func_translator.emit_called_func io, func, id
 
           translators.each do |translator|
@@ -546,9 +536,9 @@ module Evoasm
           :reg1_high_byte?
           1
         when :addr_size
-          @addr_sizes.bitsize
+          @address_sizes.bitsize
         when :disp_size
-          @disp_sizes.bitsize
+          @displacement_sizes.bitsize
         when :scale
           2
         when :modrm_reg
@@ -556,7 +546,7 @@ module Evoasm
         when :vex_v
           4
         when :reg_base, :reg_index, :reg0, :reg1, :reg2, :reg3, :reg4
-          @reg_names.bitsize
+          @register_names.bitsize
         when :imm
           64
         when :moffs, :rel
@@ -568,16 +558,6 @@ module Evoasm
         else
           raise "missing C type for param #{param_name}"
         end
-      end
-
-      def max_params_per_inst
-        @inst_translators.map do |translator|
-          translator.parameters.size
-        end.max
-      end
-
-      def param_idx_bitsize
-        Math.log2(max_params_per_inst + 1).ceil.to_i
       end
 
       def inst_operand_to_c(translator, op, io = StrIO.new, eol:)
@@ -734,7 +714,7 @@ module Evoasm
 
       def pref_funcs_to_c(io = StrIO.new)
         @pref_funcs.each do |writes, (id, translators)|
-          func_translator = StateMachineToC.new arch, self
+          func_translator = StateMachineCTranslator.new arch, self
           func_translator.emit_pref_func io, writes, id
 
           translators.each do |translator|

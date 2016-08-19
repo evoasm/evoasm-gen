@@ -24,14 +24,6 @@ module Evoasm
         end
       end
 
-      class DSLState
-        include StateDSL
-
-        def initialize(state)
-          @__state__ = state
-        end
-      end
-
       def comment(comment = nil)
         if comment
           @__state__.comment = comment

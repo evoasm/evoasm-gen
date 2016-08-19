@@ -1,12 +1,10 @@
-require 'evoasm/gen/to_c/state_machine_translator'
+require 'evoasm/gen/nodes/state_machine'
 
 module Evoasm
   module Gen
     module Nodes
-      module ToC
-        class StateMachineToC
-          include TranslatorUtil
-
+      class StateMachine
+        class StateMachineCTranslator
           INST_STATE_ID_MIN = 32
           INST_STATE_ID_MAX = 2000
 
@@ -22,7 +20,7 @@ module Evoasm
             io.string
           end
 
-          def to_c!(translate_acc = false)
+          def translate!(translate_acc = false)
             write_function_prolog translate_acc
             translate_state state_machine.root_state
             write_function_epilog translate_acc
@@ -123,7 +121,7 @@ module Evoasm
           end
 
           def has_else?(state)
-            state.children.any? { |_, condition| condition.is_a?(Else)}
+            state.children.any? { |_, condition| condition.is_a?(Else) }
           end
 
           def translate_ret(_state)
@@ -371,26 +369,24 @@ module Evoasm
           end
         end
 
-        class StateMachine
-          def call_to_c
-            "if(!#{c_function_name unit}(ctx)){goto error;}"
+        def call_to_c
+          "if(!#{c_function_name unit}(ctx)){goto error;}"
+        end
+
+        def to_c(io)
+          translator = StateMachineCTranslator.new unit, self
+          translator.translate!
+
+          io.block "size_t #{c_function_name(unit)}(#{unit.c_context_type})" do
+            translator.string
           end
+        end
 
-          def to_c(io)
-            translator = StateMachineToC.new unit, self
-            translator.to_c!
+        private
 
-            io.block "size_t #{c_function_name(unit)}(#{unit.c_context_type})" do
-              translator.string
-            end
-          end
-
-          private
-
-          def c_function_name(unit)
-            name = self.class.attributes.map { |k, v| [k, v].join('_') }.flatten.join('__')
-            unit.symbol_to_c name, unit.arch_prefix
-          end
+        def c_function_name(unit)
+          name = self.class.attributes.map { |k, v| [k, v].join('_') }.flatten.join('__')
+          unit.symbol_to_c name, unit.arch_prefix
         end
       end
     end
