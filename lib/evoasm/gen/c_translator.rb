@@ -1,12 +1,12 @@
 require 'erubis'
 require 'evoasm/gen/strio'
-require 'evoasm/gen/to_c/translation_unit'
+require 'evoasm/gen/c_unit'
 require 'evoasm/gen/x64'
-require 'evoasm/gen/to_c'
 
 module Evoasm
   module Gen
-    class Translator
+
+    class CTranslator
       include NameUtil
 
       attr_reader :unit, :arch
@@ -50,13 +50,14 @@ module Evoasm
         @insts = insts
         @options = options
 
-        @unit = TranslationUnit.new arch, insts
+        @unit = CUnit.new arch, insts
       end
 
       def translate!(&block)
-        unit.translate!
+        unit.to_c!
 
-        permutation_tables = permutation_tables_to_c
+        permutation_tables = unit.permutation_tables_to_c
+        unordered_writes = unit.unordered_writes_to_c
 
         render_templates(:c, binding, &block)
         render_templates(:h, binding, &block)
@@ -94,7 +95,7 @@ module Evoasm
 
       def inst_funcs_to_c(io = StrIO.new)
         @inst_translators = insts.map do |inst|
-          inst_translator = StateMachineTranslator.new arch, self
+          inst_translator = StateMachineToC.new arch, self
           inst_translator.emit_inst_func io, inst
 
           inst_translator
@@ -120,14 +121,6 @@ module Evoasm
         end
 
         Hash(@permutation_tables).each do |n, perms|
-          io.puts "static int #{permutation_table_var_name n}"\
-                    "[#{perms.size}][#{perms.first.size}] = {"
-
-          perms.each do |perm|
-            io.puts "  {#{perm.join ', '}},"
-          end
-          io.puts '};'
-          io.puts
         end
 
         io.string
@@ -135,11 +128,11 @@ module Evoasm
 
       def called_funcs_to_c(io = StrIO.new)
         @called_funcs.each do |func, (id, translators)|
-          func_translator = StateMachineTranslator.new arch, self
+          func_translator = StateMachineToC.new arch, self
           func_translator.emit_called_func io, func, id
 
           translators.each do |translator|
-            translator.merge_params func_translator.params
+            translator.merge_params func_translator.parameters
           end
         end
 
@@ -177,7 +170,7 @@ module Evoasm
       def insts_to_c(io = StrIO.new)
         io.puts "static const evoasm_x64_inst_t #{static_insts_var_name}[] = {"
         @inst_translators.each do |translator|
-          inst_to_c io, translator.inst, translator.params
+          inst_to_c io, translator.inst, translator.parameters
         end
         io.puts '};'
         io.puts "const evoasm_x64_inst_t *#{insts_var_name} = #{static_insts_var_name};"
@@ -207,7 +200,7 @@ module Evoasm
 
       def inst_params_to_c(io = StrIO.new)
         @inst_translators.each do |translator|
-          inst_param_to_c io, translator.inst, translator.params, translator.param_domains
+          inst_param_to_c io, translator.inst, translator.parameters, translator.param_domains
         end
 
         io.string
@@ -232,33 +225,6 @@ module Evoasm
         end
 
         io.puts '} evoasm_x64_inst_params_t;'
-        io.string
-      end
-
-      def inst_param_to_c_field_name(param)
-        param.to_s.sub(/\?$/, '')
-      end
-
-      def inst_params_set_func_to_c(io = StrIO.new)
-        io.puts 'void evoasm_x64_inst_params_set(evoasm_x64_inst_params_t *params, evoasm_x64_inst_param_id_t param, evoasm_inst_param_val_t param_val) {'
-        io.indent do
-          io.puts "switch(param) {"
-          io.indent do
-            param_names.each do |param_name|
-              next if param_names.alias? param_name
-
-              field_name = inst_param_to_c_field_name param_name
-
-              io.puts "case #{param_names.symbol_to_c param_name}:"
-              io.puts "  params->#{field_name} = param_val;"
-              io.puts "  params->#{field_name}_set = true;"
-              io.puts "  break;"
-            end
-          end
-          io.puts '}'
-        end
-
-        io.puts '}'
         io.string
       end
 
@@ -296,7 +262,7 @@ module Evoasm
 
       def max_params_per_inst
         @inst_translators.map do |translator|
-          translator.params.size
+          translator.parameters.size
         end.max
       end
 
@@ -314,7 +280,7 @@ module Evoasm
           io.puts op.implicit? ? '1' : '0', eol: ','
           io.puts op.mnem? ? '1' : '0', eol: ','
 
-          params = translator.params.reject { |p| State.local_variable_name? p }
+          params = translator.parameters.reject { |p| State.local_variable_name? p }
           if op.param
             param_idx = params.index(op.param) or \
               raise "param #{op.param} not found in #{params.inspect}" \
@@ -458,11 +424,11 @@ module Evoasm
 
       def pref_funcs_to_c(io = StrIO.new)
         @pref_funcs.each do |writes, (id, translators)|
-          func_translator = StateMachineTranslator.new arch, self
+          func_translator = StateMachineToC.new arch, self
           func_translator.emit_pref_func io, writes, id
 
           translators.each do |translator|
-            translator.merge_params func_translator.params
+            translator.merge_params func_translator.parameters
           end
         end
 

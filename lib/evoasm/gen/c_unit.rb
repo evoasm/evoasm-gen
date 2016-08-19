@@ -1,15 +1,202 @@
 require 'erubis'
 require 'evoasm/gen/strio'
-require 'evoasm/gen/enum'
+require 'evoasm/gen/nodes/enum'
 
-require 'evoasm/gen/to_c/function'
-require 'evoasm/gen/to_c/translator_util'
-require 'evoasm/gen/to_c/instruction'
+#require 'evoasm/gen/to_c/translator_util'
+require 'evoasm/gen/nodes/to_c/instruction'
 require 'evoasm/gen/x64'
+require 'evoasm/gen/x64_unit'
 
 module Evoasm
   module Gen
-    class TranslationUnit
+
+    module NameUtil
+      def namespace
+        'evoasm'
+      end
+
+      def const_name_to_c(name, prefix)
+        symbol_to_c name, prefix, const: true
+      end
+
+      def const_name_to_ruby_ffi(name, prefix)
+        symbol_to_ruby_ffi name, prefix, const: true
+      end
+
+      def symbol_to_ruby_ffi(name, prefix = nil, const: false, type: false)
+        ruby_ffi_name = name.to_s.downcase
+        ruby_ffi_name =
+          if ruby_ffi_name =~ /^\d+$/
+            if prefix && prefix.last =~ /reg/
+              'r' + ruby_ffi_name
+            elsif prefix && prefix.last =~ /disp/
+              'disp' + ruby_ffi_name
+            elsif prefix && prefix.last =~ /addr/
+              'addr_size' + ruby_ffi_name
+            else
+              raise
+            end
+          else
+            ruby_ffi_name
+          end
+
+        ruby_ffi_name
+      end
+
+      def symbol_to_c(name, prefix = nil, const: false, type: false)
+        c_name = [namespace, *prefix, name.to_s.sub(/\?$/, '')].compact.join '_'
+        if const
+          c_name.upcase
+        elsif type
+          c_name + '_t'
+        else
+          c_name
+        end
+      end
+
+      def base_arch_ctx_prefix(name = nil)
+        ['arch_ctx', name]
+      end
+
+      def base_arch_prefix(name = nil)
+        ['arch', name]
+      end
+
+      def arch_ctx_prefix(name = nil)
+        ["#{arch}_ctx", name]
+      end
+
+      def arch_prefix(name = nil)
+        ["#{arch}", name]
+      end
+
+      def error_code_to_c(name)
+        prefix = name == :ok ? :error_code : base_arch_prefix(:error_code)
+        const_name_to_c name, prefix
+      end
+
+      def register_name_to_c(name)
+        const_name_to_c name, arch_prefix(:reg)
+      end
+
+      def exception_to_c(name)
+        const_name_to_c name, arch_prefix(:exception)
+      end
+
+      def reg_type_to_c(name)
+        const_name_to_c name, arch_prefix(:reg_type)
+      end
+
+      def operand_type_to_c(name)
+        const_name_to_c name, arch_prefix(:operand_type)
+      end
+
+      def inst_name_to_c(inst)
+        const_name_to_c inst.name, arch_prefix(:inst)
+      end
+
+      def inst_name_to_ruby_ffi(inst)
+        const_name_to_ruby_ffi inst.name, arch_prefix(:inst)
+      end
+
+      def operand_size_to_c(size)
+        const_name_to_c size, arch_prefix(:operand_size)
+      end
+
+      def feature_name_to_c(name)
+        const_name_to_c name, arch_prefix(:feature)
+      end
+
+      def inst_flag_to_c(flag)
+        const_name_to_c flag, arch_prefix(:inst_flag)
+      end
+
+      def inst_param_name_to_c(name)
+        const_name_to_c name, arch_prefix(:inst_param)
+      end
+
+      def inst_params_var_name(inst)
+        "params_#{inst.name}"
+      end
+
+      def inst_mnem_var_name(inst)
+        "name_#{inst.name}"
+      end
+
+      def insts_var_name
+        "_evoasm_#{arch}_insts"
+      end
+
+      def static_insts_var_name
+        "_#{insts_var_name}"
+      end
+
+      def inst_operands_var_name(inst)
+        "operands_#{inst.name}"
+      end
+
+      def inst_param_domains_var_name(inst)
+        "domains_#{inst.name}"
+      end
+
+      def param_domain_var_name(domain)
+        case domain
+        when Range
+          "param_domain__#{domain.begin.to_s.tr('-', 'm')}_#{domain.end}"
+        when Array
+          "param_domain_enum__#{domain.join '_'}"
+        when Symbol
+          "param_domain_#{domain}"
+        else
+          raise "unexpected domain type #{domain.class} (#{domain.inspect})"
+        end
+      end
+
+      def permutation_table_var_name(n)
+        "permutations#{n}"
+      end
+
+      def inst_enc_func_name(inst)
+        symbol_to_c inst.name, arch_prefix
+      end
+
+      def operand_c_type
+        symbol_to_c :operand, arch_prefix, type: true
+      end
+
+      def inst_param_c_type
+        symbol_to_c :inst_param, type: true
+      end
+
+      def acc_c_type
+        symbol_to_c :bitmap128, type: true
+      end
+
+      def inst_enc_ctx_c_type
+        symbol_to_c "#{unit.arch}_inst_enc_ctx", type: true
+      end
+
+      def inst_param_val_c_type
+        symbol_to_c :inst_param_val, type: true
+      end
+
+      def bitmap_c_type
+        symbol_to_c :bitmap, type: true
+      end
+
+      def inst_id_c_type
+        symbol_to_c :inst_id, type: true
+      end
+
+      def pref_func_name(id)
+        "prefs_#{id}"
+      end
+
+      def state_machine_ctx_var_name
+        'ctx'
+      end
+    end
+    class CUnit < X64Unit
       include NameUtil
 
       attr_reader :param_names
@@ -30,7 +217,7 @@ module Evoasm
       PARAM_ALIASES = {imm0: :imm, imm1: :disp, moffs: :imm0, rel: :imm0}
       OUTPUT_FORMATS = %i(c h ruby_ffi)
 
-      def initialize(arch, insts, options = {})
+      def initialize(arch)
         @arch = arch
         @insts = insts
         @options = options
@@ -48,27 +235,20 @@ module Evoasm
           @param_names.alias alias_key, key
         end
 
-        send :"initialize_#{arch}_enums"
+        extend const_get(:"#{arch.to_s.camelcase}Unit")
+        load
 
-        @permutation_table_translators = []
+        @permutation_tables = []
+        @unordered_writes = []
+        @state_machines = []
+        @instructions = []
+        @parameter_domains = []
+        @parameters = []
+        @operands = []
+        @mnemonics = []
       end
 
-      def initialize_x64_enums
-        @features = Enum.new :feature, prefix: arch
-        @inst_flags = Enum.new :inst_flag, prefix: arch, flags: true
-        @exceptions = Enum.new :exception, prefix: arch
-        @reg_types = Enum.new :reg_type, Evoasm::Gen::X64::REGISTERS.keys, prefix: arch
-        @operand_types = Enum.new :operand_type, Evoasm::Gen::X64::Instruction::OPERAND_TYPES, prefix: arch
-        @reg_names = Enum.new :reg_id, Evoasm::Gen::X64::REGISTER_NAMES, prefix: arch
-        @bit_masks = Enum.new :bit_mask, %i(rest 64_127 32_63 0_31), prefix: arch, flags: true
-        @addr_sizes = Enum.new :addr_size, %i(64 32), prefix: arch
-        @disp_sizes = Enum.new :disp_size, %i(16 32), prefix: arch
-
-        insts.each do |inst|
-          @features.add_all inst.features
-          @inst_flags.add_all inst.flags
-          @exceptions.add_all inst.exceptions
-        end
+      def load_x64_enums
       end
 
       def translate_inst(inst)
@@ -81,6 +261,7 @@ module Evoasm
         param_names.add name
       end
 
+
       def find_or_create_prefix_function(writes, translator)
         _, table_size = request_permutation_table(writes.size)
         [request(@pref_funcs, writes, translator), table_size]
@@ -91,7 +272,7 @@ module Evoasm
       end
 
       def find_or_create_state_machine_function(state_machine)
-        if @state_machine_functions.key? state_machine.attrs
+        if @state_machine_functions.key? state_machine.attributes
           @state_machine_functions[state_machine.attrs]
         else
           function = create_state_machine_function(state_machine)
@@ -101,7 +282,7 @@ module Evoasm
       end
 
       def create_state_machine_function(state_machine)
-        translator = StateMachineTranslator.new self, state_machine
+        translator = StateMachineToC.new self, state_machine
         body = translator.emit
 
         Function.new io
@@ -143,6 +324,46 @@ module Evoasm
         #end
 
         "#{name_to_c func_name, prefix}(#{args.join ','})" + (eol ? ';' : '')
+      end
+
+      def method_missing(name, *args, &block)
+        if name =~ /(.*?)_to_c$/
+          array = instance_variable_get(:"@#$1")
+          raise "#{$1} is nil" unless array
+          all_to_c array, *args
+        else
+          super
+        end
+      end
+
+      def all_to_c(array, io = StrIO.new)
+        array.each do |el|
+          el.to_c self, io
+        end
+        io.string
+      end
+
+      def inst_params_set_func_to_c(io = StrIO.new)
+        io.puts 'void evoasm_x64_inst_params_set(evoasm_x64_inst_params_t *params, evoasm_x64_inst_param_id_t param, evoasm_inst_param_val_t param_val) {'
+        io.indent do
+          io.puts "switch(param) {"
+          io.indent do
+            param_names.each do |param_name|
+              next if param_names.alias? param_name
+
+              field_name = inst_param_to_c_field_name param_name
+
+              io.puts "case #{param_names.symbol_to_c param_name}:"
+              io.puts "  params->#{field_name} = param_val;"
+              io.puts "  params->#{field_name}_set = true;"
+              io.puts "  break;"
+            end
+          end
+          io.puts '}'
+        end
+
+        io.puts '}'
+        io.string
       end
 
       private
@@ -192,7 +413,7 @@ module Evoasm
 
       def inst_funcs_to_c(io = StrIO.new)
         @inst_translators = insts.map do |inst|
-          inst_translator = StateMachineTranslator.new arch, self
+          inst_translator = StateMachineToC.new arch, self
           inst_translator.emit_inst_func io, inst
 
           inst_translator
@@ -211,28 +432,13 @@ module Evoasm
         const_name_to_c name, arch_prefix(:bit_mask)
       end
 
-      def permutation_tables_to_c(io = StrIO.new)
-        Hash(@permutation_tables).each do |n, perms|
-          io.puts "static int #{permutation_table_var_name n}"\
-                    "[#{perms.size}][#{perms.first.size}] = {"
-
-          perms.each do |perm|
-            io.puts "  {#{perm.join ', '}},"
-          end
-          io.puts '};'
-          io.puts
-        end
-
-        io.string
-      end
-
       def called_funcs_to_c(io = StrIO.new)
         @called_funcs.each do |func, (id, translators)|
-          func_translator = StateMachineTranslator.new arch, self
+          func_translator = StateMachineToC.new arch, self
           func_translator.emit_called_func io, func, id
 
           translators.each do |translator|
-            translator.merge_params func_translator.params
+            translator.merge_params func_translator.parameters
           end
         end
 
@@ -270,7 +476,7 @@ module Evoasm
       def insts_to_c(io = StrIO.new)
         io.puts "static const evoasm_x64_inst_t #{static_insts_var_name}[] = {"
         @inst_translators.each do |translator|
-          inst_to_c io, translator.inst, translator.params
+          inst_to_c io, translator.inst, translator.parameters
         end
         io.puts '};'
         io.puts "const evoasm_x64_inst_t *#{insts_var_name} = #{static_insts_var_name};"
@@ -300,7 +506,7 @@ module Evoasm
 
       def inst_params_to_c(io = StrIO.new)
         @inst_translators.each do |translator|
-          inst_param_to_c io, translator.inst, translator.params, translator.param_domains
+          inst_param_to_c io, translator.inst, translator.parameters, translator.param_domains
         end
 
         io.string
@@ -315,13 +521,13 @@ module Evoasm
               [field_name, param_c_bitsize(param_name)],
               ["#{field_name}_set", 1],
             ]
-          end.sort_by { |n, s| [s, n]}
+          end.sort_by { |n, s| [s, n] }
 
           params.each do |param, size|
             io.puts "uint64_t #{param} : #{size};"
           end
 
-          p params.inject(0) {|acc, (n, s)| acc + s }./(64.0)
+          p params.inject(0) { |acc, (n, s)| acc + s }./(64.0)
         end
 
         io.puts '} evoasm_x64_inst_params_t;'
@@ -330,29 +536,6 @@ module Evoasm
 
       def inst_param_to_c_field_name(param)
         param.to_s.sub(/\?$/, '')
-      end
-
-      def inst_params_set_func_to_c(io = StrIO.new)
-        io.puts 'void evoasm_x64_inst_params_set(evoasm_x64_inst_params_t *params, evoasm_x64_inst_param_id_t param, evoasm_inst_param_val_t param_val) {'
-        io.indent do
-          io.puts "switch(param) {"
-          io.indent do
-            param_names.each do |param_name|
-              next if param_names.alias? param_name
-
-              field_name = inst_param_to_c_field_name param_name
-
-              io.puts "case #{param_names.symbol_to_c param_name}:"
-              io.puts "  params->#{field_name} = param_val;"
-              io.puts "  params->#{field_name}_set = true;"
-              io.puts "  break;"
-            end
-          end
-          io.puts '}'
-        end
-
-        io.puts '}'
-        io.string
       end
 
       def param_c_bitsize(param_name)
@@ -389,7 +572,7 @@ module Evoasm
 
       def max_params_per_inst
         @inst_translators.map do |translator|
-          translator.params.size
+          translator.parameters.size
         end.max
       end
 
@@ -407,7 +590,7 @@ module Evoasm
           io.puts op.implicit? ? '1' : '0', eol: ','
           io.puts op.mnem? ? '1' : '0', eol: ','
 
-          params = translator.params.reject { |p| State.local_variable_name? p }
+          params = translator.parameters.reject { |p| State.local_variable_name? p }
           if op.param
             param_idx = params.index(op.param) or \
               raise "param #{op.param} not found in #{params.inspect}" \
@@ -551,11 +734,11 @@ module Evoasm
 
       def pref_funcs_to_c(io = StrIO.new)
         @pref_funcs.each do |writes, (id, translators)|
-          func_translator = StateMachineTranslator.new arch, self
+          func_translator = StateMachineToC.new arch, self
           func_translator.emit_pref_func io, writes, id
 
           translators.each do |translator|
-            translator.merge_params func_translator.params
+            translator.merge_params func_translator.parameters
           end
         end
 

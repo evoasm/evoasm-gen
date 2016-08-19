@@ -9,7 +9,7 @@ class Evoasm::GenTest < Minitest::Test
       end
       Rake::Task['evoasm:gen'].invoke
 
-      translator = Evoasm::Gen::Translator
+      translator = Evoasm::Gen::CTranslator
 
       translator.target_filenames(:x64, :c).each do |f|
         assert File.exist?(File.join dir, f)

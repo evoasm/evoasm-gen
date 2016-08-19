@@ -1,5 +1,5 @@
 require 'evoasm/gen/state'
-require 'evoasm/gen/to_c/translator'
+require 'evoasm/gen/c_translator'
 require 'rake/tasklib'
 
 module Evoasm
@@ -37,19 +37,20 @@ module Evoasm
           archs.each do |arch|
             prereqs = [ARCH_TABLES[arch]]
 
-            Translator::OUTPUT_FORMATS.each do |format|
-              prereqs.concat Translator.template_paths(arch, format)
+            CTranslator::OUTPUT_FORMATS.each do |format|
+              prereqs.concat CTranslator.template_paths(arch, format)
             end
 
             # pick any single file type, all are generated
             # at the same time
-            target_path = gen_path(Translator.target_filenames(arch, :c))
+            target_path = gen_path(CTranslator.target_filenames(arch, :c))
 
             file target_path => prereqs do
               puts 'Translating'
-              insts = load_insts arch
-              translator = Translator.new(arch, insts)
-              translator.translate! do |filename, content, file_type|
+              unit = CUnit.new arch
+              insts = load_insts unit
+              translator = CTranslator.new(unit, insts)
+              translator.to_c! do |filename, content, file_type|
                 next unless file_types.include? file_type
                 File.write gen_path(filename), content
               end
@@ -72,8 +73,8 @@ module Evoasm
         send :"load_#{arch}_insts"
       end
 
-      def load_x64_insts
-        require 'evoasm/gen/x64/instruction'
+      def load_x64_insts(unit)
+        require 'evoasm/gen/x64/nodes/instruction'
 
         rows = []
         File.open X64_TABLE_FILENAME do |file|
@@ -86,7 +87,7 @@ module Evoasm
           end
         end
 
-        Gen::X64::Instruction.load_all(rows)
+        Gen::X64::Instruction.load_all(unit, rows)
       end
     end
   end

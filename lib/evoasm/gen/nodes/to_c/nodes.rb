@@ -91,129 +91,25 @@ module Evoasm
         end
       end
 
-      module ParameterToC
+      module ParameterConstantToC
         def to_c(unit)
           "EVOASM_#{unit.arch}_PARAM_#{name.upcase}"
         end
       end
 
-      module WriteActionToC
+      module ParameterToC
         def to_c(unit, io)
-          if size.is_a?(Array) && value.is_a?(Array)
-            value_c, size_c = value.reverse.zip(size.reverse).inject(['0', 0]) do |(v_acc, s_acc), (v, s)|
-              [v_acc + " | ((#{v.to_c} & ((1 << #{s}) - 1)) << #{s_acc})", s_acc + s]
-            end
-          else
-            value_c = value.to_c(unit)
-            size_c = size.to_c(unit)
+          unit.register_domain domain
+
+          io.puts '{'
+          io.indent do
+            io.puts constant.to_c, eol: ','
+            io.puts '(evoasm_domain_t *) &' + domain.c_variable_name
           end
-          io.puts "evoasm_inst_enc_ctx_write#{size_c}(ctx, #{value_c});"
+          io.puts '}'
         end
       end
 
-      module SetActionToC
-        def to_c(unit, io)
-          io.puts "#{variable.to_c unit} = #{value.to_c unit};"
-        end
-      end
-
-      module LocalVariableToC
-        def to_c(_unit)
-          name
-        end
-      end
-
-      module SharedVariableToC
-        def to_c(_unit)
-          "ctx->shared.#{name}"
-        end
-      end
-
-      module ErrorActionToC
-        def to_c(unit, io)
-          reg_c_val =
-            if reg
-              reg.to_c unit
-            else
-              '(uint8_t) -1'
-            end
-          param_c_val =
-            if param
-              param.to_c unit
-            else
-              '(uint8_t) -1'
-            end
-
-          io.puts 'evoasm_arch_error_data_t error_data = {'
-          io.puts "  .reg = #{reg_c_val},"
-          io.puts "  .param = #{param_c_val},"
-          #io.puts "  .arch = #{state_machine_ctx_var_name arch_indep: true}"
-          io.puts '};'
-
-          io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ARCH, #{code.to_c unit}, &error_data, #{msg.to_c unit});}
-          #io.puts call_to_c 'arch_ctx_reset', [state_machine_ctx_var_name(true)], eol: ';'
-          io.puts 'retval = false;'
-        end
-      end
-
-      module LogActionToC
-        def to_c(_unit, io)
-          args_c =
-            if args.empty?
-              ''
-            else
-              args_c = args.map do |expr|
-                "(#{inst_param_val_c_type}) #{expr_to_c expr}"
-              end.join(', ').prepend(', ')
-            end
-
-          msg_c = msg.gsub('%', '%" EVOASM_INST_PARAM_VAL_FORMAT "')
-          io.puts %[evoasm_#{level}("#{msg_c}" #{args_c});]
-        end
-      end
-
-      module AccessActionToC
-
-        def access_call_to_c(name, op, acc = 'acc', params = [], eol: false)
-          unit.call_to_c("#{name}_access",
-                         [
-                           "(#{bitmap_c_type} *) &#{acc}",
-                           "(#{regs.c_type}) #{expr_to_c(op)}",
-                           *params
-                         ],
-                         base_arch_ctx_prefix,
-                         eol: eol)
-        end
-
-        def translate_write_access(unit, io)
-          io.puts access_call_to_c('write', :w, eol: true)
-        end
-
-        def undefined_access_to_c(unit, io)
-          io.puts access_call_to_c('undefined', :u, eol: true)
-        end
-
-        def to_c(unit, io)
-          #modes.each do |mode|
-          #  case mode
-          #  when :r
-          #    translate_read_access unit, io
-          #  when :w
-          #    translate_write_access unit, io
-          #  when :u
-          #    translate_undefined_access unit, io
-          #  else
-          #    fail "unexpected access mode '#{mode.inspect}'"
-          #  end
-          #end
-        end
-      end
-
-      module UnorderedWritesActionToC
-        def to_c(unit, io)
-          unordered_writes.call_to_c unit, io, param
-        end
-      end
 
       module UnorderedWritesToC
         def c_function_name(_unit)
@@ -261,6 +157,14 @@ module Evoasm
         end
       end
 
+      def_to_c LocalVariable do
+        name
+      end
+
+      def_to_c SharedVariable do
+        "ctx->shared.#{name}"
+      end
+
       module RegisterToC
         def to_c(unit)
           unit.symbol_to_c name, [unit.arch], const: true
@@ -273,10 +177,16 @@ module Evoasm
         end
       end
 
-      module CallActionToC
+      module PermutationTableToC
         def to_c(unit, io)
-          call_c = state_machine.call_to_c unit
-          io.puts "if(!#{call_c}){goto error;}"
+          io.puts "static int #{permutation_table_var_name n}"\
+                    "[#{perms.size}][#{perms.first.size}] = {"
+
+          perms.each do |perm|
+            io.puts "  {#{perm.join ', '}},"
+          end
+          io.puts '};'
+          io.puts
         end
       end
     end
