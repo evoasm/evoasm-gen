@@ -95,7 +95,7 @@ module Evoasm
       Constant = def_node Symbol
       ErrorCode = def_node Constant
       RegisterConstant = def_node Constant
-      ParameterConstant = def_node Constant
+      ParameterVariable = def_node Symbol
       LocalVariable = def_node Symbol
       SharedVariable = def_node Symbol
       Parameter = def_node Node

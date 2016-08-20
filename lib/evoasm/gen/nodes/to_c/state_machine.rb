@@ -76,11 +76,11 @@ module Evoasm
           end
 
           def translate_state(state)
-            fail if state.nil?
+            raise if state.nil?
 
             untranslated_states = []
 
-            fail if state.returns? && !state.terminal?
+            raise if state.returns? && !state.terminal?
 
             translate_body state, untranslated_states
 
@@ -103,6 +103,10 @@ module Evoasm
             translate_transitions(state, untranslated_states)
 
             io.puts '/* end inlined */' if inlined
+          end
+
+          def translate_comment(state)
+            io.puts "/* #{state.comment} (#{state.object_id}) */" if state.comment
           end
 
           def translate_label(state)
@@ -204,12 +208,12 @@ module Evoasm
         end
 
         def c_return_type
-          'size_t'
+          'evoasm_success_t'
         end
 
         def c_function_name
-          name = self.class.attributes.map { |k, v| [k, v].join('_') }.flatten.join('__')
-          unit.symbol_to_c name, unit.architecture_prefix
+          attrs_str = self.class.attributes.map { |k, v| [k, v].join('_') }.flatten.join('__')
+          unit.symbol_to_c "#{self.class.name.split('::').last}_#{attrs_str}", unit.architecture_prefix
         end
       end
     end

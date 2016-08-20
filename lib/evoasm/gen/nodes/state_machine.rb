@@ -71,7 +71,7 @@ module Evoasm
         def collect_parameters(state, parameters)
           state.actions.each do |action|
             action.traverse do |value|
-              parameters << value if value.is_a?(ParameterConstant)
+              parameters << value if value.is_a?(ParameterVariable)
             end
           end
 

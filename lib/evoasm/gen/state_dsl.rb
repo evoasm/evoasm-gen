@@ -88,7 +88,7 @@ module Evoasm
 
       def error(code = nil, msg = nil, reg: nil, param: nil)
         add_action :error, ErrorCode.new(unit, code), StringLiteral.new(unit, msg),
-                           RegisterConstant.new(unit, reg), ParameterConstant.new(unit, param)
+                   RegisterConstant.new(unit, reg), ParameterVariable.new(unit, param)
         return!
       end
 
@@ -176,7 +176,7 @@ module Evoasm
           elsif expr_s[0] == '@'
             SharedVariable.new unit, arg[1..-1]
           elsif parameter_name? arg
-            ParameterConstant.new unit, arg
+            ParameterVariable.new unit, arg
           elsif arg == :else
             Else.new unit
           else

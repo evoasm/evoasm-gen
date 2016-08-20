@@ -98,14 +98,13 @@ module Evoasm
         private
 
         def reg_code_to_c
-          #unit.call_to_c
+          unit.call_to_c 'reg_code', args.map(&:to_c), [unit.architecture_prefix]
         end
       end
 
-
-
-      def_to_c ParameterConstant do
-        "EVOASM_#{unit.architecture}_PARAM_#{name.upcase}"
+      def_to_c ParameterVariable do
+        #"EVOASM_#{unit.architecture}_PARAM_#{name.upcase}"
+        "ctx->params.#{name.to_s.gsub '?', ''}"
       end
 
       def_to_c Parameter do |io|

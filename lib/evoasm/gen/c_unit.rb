@@ -240,6 +240,9 @@ module Evoasm
         param_names.add name
       end
 
+      def register_parameter(param_name)
+        @parameter_names.add param_name
+      end
 
       def find_or_create_prefix_function(writes, translator)
         _, table_size = request_permutation_table(writes.size)
@@ -288,14 +291,14 @@ module Evoasm
         [permutation_table_var_name(n), @permutation_tables[n].size]
       end
 
-      def call_to_c(func, args, prefix = nil, eol: false)
+      def call_to_c(func, args, prefix = nil)
         func_name = func.to_s.gsub('?', '_p')
 
         #if prefix && !NO_ARCH_CTX_ARG_HELPERS.include?(func)
         #  args.unshift arch_ctx_var_name(Array(prefix).first !~ /#{architecture}/)
         #end
 
-        "#{name_to_c func_name, prefix}(#{args.join ','})" + (eol ? ';' : '')
+        "#{symbol_to_c func_name, prefix}(#{args.join ','})"
       end
 
       def method_missing(name, *args, &block)
@@ -315,15 +318,15 @@ module Evoasm
         io.string
       end
 
-      def inst_params_set_func_to_c(io = StrIO.new)
+      def parameter_set_function(io = StrIO.new)
         io.puts 'void evoasm_x64_inst_params_set(evoasm_x64_inst_params_t *params, evoasm_x64_inst_param_id_t param, evoasm_inst_param_val_t param_val) {'
         io.indent do
           io.puts "switch(param) {"
           io.indent do
-            @parameter_names.each do |param_name|
+            @parameter_names.each do |param_name, _|
               next if @parameter_names.alias? param_name
 
-              field_name = inst_param_to_c_field_name param_name
+              field_name = parameter_field_name param_name
 
               io.puts "case #{parameter_names.symbol_to_c param_name}:"
               io.puts "  params->#{field_name} = param_val;"
@@ -352,7 +355,7 @@ module Evoasm
         io.puts 'typedef struct {'
         io.indent do
           params = parameter_names.symbols.select { |key| !parameter_names.alias? key }.flat_map do |param_name|
-            field_name = inst_param_to_c_field_name param_name
+            field_name = parameter_field_name param_name
             [
               [field_name, param_c_bitsize(param_name)],
               ["#{field_name}_set", 1],
@@ -416,7 +419,7 @@ module Evoasm
         inst_mnems = inst_mnems_to_c
         inst_params = inst_params_to_c
         inst_params_type_decl = inst_params_type_decl_to_c
-        inst_params_set_func = inst_params_set_func_to_c
+        inst_params_set_func = parameter_set_function
         param_domains = param_domains_to_c
 
         render_templates(:c, binding, &block)
@@ -516,7 +519,7 @@ module Evoasm
         io.string
       end
 
-      def inst_param_to_c_field_name(param)
+      def parameter_field_name(param)
         param.to_s.sub(/\?$/, '')
       end
 

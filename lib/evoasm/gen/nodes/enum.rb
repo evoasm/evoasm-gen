@@ -88,11 +88,6 @@ module Evoasm
           (2**@map.size) - 1
         end
 
-        def symbol_name_prefix
-          # convention: _id does not appear in symbol's name
-          name.to_s.sub(/_id$/, '')
-        end
-
         def valid_symbol?(symbol)
           symbol.is_a?(::Symbol) || symbol.is_a?(String)
         end
