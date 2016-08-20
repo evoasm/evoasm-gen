@@ -4,12 +4,36 @@ module Evoasm
       class Node
         attr_reader :unit
 
+        def traverse(&block)
+          attrs = self.class.attributes
+          attrs.each do |attr|
+            value = send attr
+            block[value]
+
+            if value.is_a?(Node)
+              value.traverse(&block)
+            end
+          end
+        end
+
         def initialize(unit)
           @unit = unit
         end
+
+        def self.own_attributes
+          []
+        end
+
+        def self.attributes
+          if self == Node
+            []
+          else
+            superclass.attributes + own_attributes
+          end
+        end
       end
 
-      def self.def_node(superclass = Node, *attrs, &block)
+      def self.def_node(superclass, *attrs, &block)
         unless superclass <= Node
           raise ArgumentError, 'superclass must be kind of Node'
         end
@@ -28,30 +52,38 @@ module Evoasm
               instance_variable_set :"@#{attr}", value
             end
             private writer_name
-
           end
 
-          class_eval <<~END
-            def initialize(unit#{attrs && attrs.join(',')})
-              super(unit)
-              #{attrs.map { |attr| "@#{attr} = #{attr}"}.join("\n")}
+          define_singleton_method :own_attributes do
+            attrs.freeze
+          end
 
-              after_initialize
-            end
+          unless attrs.empty?
+            superclass_attrs = superclass.attributes
+            all_attrs = superclass_attrs + attrs
 
-            def hash
-              #{attrs.map { |attr| "@#{attr}" }.join(' ^ ')}
-            end
+            class_eval <<~END
+              def initialize(#{(%w(unit) + all_attrs).join(',')})
+                super(#{(%w(unit) + superclass_attrs).join(',')})
+                #{attrs.map { |attr| "@#{attr} = #{attr}" }.join("\n")}
 
-            def eql?(other)
-              #{attrs.map { |attr| "@#{attr} == other.#{attr}" }.join(' && ')}
-            end
-            alias == eql?
+                after_initialize
+              end
 
-            private
-            def after_initialize
-            end
-          END
+              def hash
+                super ^ #{attrs.map { |attr| "@#{attr}" }.join(' ^ ')}
+              end
+
+              def eql?(other)
+                super(other) && #{attrs.map { |attr| "@#{attr} == other.#{attr}" }.join(' && ')}
+              end
+              alias == eql?
+
+              private
+              def after_initialize
+              end
+            END
+          end
 
           class_eval &block if block
         end

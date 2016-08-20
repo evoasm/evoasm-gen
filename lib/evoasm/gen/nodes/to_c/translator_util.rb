@@ -75,7 +75,7 @@ module Evoasm
             call_args = args.map { |a| expr_to_c(a) }
             call_args.concat params_args if PARAMS_ARG_HELPERS.include? name
             if name == :reg_code
-              call_args[0] = "(evoasm_#{arch}_reg_id_t) #{call_args[0]}"
+              call_args[0] = "(evoasm_#{architecture}_reg_id_t) #{call_args[0]}"
             end
             helper_call_to_c name, call_args
           end
@@ -98,7 +98,7 @@ module Evoasm
             get_to_c s
           else
             if X64::REGISTER_NAMES.include?(s.to_sym)
-              const_prefix = [arch, 'reg']
+              const_prefix = [architecture, 'reg']
             elsif s =~ /^INT\d+_(MAX|MIN)$/
               const_prefix = nil
             end

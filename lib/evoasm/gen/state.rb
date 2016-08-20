@@ -3,21 +3,21 @@ require 'set'
 module Evoasm
   module Gen
     class State
-      attr_reader :children, :actions, :returns, :local_variables
-      attr_accessor :id, :comment, :parents
+      attr_reader :children, :actions, :own_local_variables
+      attr_accessor :id, :comment, :parents, :returns
 
       def initialize
         @children = []
         @parents = []
         @actions = []
-        @local_variables = []
+        @own_local_variables = []
       end
 
-      def transitive_local_variables
+      def local_variables
         child_local_variables = children.map do |child, _, _|
-          child.transitive_local_variables
+          child.local_variables
         end
-        all_local_variables = (local_variables + child_local_variables)
+        all_local_variables = (own_local_variables + child_local_variables)
         all_local_variables.flatten!
         all_local_variables.uniq!
 
@@ -37,7 +37,7 @@ module Evoasm
           raise ArgumentError, 'local_variables must start with underscore'
         end
 
-        local_variables << name unless local_variables.include? name
+        @own_local_variables << name unless @own_local_variables.include? name
       end
 
       protected def add_parent(parent)

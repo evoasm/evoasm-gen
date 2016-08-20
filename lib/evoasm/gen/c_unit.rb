@@ -19,7 +19,7 @@ module Evoasm
         'evoasm'
       end
 
-      def const_name_to_c(name, prefix)
+      def constant_to_c(name, prefix)
         symbol_to_c name, prefix, const: true
       end
 
@@ -67,56 +67,48 @@ module Evoasm
       end
 
       def arch_ctx_prefix(name = nil)
-        ["#{arch}_ctx", name]
+        ["#{architecture}_ctx", name]
       end
 
-      def arch_prefix(name = nil)
-        ["#{arch}", name]
+      def architecture_prefix(name = nil)
+        ["#{architecture}", name]
       end
 
       def error_code_to_c(name)
         prefix = name == :ok ? :error_code : base_arch_prefix(:error_code)
-        const_name_to_c name, prefix
+        constant_to_c name, prefix
       end
 
       def register_name_to_c(name)
-        const_name_to_c name, arch_prefix(:reg)
+        constant_to_c name, architecture_prefix(:reg)
       end
 
       def exception_to_c(name)
-        const_name_to_c name, arch_prefix(:exception)
+        constant_to_c name, architecture_prefix(:exception)
       end
 
       def reg_type_to_c(name)
-        const_name_to_c name, arch_prefix(:reg_type)
+        constant_to_c name, architecture_prefix(:reg_type)
       end
 
       def operand_type_to_c(name)
-        const_name_to_c name, arch_prefix(:operand_type)
-      end
-
-      def inst_name_to_c(inst)
-        const_name_to_c inst.name, arch_prefix(:inst)
-      end
-
-      def inst_name_to_ruby_ffi(inst)
-        const_name_to_ruby_ffi inst.name, arch_prefix(:inst)
+        constant_to_c name, architecture_prefix(:operand_type)
       end
 
       def operand_size_to_c(size)
-        const_name_to_c size, arch_prefix(:operand_size)
+        constant_to_c size, architecture_prefix(:operand_size)
       end
 
       def feature_name_to_c(name)
-        const_name_to_c name, arch_prefix(:feature)
+        constant_to_c name, architecture_prefix(:feature)
       end
 
       def inst_flag_to_c(flag)
-        const_name_to_c flag, arch_prefix(:inst_flag)
+        constant_to_c flag, architecture_prefix(:inst_flag)
       end
 
       def inst_param_name_to_c(name)
-        const_name_to_c name, arch_prefix(:inst_param)
+        constant_to_c name, architecture_prefix(:inst_param)
       end
 
       def inst_params_var_name(inst)
@@ -128,7 +120,7 @@ module Evoasm
       end
 
       def insts_var_name
-        "_evoasm_#{arch}_insts"
+        "_evoasm_#{architecture}_insts"
       end
 
       def static_insts_var_name
@@ -161,11 +153,11 @@ module Evoasm
       end
 
       def inst_enc_func_name(inst)
-        symbol_to_c inst.name, arch_prefix
+        symbol_to_c inst.name, architecture_prefix
       end
 
       def operand_c_type
-        symbol_to_c :operand, arch_prefix, type: true
+        symbol_to_c :operand, architecture_prefix, type: true
       end
 
       def inst_param_c_type
@@ -177,7 +169,7 @@ module Evoasm
       end
 
       def inst_enc_ctx_c_type
-        symbol_to_c "#{unit.arch}_inst_enc_ctx", type: true
+        symbol_to_c "#{unit.architecture}_inst_enc_ctx", type: true
       end
 
       def inst_param_val_c_type
@@ -206,14 +198,14 @@ module Evoasm
 
       attr_reader :registered_param_domains
 
-      attr_reader :arch
+      attr_reader :architecture
 
       attr_reader :instructions
 
       OUTPUT_FORMATS = %i(c h ruby_ffi)
 
-      def initialize(arch, table)
-        @arch = arch
+      def initialize(architecture, table)
+        @architecture = architecture
         @pref_funcs = {}
         @called_funcs = {}
 
@@ -231,7 +223,7 @@ module Evoasm
         @operands = []
         @mnemonics = []
 
-        extend Gen.const_get(:"#{arch.to_s.camelcase}Unit")
+        extend Gen.const_get(:"#{architecture.to_s.camelcase}Unit")
         load table
       end
 
@@ -276,7 +268,7 @@ module Evoasm
       end
 
       def c_context_type
-        "evoasm_#{arch}_inst_enc_ctx"
+        "evoasm_#{architecture}_inst_enc_ctx"
       end
 
       def find_or_create_unordered_write_function(writes)
@@ -300,7 +292,7 @@ module Evoasm
         func_name = func.to_s.gsub('?', '_p')
 
         #if prefix && !NO_ARCH_CTX_ARG_HELPERS.include?(func)
-        #  args.unshift arch_ctx_var_name(Array(prefix).first !~ /#{arch}/)
+        #  args.unshift arch_ctx_var_name(Array(prefix).first !~ /#{architecture}/)
         #end
 
         "#{name_to_c func_name, prefix}(#{args.join ','})" + (eol ? ';' : '')
@@ -328,12 +320,12 @@ module Evoasm
         io.indent do
           io.puts "switch(param) {"
           io.indent do
-            @parameters_enum.each do |param_name|
-              next if @parameters_enum.alias? param_name
+            @parameter_names.each do |param_name|
+              next if @parameter_names.alias? param_name
 
               field_name = inst_param_to_c_field_name param_name
 
-              io.puts "case #{parameters_enum.symbol_to_c param_name}:"
+              io.puts "case #{parameter_names.symbol_to_c param_name}:"
               io.puts "  params->#{field_name} = param_val;"
               io.puts "  params->#{field_name}_set = true;"
               io.puts "  break;"
@@ -356,6 +348,39 @@ module Evoasm
         Math.log2(max_params_per_inst + 1).ceil.to_i
       end
 
+      def inst_params_type_decl_to_c(io = StrIO.new)
+        io.puts 'typedef struct {'
+        io.indent do
+          params = parameter_names.symbols.select { |key| !parameter_names.alias? key }.flat_map do |param_name|
+            field_name = inst_param_to_c_field_name param_name
+            [
+              [field_name, param_c_bitsize(param_name)],
+              ["#{field_name}_set", 1],
+            ]
+          end.sort_by { |n, s| [s, n] }
+
+          params.each do |param, size|
+            io.puts "uint64_t #{param} : #{size};"
+          end
+
+          p params.inject(0) { |acc, (n, s)| acc + s }./(64.0)
+        end
+
+        io.puts '} evoasm_x64_inst_params_t;'
+        io.string
+      end
+
+      def bit_mask_to_c(mask)
+        name =
+          case mask
+          when Range then
+            "#{mask.min}_#{mask.max}"
+          else
+            mask.to_s
+          end
+        constant_to_c name, architecture_prefix(:bit_mask)
+      end
+
       private
       def register_param_domain(domain)
         @registered_param_domains << domain
@@ -363,7 +388,7 @@ module Evoasm
 
 
       def render_templates(file_type, binding, &block)
-        target_filenames = self.class.target_filenames(arch, file_type)
+        target_filenames = self.class.target_filenames(architecture, file_type)
 
         target_filenames.each do |target_filename|
           template_path = self.class.template_path(target_filename)
@@ -403,7 +428,7 @@ module Evoasm
 
       def inst_funcs_to_c(io = StrIO.new)
         @inst_translators = insts.map do |inst|
-          inst_translator = StateMachineCTranslator.new arch, self
+          inst_translator = StateMachineCTranslator.new architecture, self
           inst_translator.emit_inst_func io, inst
 
           inst_translator
@@ -411,20 +436,9 @@ module Evoasm
         io.string
       end
 
-      def bit_mask_to_c(mask)
-        name =
-          case mask
-          when Range then
-            "#{mask.min}_#{mask.max}"
-          else
-            mask.to_s
-          end
-        const_name_to_c name, arch_prefix(:bit_mask)
-      end
-
       def called_funcs_to_c(io = StrIO.new)
         @called_funcs.each do |func, (id, translators)|
-          func_translator = StateMachineCTranslator.new arch, self
+          func_translator = StateMachineCTranslator.new architecture, self
           func_translator.emit_called_func io, func, id
 
           translators.each do |translator|
@@ -499,28 +513,6 @@ module Evoasm
           inst_param_to_c io, translator.inst, translator.parameters, translator.param_domains
         end
 
-        io.string
-      end
-
-      def inst_params_type_decl_to_c(io = StrIO.new)
-        io.puts 'typedef struct {'
-        io.indent do
-          params = param_names.symbols.select { |key| !param_names.alias? key }.flat_map do |param_name|
-            field_name = inst_param_to_c_field_name param_name
-            [
-              [field_name, param_c_bitsize(param_name)],
-              ["#{field_name}_set", 1],
-            ]
-          end.sort_by { |n, s| [s, n] }
-
-          params.each do |param, size|
-            io.puts "uint64_t #{param} : #{size};"
-          end
-
-          p params.inject(0) { |acc, (n, s)| acc + s }./(64.0)
-        end
-
-        io.puts '} evoasm_x64_inst_params_t;'
         io.string
       end
 
@@ -714,7 +706,7 @@ module Evoasm
 
       def pref_funcs_to_c(io = StrIO.new)
         @pref_funcs.each do |writes, (id, translators)|
-          func_translator = StateMachineCTranslator.new arch, self
+          func_translator = StateMachineCTranslator.new architecture, self
           func_translator.emit_pref_func io, writes, id
 
           translators.each do |translator|

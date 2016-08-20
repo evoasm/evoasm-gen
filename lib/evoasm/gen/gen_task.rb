@@ -34,21 +34,21 @@ module Evoasm
 
       def define
         namespace 'evoasm:gen' do
-          archs.each do |arch|
-            prereqs = [ARCH_TABLES[arch]]
+          archs.each do |architecture|
+            prereqs = [ARCH_TABLES[architecture]]
 
             CTranslator::OUTPUT_FORMATS.each do |format|
-              prereqs.concat CTranslator.template_paths(arch, format)
+              prereqs.concat CTranslator.template_paths(architecture, format)
             end
 
             # pick any single file type, all are generated
             # at the same time
-            target_path = gen_path(CTranslator.target_filenames(arch, :c))
+            target_path = gen_path(CTranslator.target_filenames(architecture, :c))
 
             file target_path => prereqs do
               puts 'Translating'
-              table = load_table arch
-              unit = CUnit.new arch, table
+              table = load_table architecture
+              unit = CUnit.new architecture, table
               translator = CTranslator.new unit
               translator.translate! do |filename, content, file_type|
                 next unless file_types.include? file_type
@@ -56,10 +56,10 @@ module Evoasm
               end
             end
 
-            task "translate:#{arch}" => target_path
+            task "translate:#{architecture}" => target_path
           end
 
-          task 'translate' => archs.map { |arch| "translate:#{arch}" }
+          task 'translate' => archs.map { |architecture| "translate:#{architecture}" }
         end
 
         task name => 'gen:translate'
@@ -69,8 +69,8 @@ module Evoasm
         File.join @output_dir, filename
       end
 
-      def load_table(arch)
-        send :"load_#{arch}_table"
+      def load_table(architecture)
+        send :"load_#{architecture}_table"
       end
 
       def load_x64_table

@@ -21,17 +21,17 @@
 
 <%= unit.address_sizes.to_c %>
 
-<%= unit.parameters_enum.to_c %>
+<%= unit.parameter_names.to_c %>
 
 <%= unit.operand_types.to_c %>
 
 <%= unit.bit_masks.to_c %>
-#define <%= bit_mask_to_c 0..63 %> (<%= bit_mask_to_c 0..31 %> | <%= bit_mask_to_c 32..63 %>)
-#define <%= bit_mask_to_c 0..127 %> (<%= bit_mask_to_c 0..63 %> | <%= bit_mask_to_c 64..127 %>)
+#define <%= unit.bit_mask_to_c 0..63 %> (<%= unit.bit_mask_to_c 0..31 %> | <%= unit.bit_mask_to_c 32..63 %>)
+#define <%= unit.bit_mask_to_c 0..127 %> (<%= unit.bit_mask_to_c 0..63 %> | <%= unit.bit_mask_to_c 64..127 %>)
 
 typedef enum {
-<% unit.instructions.each do |inst| %>
-  <%= inst_name_to_c inst %> = <%= inst.index %>,
+<% unit.instructions.each do |instruction| %>
+  <%= instruction.c_constant_name %> = <%= instruction.index %>,
 <% end %>
   EVOASM_X64_N_INSTS = <%= unit.instructions.size %>,
 } evoasm_x64_inst_id_t;

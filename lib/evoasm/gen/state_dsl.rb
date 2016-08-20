@@ -1,9 +1,12 @@
 require 'evoasm/gen/state'
-require 'evoasm/gen/nodes'
+require 'evoasm/gen/nodes/others'
+require 'evoasm/gen/nodes/actions'
 
 module Evoasm
   module Gen
     module StateDSL
+      include Nodes
+
       LOWEST_PRIORITY = 999
 
       def self.included(base)
@@ -47,10 +50,12 @@ module Evoasm
 
       def unordered_writes(param_name, writes)
         writes = writes.map do |condition, write_args|
-          [expression(condition), WriteAction.new(*expressions(write_args))]
+          [expression(condition), WriteAction.new(unit, *expressions(write_args))]
         end
 
-        add_action :unordered_writes, expression(param_name), writes
+        add_action :unordered_writes,
+                   expression(param_name),
+                   UnorderedWrites.new(unit, writes)
       end
 
       def call(func)
@@ -66,7 +71,7 @@ module Evoasm
       end
 
       def log(level, msg, *args)
-        add_action :log, level, msg, *expressions(args)
+        add_action :log, level, msg, expressions(args)
       end
 
       def assert(*args)
@@ -82,7 +87,8 @@ module Evoasm
       end
 
       def error(code = nil, msg = nil, reg: nil, param: nil)
-        add_action :error, ErrorCode.new(code), StringLiteral.new(msg), RegisterConstant.new(reg), ParameterConstant.new(param)
+        add_action :error, ErrorCode.new(unit, code), StringLiteral.new(unit, msg),
+                           RegisterConstant.new(unit, reg), ParameterConstant.new(unit, param)
         return!
       end
 
@@ -92,7 +98,7 @@ module Evoasm
           call_with_state block, child
         end
 
-        @__state__.add_child child, TrueLiteral.new, default_attrs(attrs)
+        @__state__.add_child child, TrueLiteral.new(unit), default_attrs(attrs)
         child
       end
 
@@ -147,21 +153,32 @@ module Evoasm
       def expression(arg)
         case arg
         when Array
-          Operation.build arg.first, expressions(arg[1..-1])
+          op_name = arg.first
+          op_args = expressions(arg[1..-1])
+
+          if HelperOperation.helper_name? op_name
+            HelperOperation.new unit, op_name, op_args
+          else
+            Operation.new unit, op_name, op_args
+          end
         when String, Integer, FalseClass, TrueClass
           new_literal arg
         when ::Symbol
           expr_s = arg.to_s
           if expr_s == expr_s.upcase
-            Constant.new arg
+            if Gen::X64::REGISTER_NAMES.include? arg
+              RegisterConstant.new unit, arg
+            else
+              Constant.new unit, arg
+            end
           elsif expr_s[0] == '_'
-            LocalVariable.new arg[1..-1]
+            LocalVariable.new unit, arg[1..-1]
           elsif expr_s[0] == '@'
-            SharedVariable.new arg[1..-1]
+            SharedVariable.new unit, arg[1..-1]
           elsif parameter_name? arg
-            ParameterConstant.new arg
+            ParameterConstant.new unit, arg
           elsif arg == :else
-            Else.new
+            Else.new unit
           else
             raise "unknown symbol '#{arg}'"
           end
@@ -176,7 +193,7 @@ module Evoasm
 
       def new_action(name, *args)
         action_class = Nodes.const_get :"#{name.to_s.camelcase}Action"
-        action_class.new(*args)
+        action_class.new(unit, *args)
       end
 
       def new_literal(value)
@@ -193,20 +210,20 @@ module Evoasm
           end
 
         if literal_class < ValueLiteral
-          literal_class.new value
+          literal_class.new unit, value
         else
-          literal_class.new
+          literal_class.new unit
         end
       end
-    end
 
-    def call_with_state(block, state)
-      prev_state = @__state__
-      @__state__ = state
-      result = block.call
-      @__state__ = prev_state
+      def call_with_state(block, state)
+        prev_state = @__state__
+        @__state__ = state
+        result = block.call
+        @__state__ = prev_state
 
-      result
+        result
+      end
     end
   end
 end

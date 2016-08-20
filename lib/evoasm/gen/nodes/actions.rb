@@ -5,8 +5,8 @@ require 'evoasm/gen/nodes'
 module Evoasm
   module Gen
     module Nodes
-      Action = def_node
-      WriterAction = def_node Action, :value, :size
+      Action = def_node Node
+      WriteAction = def_node Action, :value, :size
       LogAction = def_node Action, :level, :msg, :args
       AccessAction = def_node Action, :reg, :modes
       CallAction = def_node Action, :state_machine

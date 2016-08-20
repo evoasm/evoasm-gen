@@ -3,6 +3,9 @@ require 'stringio'
 module Evoasm
   module Gen
     class StrIO < ::StringIO
+
+      attr_accessor :indent
+
       def indent(indent = nil)
         @indent ||= 0
 
@@ -12,9 +15,9 @@ module Evoasm
         @indent = prev_indent
       end
 
-      def block(head = '', start_sym = '{', end_sym = '}', &block)
+      def block(head = '', indent = nil, start_sym = '{', end_sym = '}', &block)
         puts "#{head} #{start_sym}"
-        indent &block
+        indent indent, &block
         puts end_sym
       end
 

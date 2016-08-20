@@ -60,18 +60,6 @@ module Evoasm
           unit.symbol_to_c symbol_name, Array(@prefix) + [symbol_name_prefix], const: true
         end
 
-        private
-
-        def c_type_name
-          unit.symbol_to_c name, @prefix, type: true
-        end
-
-        def bitsize_to_c(with_n = false)
-          unit.symbol_to_c "#{symbol_name_prefix}_bitsize#{with_n ? '_WITH_N' : ''}", @prefix, const: true
-        end
-      end
-
-      module EnumToRubyFFI
         def to_ruby_ffi(io = StrIO.new)
           io.indent(2) do
             io.puts "enum :#{ruby_ffi_type_name}, ["
@@ -101,16 +89,25 @@ module Evoasm
         end
 
         private
+
+        def c_type_name
+          unit.symbol_to_c name, @prefix, type: true
+        end
+
+        def bitsize_to_c(with_n = false)
+          unit.symbol_to_c "#{symbol_name_prefix}_bitsize#{with_n ? '_WITH_N' : ''}", @prefix, const: true
+        end
+
         def ruby_ffi_type_name
           "#{@prefix}_#{name}"
         end
 
         def n_symbol_to_ruby_ffi
-          symbol_to_ruby_ffi "n_#{symbol_name_prefix}s"
+          unit.symbol_to_ruby_ffi "n_#{symbol_name_prefix}s"
         end
 
         def symbol_to_ruby_ffi(symbol)
-          symbol_to_ruby_ffi symbol, Array(@prefix) + [symbol_name_prefix], const: true
+          unit.symbol_to_ruby_ffi symbol, Array(@prefix) + [symbol_name_prefix], const: true
         end
       end
     end

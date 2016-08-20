@@ -1,57 +1,54 @@
 require 'evoasm/gen/strio'
-require 'evoasm/gen/to_c/name_util'
 
 module Evoasm
   module Gen
-    module ToC
-      module IntegerLiteralToC
-        def to_c(_unit)
+    module Nodes
+
+      def_to_c IntegerLiteral do |hex = true|
+        if hex
           '0x' + value.to_s(16)
+        else
+          value.to_s
         end
       end
 
-      module StringLiteralToC
-        def to_c(_unit)
-          %Q{"#{value}"}
-        end
+      def_to_c StringLiteral do
+        %Q{"#{value}"}
       end
 
-      module TrueLiteralToC
-        def to_c(_unit)
+      class TrueLiteral
+        def to_c
           'true'
         end
 
-        def if_to_c(_unit, _io)
+        def if_to_c(_io)
           yield
         end
       end
 
-      module FalseLiteralToC
-        def to_c(_unit)
+      class FalseLiteral
+        def to_c
           'false'
         end
 
-        def if_to_c(_unit, _io)
+        def if_to_c(_io)
         end
       end
 
-      module ExpressionToC
-        def if_to_c(unit, io, &block)
-          io.block "if(#{to_c unit})", &block
+      class Expression
+        def if_to_c(io, &block)
+          io.block "if(#{to_c})", &block
         end
       end
 
-      module ElseToC
-        def if_to_c(_unit, io, &block)
+      class Else
+        def if_to_c(io, &block)
           io.block "else", &block
         end
       end
 
-      module OperationToC
-        def c_operation
-        end
-
-        def to_c(_unit)
+      class Operation
+        def to_c
           c_op, arity =
             case name
             when :and
@@ -74,10 +71,12 @@ module Evoasm
 
           check_arity! arity
 
+          args_c = args.map(&:to_c)
+
           if arity == 1
-            "(#{c_op}#{args})"
+            "(#{c_op}#{args_c.first})"
           else
-            "(#{args.join " #{c_op} "})"
+            "(#{args_c.join " #{c_op} "})"
           end
         end
 
@@ -91,43 +90,52 @@ module Evoasm
         end
       end
 
-      module ParameterConstantToC
-        def to_c(unit)
-          "EVOASM_#{unit.arch}_PARAM_#{name.upcase}"
+      class HelperOperation
+        def to_c
+          send :"#{name}_to_c"
         end
-      end
 
-      module ParameterToC
-        def to_c(unit, io)
-          unit.register_domain domain
+        private
 
-          io.puts '{'
-          io.indent do
-            io.puts constant.to_c, eol: ','
-            io.puts '(evoasm_domain_t *) &' + domain.c_variable_name
-          end
-          io.puts '}'
+        def reg_code_to_c
+          #unit.call_to_c
         end
       end
 
 
-      module UnorderedWritesToC
-        def c_function_name(_unit)
+
+      def_to_c ParameterConstant do
+        "EVOASM_#{unit.architecture}_PARAM_#{name.upcase}"
+      end
+
+      def_to_c Parameter do |io|
+        unit.register_domain domain
+
+        io.puts '{'
+        io.indent do
+          io.puts constant.to_c, eol: ','
+          io.puts '(evoasm_domain_t *) &' + domain.c_variable_name
+        end
+        io.puts '}'
+      end
+
+      class UnorderedWrites
+        def c_function_name
           "unordered_write_#{object_id}"
         end
 
-        def call_to_c(unit, io, param)
+        def call_to_c(io, param)
           if writes.size == 1
             condition, write_action = writes.first
-            condition.if_to_c(unit, io) do
-              write_action.to_c(unit, io)
+            condition.if_to_c(io) do
+              write_action.to_c(io)
             end
           else
-            "if(!#{c_function_name unit}(ctx, ctx->params.#{param.name})){goto error;}"
+            "if(!#{c_function_name}(ctx, ctx->params.#{param.name})){goto error;}"
           end
         end
 
-        def to_c(unit, io)
+        def to_c(io)
           # inline singleton writes
           return if writes.size == 1
 
@@ -161,33 +169,31 @@ module Evoasm
         name
       end
 
+      def_to_c Constant do
+        unit.constant_to_c name, [unit.architecture]
+      end
+
       def_to_c SharedVariable do
         "ctx->shared.#{name}"
       end
 
-      module RegisterToC
-        def to_c(unit)
-          unit.symbol_to_c name, [unit.arch], const: true
-        end
+      def_to_c RegisterConstant do
+        unit.symbol_to_c name, [unit.architecture], const: true
       end
 
-      module ErrorCodeToC
-        def to_c(unit)
-          unit.symbol_to_c name, const: true
-        end
+      def_to_c ErrorCode do
+        unit.symbol_to_c name, const: true
       end
 
-      module PermutationTableToC
-        def to_c(unit, io)
-          io.puts "static int #{permutation_table_var_name n}"\
+      def_to_c PermutationTable do |io|
+        io.puts "static int #{permutation_table_var_name n}"\
                     "[#{perms.size}][#{perms.first.size}] = {"
 
-          perms.each do |perm|
-            io.puts "  {#{perm.join ', '}},"
-          end
-          io.puts '};'
-          io.puts
+        perms.each do |perm|
+          io.puts "  {#{perm.join ', '}},"
         end
+        io.puts '};'
+        io.puts
       end
     end
   end

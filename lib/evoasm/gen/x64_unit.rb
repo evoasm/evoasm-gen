@@ -18,7 +18,7 @@ module Evoasm
       attr_reader :register_names
       attr_reader :displacement_sizes
       attr_reader :address_sizes
-      attr_reader :parameters_enum
+      attr_reader :parameter_names
 
       private
 
@@ -28,15 +28,15 @@ module Evoasm
       end
 
       def load_enums
-        @features = Enum.new self, :feature, prefix: arch
-        @instruction_flags = Enum.new self, :inst_flag, prefix: arch, flags: true
-        @exceptions = Enum.new self, :exception, prefix: arch
-        @register_types = Enum.new self, :reg_type, Gen::X64::REGISTERS.keys, prefix: arch
-        @operand_types = Enum.new self, :operand_type, Nodes::X64::Instruction::OPERAND_TYPES, prefix: arch
-        @register_names = Enum.new self, :reg_id, Gen::X64::REGISTER_NAMES, prefix: arch
-        @bit_masks = Enum.new self, :bit_mask, %i(rest 64_127 32_63 0_31), prefix: arch, flags: true
-        @address_sizes = Enum.new self, :addr_size, %i(64 32), prefix: arch
-        @displacement_sizes = Enum.new self, :disp_size, %i(16 32), prefix: arch
+        @features = Enum.new self, :feature, prefix: architecture
+        @instruction_flags = Enum.new self, :inst_flag, prefix: architecture, flags: true
+        @exceptions = Enum.new self, :exception, prefix: architecture
+        @register_types = Enum.new self, :reg_type, Gen::X64::REGISTERS.keys, prefix: architecture
+        @operand_types = Enum.new self, :operand_type, Nodes::X64::Instruction::OPERAND_TYPES, prefix: architecture
+        @register_names = Enum.new self, :reg_id, Gen::X64::REGISTER_NAMES, prefix: architecture
+        @bit_masks = Enum.new self, :bit_mask, %i(rest 64_127 32_63 0_31), prefix: architecture, flags: true
+        @address_sizes = Enum.new self, :addr_size, %i(64 32), prefix: architecture
+        @displacement_sizes = Enum.new self, :disp_size, %i(16 32), prefix: architecture
 
         @instructions.each do |inst|
           @features.add_all inst.features
@@ -44,9 +44,9 @@ module Evoasm
           @exceptions.add_all inst.exceptions
         end
 
-        @parameters_enum = Enum.new self, :inst_param_id, STATIC_PARAMETERS, prefix: arch
+        @parameter_names = Enum.new self, :inst_param_id, STATIC_PARAMETERS, prefix: architecture
         PARAMETER_ALIASES.each do |alias_key, key|
-          @parameters_enum.alias alias_key, key
+          @parameter_names.alias alias_key, key
         end
       end
 

@@ -2,19 +2,19 @@ require 'ffi'
 
 module Evoasm
   module Libevoasm
-<%= features.to_ruby_ffi %>
-<%= inst_flags.to_ruby_ffi %>
-<%= exceptions.to_ruby_ffi %>
-<%= reg_types.to_ruby_ffi  %>
-<%= reg_names.to_ruby_ffi %>
-<%= param_names.to_ruby_ffi %>
-<%= operand_types.to_ruby_ffi %>
-<%= disp_sizes.to_ruby_ffi %>
-<%= addr_sizes.to_ruby_ffi %>
+<%= unit.features.to_ruby_ffi %>
+<%= unit.instruction_flags.to_ruby_ffi %>
+<%= unit.exceptions.to_ruby_ffi %>
+<%= unit.register_types.to_ruby_ffi  %>
+<%= unit.register_names.to_ruby_ffi %>
+<%= unit.parameter_names.to_ruby_ffi %>
+<%= unit.operand_types.to_ruby_ffi %>
+<%= unit.displacement_sizes.to_ruby_ffi %>
+<%= unit.address_sizes.to_ruby_ffi %>
 
     enum :x64_inst_id, [
-<% insts.each do |inst| %>
-      :<%= inst_name_to_ruby_ffi inst %>, <%= inst.index %>,
+<% unit.instructions.each do |instruction| %>
+      :<%= instruction.ruby_ffi_name %>, <%= instruction.index %>,
 <% end %>
       :n_insts
     ]

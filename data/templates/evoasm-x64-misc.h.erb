@@ -7,14 +7,14 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-<%= inst_params_type_decl_to_c %>
+<%= unit.inst_params_type_decl_to_c %>
 
 static inline evoasm_x64_reg_type_t
 evoasm_x64_reg_type(evoasm_x64_reg_id_t reg) {
   switch(reg) {
 <% Evoasm::Gen::X64::REGISTERS.each do |reg_type, regs| %>
   <% regs.each do |reg| %>
-    case <%= register_name_to_c reg %>: return <%= reg_type_to_c reg_type %>;
+    case <%= unit.register_name_to_c reg %>: return <%= unit.reg_type_to_c reg_type %>;
   <% end %>
 <% end %>
     default: evoasm_assert_not_reached();
@@ -24,5 +24,5 @@ evoasm_x64_reg_type(evoasm_x64_reg_id_t reg) {
 evoasm_success_t
 evoasm_x64_ctx_load_cpuid(evoasm_x64_ctx_t *x64_ctx);
 
-#define _EVOASM_X64_INSTS_VAR_NAME <%= insts_var_name %>
+#define _EVOASM_X64_INSTS_VAR_NAME <%= unit.insts_var_name %>
 

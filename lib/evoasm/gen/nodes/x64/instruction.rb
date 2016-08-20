@@ -9,7 +9,7 @@ module Evoasm
   module Gen
     module Nodes
       module X64
-        class Instruction < StateMachine
+        class Instruction < Nodes::Instruction
           include StateDSL
           include EncodeUtil # for set_reg_code
 
@@ -22,8 +22,8 @@ module Evoasm
                 :flags, :exceptions
 
           params :imm0, :lock?, :legacy_prefix_order, :rel,
-                     :imm1, :moffs, :addr_size, :reg0, :reg1, :reg2, :reg3,
-                     :reg0_high_byte?
+                 :imm1, :moffs, :addr_size, :reg0, :reg1, :reg2, :reg3,
+                 :reg0_high_byte?
 
           local_vars :reg_code
 
@@ -346,7 +346,8 @@ module Evoasm
             rm_type = rm_op.type
             byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-            modrm_sib = ModRMSIB.cached reg_param: reg_param,
+            modrm_sib = ModRMSIB.cached unit,
+                                        reg_param: reg_param,
                                         rm_reg_param: rm_reg_param,
                                         rm_type: rm_type,
                                         modrm_reg_bits: modrm_reg_bits,
@@ -435,7 +436,8 @@ module Evoasm
                 # [:if, [:eq, [:operand_size], 128], 0b0, 0b1]
               end
 
-            vex = VEX.cached rex_w: rex_w,
+            vex = VEX.cached unit,
+                             rex_w: rex_w,
                              reg_param: reg_op&.param,
                              rm_reg_param: rm_op&.param,
                              rm_reg_type: rm_op&.type,
@@ -497,7 +499,8 @@ module Evoasm
             reg_op, rm_op, _ = reg_operands
             byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-            rex = REX.cached force: force_rex,
+            rex = REX.cached unit,
+                             force: force_rex,
                              rex_w: rex_w,
                              reg_param: reg_op&.param,
                              rm_reg_param: rm_op&.param,

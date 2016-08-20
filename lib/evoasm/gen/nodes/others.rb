@@ -5,7 +5,7 @@ module Evoasm
   module Gen
     module Nodes
 
-      Expression = def_node
+      Expression = def_node Node
       Operation = def_node Expression, :name, :args do
         def to_s
           args_to_s = args.map(&:to_s).join(', ')
@@ -27,20 +27,20 @@ module Evoasm
           new_name, new_args =
             case name
             when :neq
-              [:not, [Operation.build(:eq, args)]]
+              [:not, [Operation.new(unit, :eq, args)]]
             when :false?
               [:eq, [*args, 0]]
             when :true?
-              [:not, [Operation.build(:false?, *args)]]
+              [:not, [Operation.new(unit, :false?, *args)]]
             when :unset?
-              [:not, [Operation.build(:set?, *args)]]
+              [:not, [Operation.new(unit, :set?, *args)]]
             when :in?
               args = self.args[1..-1].map do |arg|
-                Operation.build(:eq, [self.args.first, arg])
+                Operation.new(unit, :eq, [self.args.first, arg])
               end
               [:or, args]
             when :not_in?
-              [:not, [Operation.build(:in?, args)]]
+              [:not, [Operation.new(unit, :in?, args)]]
             end
 
           if new_name
@@ -54,27 +54,34 @@ module Evoasm
       end
 
       Else = def_node Expression
-      HelperOperation = def_node Operation
+      HelperOperation = def_node Operation do
+        HELPER_NAMES = %i(reg_code)
 
-      PermutationTable = def_node :size do
-        def self.cached(size)
-          @cache ||= Hash.new { |h, k| h[k] = new size }
-          @cache[size]
+        def self.helper_name?(name)
+          HELPER_NAMES.include? name
+
         end
       end
 
-      UnorderedWrites = def_node :writes do
+      PermutationTable = def_node Node, :size do
+        def self.cached(unit, size)
+          @cache ||= Hash.new { |h, k| h[k] = new *k }
+          @cache[[unit, size]]
+        end
+      end
+
+      UnorderedWrites = def_node Node, :writes do
         attr_reader :permutation_table
 
-        def self.cached(writes)
-          @cache ||= Hash.new { |h, k| h[k] = new k }
-          @cache[writes]
+        def self.cached(unit, writes)
+          @cache ||= Hash.new { |h, k| h[k] = new *k }
+          @cache[[unit, writes]]
         end
 
         private
 
         def after_initialize
-          @permutation_table = PermutationTable.cached writes.size
+          @permutation_table = PermutationTable.cached unit, writes.size
         end
       end
 
@@ -91,7 +98,7 @@ module Evoasm
       ParameterConstant = def_node Constant
       LocalVariable = def_node Symbol
       SharedVariable = def_node Symbol
-      Parameter = def_node
+      Parameter = def_node Node
     end
   end
 end

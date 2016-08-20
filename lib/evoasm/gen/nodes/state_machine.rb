@@ -4,10 +4,14 @@ module Evoasm
       class StateMachine < Node
 
         class << self
-          def cached(attrs)
-            @cache ||= Hash.new { |h, k| h[k] = new k }
-            @cache[attrs]
+          def cached(unit, attrs)
+            @cache ||= Hash.new { |h, k| h[k] = new *k }
+            @cache[[unit, attrs]]
           end
+
+          attr_reader :shared_variables, :local_variables, :parameters, :attributes
+
+          private
 
           def params(*params)
             @parameters = params.freeze
@@ -41,8 +45,6 @@ module Evoasm
           def shared_vars(*shared_vars)
             @shared_variables = shared_vars.freeze
           end
-
-          attr_reader :shared_variables, :local_variables, :parameters, :attributes
         end
 
         def initialize(unit, attrs)
@@ -52,7 +54,7 @@ module Evoasm
         end
 
         def parameter_name?(name)
-          parameters = self.class.params
+          parameters = self.class.parameters
           parameters && parameters.include?(name)
         end
 
@@ -64,23 +66,12 @@ module Evoasm
         private
 
         def collect_parameters_(arg, parameters)
-          case arg
-          when ParameterConstant
-            parameters << arg
-          when Expression
-            arg.args.each do |arg|
-              collect_parameters_(arg, parameters)
-            end
-          when Constant
-          else
-            raise "unexpected class #{arg.class}"
-          end
         end
 
         def collect_parameters(state, parameters)
           state.actions.each do |action|
-            action.args.each do |action_arg|
-              collect_parameters_(action_arg, parameters)
+            action.traverse do |value|
+              parameters << value if value.is_a?(ParameterConstant)
             end
           end
 
@@ -91,6 +82,10 @@ module Evoasm
 
           parameters
         end
+      end
+
+      class Instruction < StateMachine
+
       end
     end
   end
