@@ -12,8 +12,10 @@ module Evoasm
 
         attr_args = []
         class_.attributes.each do |attr|
-          attr_args.push attrs[attr]
+          attr_args.push attrs.delete attr
         end
+
+        raise ArgumentError, "invalid attributes #{attrs.keys}" unless attrs.empty?
 
         node = class_.new self, *attr_args
 

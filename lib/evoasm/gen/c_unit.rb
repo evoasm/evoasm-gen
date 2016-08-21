@@ -273,10 +273,62 @@ module Evoasm
         nodes_of_kind_to_c Nodes::Domain
       end
 
+      def parameters_to_c
+        @instructions.each do |instruction|
+          instruction_parameters_to_c instruction
+        end
+      end
+
+      def operands_to_c
+        @instructions.each do |instruction|
+          instruction_operands_to_c instruction
+        end
+      end
+
+      def instruction_parameters_to_c(instruction)
+        io = StrIO.new
+        parameters = instruction.parameters
+
+        return if parameters.empty?
+
+        io.puts "static const #{parameters.first.c_type_name} params_#{instruction.name}[] = {"
+        io.indent do
+          parameters.each do |parameter|
+            io.puts '{'
+            io.indent do
+              io.puts parameter.c_constant_name, eol: ','
+              io.puts '(evoasm_domain_t *) &' + parameter.domain.c_variable_name
+            end
+            io.puts '},'
+          end
+        end
+        io.puts '};'
+        io.puts
+        io.string
+      end
+
+      def instruction_operands_to_c(instruction)
+        io = StrIO.new
+        operands = instruction.operands
+
+        return if operands.empty?
+
+        # io.puts "static const #{operands.first.c_type_name} #{inst_operands_var_name translator.inst}[] = {"
+        #   io.indent do
+        #     translator.inst.operands.each do |op|
+        #       inst_operand_to_c(translator, op, io, eol: ',')
+        #     end
+        #   end
+        #   io.puts '};'
+        #   io.puts
+        # end
+
+        io.string
+      end
+
       def instructions_to_c
         nodes_to_c @instructions
       end
-
 
       def parameter_set_function(io = StrIO.new)
         io.puts 'void evoasm_x64_inst_params_set(evoasm_x64_inst_params_t *params, evoasm_x64_inst_param_id_t param, evoasm_inst_param_val_t param_val) {'
@@ -609,8 +661,6 @@ module Evoasm
 
         io.string
       end
-
-      ENUM_MAX_LENGTH = 32
 
       def param_domain_to_c(io, domain)
         domain_c =

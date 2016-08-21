@@ -33,19 +33,24 @@ module Evoasm
 
         private
 
-        def collect_parameters_(arg, parameters)
+        def collect_parameters_(node, parameters)
+          node.traverse do |child_node|
+            if child_node.is_a?(ParameterVariable)
+              parameter_name = child_node.name
+              parameter = Parameter.new unit, parameter_name, child_node.domain || parameter_domain(parameter_name)
+              parameters << parameter
+            end
+          end
         end
 
         def collect_parameters(state, parameters)
           state.actions.each do |action|
-            action.traverse do |value|
-              parameters << value if value.is_a?(ParameterVariable)
-            end
+            collect_parameters_ action, parameters
           end
 
           state.children.each do |child, condition, _|
-            collect_parameters child, parameters
             collect_parameters_ condition, parameters if condition
+            collect_parameters child, parameters
           end
 
           parameters

@@ -5,7 +5,7 @@ module Evoasm
     module Nodes
       module X64
         class Instruction
-          class Operand
+          class Operand < Node
             include Evoasm::Gen::X64
 
             attr_reader :name, :param, :type, :size1, :size2, :access,
@@ -31,31 +31,33 @@ module Evoasm
               end
             end
 
-            def self.load(ops)
+            def self.load(unit, operands)
               operands = []
               counters = Counters.new
 
-              ops.each do |op_name, flags|
-                next if IGNORED_MXCSR.include? op_name.to_sym
-                next if IGNORED_RFLAGS.include? op_name.to_sym
+              operands.each do |operand_name, flags|
+                next if IGNORED_MXCSR.include? operand_name.to_sym
+                next if IGNORED_RFLAGS.include? operand_name.to_sym
 
-                if op_name == 'FLAGS' || op_name == 'RFLAGS'
+                if operand_name == 'FLAGS' || operand_name == 'RFLAGS'
                   # NOTE: currently all used flags
                   # fall within the bits of 32-bit FLAGS
                   # i.e. all upper bits of RFLAGS are unused
                   RFLAGS.each do |reg_name|
                     next if IGNORED_RFLAGS.include? reg_name.to_sym
-                    operands << new(reg_name.to_s, flags, counters)
+                    operands << new(unit, reg_name.to_s, flags, counters)
                   end
                 else
-                  operands << new(op_name, flags, counters)
+                  operands << new(unit, operand_name, flags, counters)
                 end
               end
 
               operands
             end
 
-            def initialize(name, flags, counters)
+            def initialize(unit, name, flags, counters)
+              super(unit)
+
               @name = name
               @access = flags.gsub(/[^crwu]/, '').each_char.map(&:to_sym)
               @accessed_bits = {}

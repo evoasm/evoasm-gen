@@ -65,9 +65,14 @@ module Evoasm
           [expression(condition), new_write_action(*write_args)]
         end
 
+        parameter = expression(param_name)
+        unordered_writes = UnorderedWrites.new(unit, writes)
+
+        parameter.domain = unordered_writes.domain
+
         add_new_action :unordered_writes,
-                       expression(param_name),
-                       UnorderedWrites.new(unit, writes)
+                       parameter,
+                       unordered_writes
       end
 
       def call(func)

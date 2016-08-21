@@ -69,7 +69,7 @@ module Evoasm
           unit.c_function_call("#{name}_access",
                                [
                            "(#{bitmap_c_type} *) &#{acc}",
-                           "(#{regs.c_type}) #{expr_to_c(op)}",
+                           "(#{regs.c_type_name}) #{expr_to_c(op)}",
                            *params
                          ],
                                base_arch_ctx_prefix,
@@ -101,7 +101,7 @@ module Evoasm
       end
 
       def_to_c UnorderedWritesAction do |io|
-        unordered_writes.call_to_c io, param
+        unordered_writes.call_to_c io, parameter
       end
 
       def_to_c CallAction do |io|

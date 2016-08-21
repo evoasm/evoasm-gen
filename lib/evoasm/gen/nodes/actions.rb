@@ -11,7 +11,7 @@ module Evoasm
       AccessAction = def_node Action, :reg, :modes
       CallAction = def_node Action, :state_machine
       SetAction = def_node Action, :variable, :value
-      UnorderedWritesAction = def_node Action, :param, :unordered_writes
+      UnorderedWritesAction = def_node Action, :parameter, :unordered_writes
       ErrorAction = def_node Action, :code, :msg, :reg, :param
     end
   end

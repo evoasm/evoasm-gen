@@ -79,66 +79,69 @@ module Evoasm
           # (i.e. by their corresponding C enum numeric value)
           GP_REGISTERS = Gen::X64::REGISTERS.fetch(:gp)[0..-5] - [:SP]
 
-          def param_domain(param_name)
-            case param_name
-            when :rex_b, :rex_r, :rex_x, :rex_w,
-              :vex_l, :force_rex?, :lock?, :force_sib?,
-              :force_disp32?, :force_long_vex?, :reg0_high_byte?,
-              :reg1_high_byte?
-              (0..1)
-            when :addr_size
-              [32, 64]
-            when :disp_size
-              [16, 32]
-            when :scale
-              [1, 2, 4, 8]
-            when :modrm_reg
-              (0..7)
-            when :vex_v
-              (0..15)
-            when :reg_base
-              GP_REGISTERS
-            when :reg_index
-              case reg_operands[1].type
-              when :vsib
-                X64::REGISTERS.fetch :xmm
-              when :mem, :rm
+          def parameter_domain(param_name)
+            values =
+              case param_name
+              when :rex_b, :rex_r, :rex_x, :rex_w,
+                :vex_l, :force_rex?, :lock?, :force_sib?,
+                :force_disp32?, :force_long_vex?, :reg0_high_byte?,
+                :reg1_high_byte?
+                (0..1)
+              when :addr_size
+                [32, 64]
+              when :disp_size
+                [16, 32]
+              when :scale
+                [1, 2, 4, 8]
+              when :modrm_reg
+                (0..7)
+              when :vex_v
+                (0..15)
+              when :reg_base
                 GP_REGISTERS
-              else
-                raise
-              end
-            when :imm0, :imm1, :imm, :moffs, :rel
-              imm_op = encoded_operands.find { |op| op.param == param_name }
-              case imm_op.size
-              when 8
-                :int8
-              when 16
-                :int16
-              when 32
+              when :reg_index
+                case register_operands[1].type
+                when :vsib
+                  X64::REGISTERS.fetch :xmm
+                when :mem, :rm
+                  GP_REGISTERS
+                else
+                  raise
+                end
+              when :imm0, :imm1, :imm, :moffs, :rel
+                imm_op = encoded_operands.find { |op| op.param == param_name }
+                case imm_op.size
+                when 8
+                  :int8
+                when 16
+                  :int16
+                when 32
+                  :int32
+                when 64
+                  :int64
+                else
+                  raise "unexpected imm size '#{imm_op.size}'"
+                end
+              when :disp
                 :int32
-              when 64
-                :int64
-              else
-                raise "unexpected imm size '#{imm_op.size}'"
-              end
-            when :disp
-              :int32
-            when :reg0, :reg1, :reg2, :reg3
-              reg_op = encoded_operands.find { |op| op.param == param_name }
+              when :reg0, :reg1, :reg2, :reg3
+                reg_op = encoded_operands.find { |op| op.param == param_name }
 
-              case reg_op.reg_type
-              when :xmm
-                xmm_regs zmm: false
-              when :zmm
-                xmm_regs zmm: true
-              when :gp
-                GP_REGISTERS
+                case reg_op.reg_type
+                when :xmm
+                  xmm_regs zmm: false
+                when :zmm
+                  xmm_regs zmm: true
+                when :gp
+                  GP_REGISTERS
+                else
+                  X64::REGISTERS.fetch reg_op.reg_type
+                end
               else
-                X64::REGISTERS.fetch reg_op.reg_type
+                raise "missing domain for param #{param_name}"
               end
-            else
-              raise "missing domain for param #{param_name}"
-            end
+
+            Domain.new unit, values
           end
 
           def name
@@ -196,7 +199,7 @@ module Evoasm
               [$1, $2]
             end
 
-            self.operands = Operand.load ops
+            self.operands = Operand.load unit, ops
           end
 
           def load_flags
@@ -300,7 +303,7 @@ module Evoasm
             opcode_index += 1
 
             byte = Integer($1, 16)
-            reg_op, = reg_operands
+            reg_op, = register_operands
             reg_op.param == :reg0 or fail "expected reg_op to have param reg0 not #{reg_op.param}"
 
             set_reg_bits(:_reg_code, :reg0, reg_op.size == 8) do
@@ -322,7 +325,7 @@ module Evoasm
             # and can be an opcode extension
             # reg_reg is a *register*.
             # if given instead, it is properly handled and encoded
-            reg_op, rm_op, = reg_operands
+            reg_op, rm_op, = register_operands
 
             byte = opcode[opcode_index]
             opcode_index += 1
@@ -408,7 +411,7 @@ module Evoasm
                 0b00
               end
 
-            reg_op, rm_op, vex_op = reg_operands
+            reg_op, rm_op, vex_op = register_operands
 
             access(vex_op.param, vex_op.access) if vex_op
 
@@ -455,7 +458,7 @@ module Evoasm
             @encoded_operands ||= operands.select(&:encoded?)
           end
 
-          def reg_operands
+          def register_operands
             return @regs if @regs
 
             r_idx = encoding.index(/R|O/)
@@ -496,7 +499,7 @@ module Evoasm
               rex_w = nil
             end
 
-            reg_op, rm_op, _ = reg_operands
+            reg_op, rm_op, _ = register_operands
             byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
             rex = unit.find_or_create_node REX,

@@ -119,19 +119,74 @@ module Evoasm
       end
 
       def_to_c ParameterVariable do
-        #"EVOASM_#{unit.architecture}_PARAM_#{name.upcase}"
         "ctx->params.#{name.to_s.gsub '?', ''}"
       end
 
-      def_to_c Parameter do |io|
-        unit.register_domain domain
-
-        io.puts '{'
-        io.indent do
-          io.puts constant.to_c, eol: ','
-          io.puts '(evoasm_domain_t *) &' + domain.c_variable_name
+      class Parameter
+        def to_c(io)
+          io.puts '{'
+          io.indent do
+            io.puts constant.to_c, eol: ','
+            io.puts '(evoasm_domain_t *) &' + domain.c_variable_name
+          end
+          io.puts '}'
         end
-        io.puts '}'
+
+        def c_type_name
+          unit.symbol_to_c :inst_param, type: true
+        end
+
+        def c_constant_name
+          unit.parameter_names.symbol_to_c name
+        end
+      end
+
+      class Domain
+
+        ENUM_MAX_LENGTH = 32
+
+        def to_c(io)
+          domain_c =
+            case values
+            when /int(\d+)/
+              type = $1 == '64' ? 'EVOASM_DOMAIN_TYPE_INT64' : 'EVOASM_DOMAIN_TYPE_INTERVAL'
+              "{#{type}, INT#{$1}_MIN, INT#{$1}_MAX}"
+            when Range
+              "{EVOASM_DOMAIN_TYPE_INTERVAL, #{values.begin}, #{values.end}}"
+            when Array
+              if values.size > ENUM_MAX_LENGTH
+                raise 'enum exceeds maximal enum length of'
+              end
+              values_c = values.map(&:to_c).join ', '
+              "{EVOASM_DOMAIN_TYPE_ENUM, #{values.length}, {#{values_c}}}"
+            else
+              raise
+            end
+
+          domain_c_type =
+            case values
+            when Range, Symbol
+              'evoasm_interval_t'
+            when Array
+              "evoasm_enum#{values.size}_t"
+            else
+              raise
+            end
+          io.puts "static const #{domain_c_type} #{c_variable_name} = #{domain_c};"
+        end
+
+        def c_variable_name
+          case values
+          when Range
+            "param_values__#{values.begin.to_s.tr('-', 'm')}_#{values.end}"
+          when Array
+            "param_values_enum__#{values.join '_'}"
+          when Symbol
+            "param_values_#{values}"
+          else
+            raise "unexpected values type #{values.class} (#{values.inspect})"
+          end
+        end
       end
 
       class UnorderedWrites
@@ -202,15 +257,15 @@ module Evoasm
 
       class PermutationTable
         def c_variable_name
-          "permutations#{size}"
+          "permutations#{width}"
         end
 
         def to_c(io)
           io.puts "static int #{c_variable_name}"\
-                    "[#{table.size}][#{table.first.size}] = {"
+                    "[#{height}][#{width}] = {"
 
-          table.each do |perm|
-            io.puts "  {#{table.join ', '}},"
+          table.each do |permutation|
+            io.puts "  {#{permutation.join ', '}},"
           end
           io.puts '};'
           io.puts

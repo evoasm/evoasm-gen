@@ -65,19 +65,27 @@ module Evoasm
 
       Else = def_node Expression
 
-      PermutationTable = def_node Node, :size do
+      PermutationTable = def_node Node, :width do
         def table
-          (0...size).to_a.permutation.to_a
+          @table ||= (0...width).to_a.permutation.to_a
+        end
+
+        def height
+          table.size
         end
       end
 
       UnorderedWrites = def_node Node, :writes do
         attr_reader :permutation_table
 
+        def domain
+          Domain.new unit, (0...@permutation_table.height)
+        end
+
         private
 
         def after_initialize
-          @permutation_table = unit.find_or_create_node PermutationTable, size: writes.size
+          @permutation_table = unit.find_or_create_node PermutationTable, width: writes.size
         end
       end
 
@@ -94,10 +102,12 @@ module Evoasm
       Constant = def_node Symbol
       ErrorCode = def_node Constant
       RegisterConstant = def_node Constant
-      ParameterVariable = def_node Symbol
+      ParameterVariable = def_node Symbol do
+        attr_accessor :domain
+      end
       LocalVariable = def_node Symbol
       SharedVariable = def_node Symbol
-      Parameter = def_node Node
+      Parameter = def_node Node, :name, :domain
     end
   end
 end
