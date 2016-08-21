@@ -4,15 +4,96 @@ module Evoasm
       class Node
         attr_reader :unit
 
-        def traverse(&block)
-          attrs = self.class.attributes
-          attrs.each do |attr|
-            value = send attr
-            block[value]
+        class << self
+          def own_attributes
+            []
+          end
 
-            if value.is_a?(Node)
-              value.traverse(&block)
+          def attributes
+            if self == Node
+              []
+            else
+              superclass.attributes + own_attributes
             end
+          end
+
+          def attrs(*attrs)
+            return if attrs.empty?
+
+            attrs.each do |attr|
+
+              ivar_name = attr_instance_variable_name attr
+              writer_name = attr_writer_name attr
+              reader_name = attr_reader_name(attr)
+
+              define_method reader_name do
+                instance_variable_get ivar_name
+              end
+
+              define_method writer_name do |value|
+                instance_variable_set ivar_name, value
+              end
+              private writer_name
+            end
+
+            define_singleton_method :own_attributes do
+              attrs.freeze
+            end
+
+            superclass_attrs = superclass.attributes
+            all_attrs = superclass_attrs + attrs
+
+            parameter_list = (%w(unit) + all_attrs).map do |attr|
+              attr_parameter_name attr
+            end.join(',')
+
+            super_argument_list = (%w(unit) + superclass_attrs).map do |attr|
+              attr_parameter_name attr
+            end.join(',')
+
+            class_eval <<~END
+              def initialize(#{parameter_list})
+                super(#{super_argument_list})
+                #{attrs.map { |attr| "#{attr_instance_variable_name attr} = #{attr_parameter_name attr}" }.join("\n")}
+
+                after_initialize
+              end
+
+              def hash
+                super ^ #{attrs.map { |attr| attr_instance_variable_name attr }.join(' ^ ')}
+              end
+
+              def eql?(other)
+                super(other) && #{attrs.map { |attr| "#{attr_instance_variable_name attr} == other.#{attr_reader_name attr}" }.join(' && ')}
+              end
+              alias == eql?
+
+              private
+              def after_initialize
+              end
+            END
+          end
+
+          private
+
+          def attr_reader_name(attr)
+            attr
+          end
+
+          def attr_parameter_name(attr)
+            attr_remove_predicate_suffix attr
+          end
+
+          def attr_remove_predicate_suffix(attr)
+            attr.to_s.sub /\?$/, ''
+          end
+
+          def attr_writer_name(attr)
+            :"#{attr_remove_predicate_suffix attr}="
+          end
+
+          def attr_instance_variable_name(attr)
+            :"@#{attr_remove_predicate_suffix attr}"
           end
         end
 
@@ -20,15 +101,19 @@ module Evoasm
           @unit = unit
         end
 
-        def self.own_attributes
-          []
+        def traverse(&block)
+          attrs = self.class.attributes
+          attrs.each do |attr|
+            value = send attr
+            block[value]
+
+            value.traverse(&block) if value.is_a?(Node)
+          end
         end
 
-        def self.attributes
-          if self == Node
-            []
-          else
-            superclass.attributes + own_attributes
+        def match?(attrs = {})
+          attrs.all? do |attr, value|
+            send(attr) == value
           end
         end
       end
@@ -39,56 +124,9 @@ module Evoasm
         end
 
         Class.new superclass do
-          attrs.each do |attr|
-
-            reader_name = attr
-            writer_name = :"#{attr}="
-
-            define_method reader_name do
-              instance_variable_get :"@#{attr}"
-            end
-
-            define_method writer_name do |value|
-              instance_variable_set :"@#{attr}", value
-            end
-            private writer_name
-          end
-
-          define_singleton_method :own_attributes do
-            attrs.freeze
-          end
-
-          unless attrs.empty?
-            superclass_attrs = superclass.attributes
-            all_attrs = superclass_attrs + attrs
-
-            class_eval <<~END
-              def initialize(#{(%w(unit) + all_attrs).join(',')})
-                super(#{(%w(unit) + superclass_attrs).join(',')})
-                #{attrs.map { |attr| "@#{attr} = #{attr}" }.join("\n")}
-
-                after_initialize
-              end
-
-              def hash
-                super ^ #{attrs.map { |attr| "@#{attr}" }.join(' ^ ')}
-              end
-
-              def eql?(other)
-                super(other) && #{attrs.map { |attr| "@#{attr} == other.#{attr}" }.join(' && ')}
-              end
-              alias == eql?
-
-              private
-              def after_initialize
-              end
-            END
-          end
-
-          class_eval &block if block
+          self.attrs *attrs
+          class_eval(&block) if block
         end
-
-
       end
     end
   end

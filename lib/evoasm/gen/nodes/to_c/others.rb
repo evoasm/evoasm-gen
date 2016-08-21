@@ -37,7 +37,8 @@ module Evoasm
 
       class Expression
         def if_to_c(io, &block)
-          io.block "if(#{to_c})", &block
+          condition_c = to_c.sub(/^\(|\)$/, '')
+          io.block "if(#{condition_c})", &block
         end
       end
 
@@ -49,6 +50,8 @@ module Evoasm
 
       class Operation
         def to_c
+          return send :"#{name.to_s.gsub /\?$/, '_p'}_to_c" if helper?
+
           c_op, arity =
             case name
             when :and
@@ -59,14 +62,20 @@ module Evoasm
               ['==', 2]
             when :shl
               ['<<', 2]
+            when :ltq
+              ['<=', 2]
+            when :div
+              ['/', 2]
             when :add
               '+'
             when :not
               ['!', 1]
+            when :neg
+              ['~', 1]
             when :mod
               '%'
             else
-              raise "unknown operator '#{name}'"
+              raise "unknown operator '#{name}' (#{self.class})"
             end
 
           check_arity! arity
@@ -88,17 +97,24 @@ module Evoasm
                   " '#{name}' (#{args.inspect} for #{arity})"
           end
         end
-      end
-
-      class HelperOperation
-        def to_c
-          send :"#{name}_to_c"
-        end
-
-        private
 
         def reg_code_to_c
-          unit.call_to_c 'reg_code', args.map(&:to_c), [unit.architecture_prefix]
+          unit.c_function_call 'reg_code', args.map(&:to_c), unit.architecture_prefix
+        end
+
+        def disp_size_to_c
+          unit.c_function_call 'disp_size', ['ctx->params.disp'], unit.architecture_prefix
+        end
+
+        def set_p_to_c
+          parameter = args.first
+
+          raise unless parameter.is_a?(ParameterVariable)
+          "ctx->params.#{parameter.name}_set"
+        end
+
+        def log2_to_c
+          "evoasm_log2(#{args.first})"
         end
       end
 
@@ -184,15 +200,21 @@ module Evoasm
         unit.symbol_to_c name, const: true
       end
 
-      def_to_c PermutationTable do |io|
-        io.puts "static int #{permutation_table_var_name n}"\
-                    "[#{perms.size}][#{perms.first.size}] = {"
-
-        perms.each do |perm|
-          io.puts "  {#{perm.join ', '}},"
+      class PermutationTable
+        def c_variable_name
+          "permutations#{size}"
         end
-        io.puts '};'
-        io.puts
+
+        def to_c(io)
+          io.puts "static int #{c_variable_name}"\
+                    "[#{table.size}][#{table.first.size}] = {"
+
+          table.each do |perm|
+            io.puts "  {#{table.join ', '}},"
+          end
+          io.puts '};'
+          io.puts
+        end
       end
     end
   end

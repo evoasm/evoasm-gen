@@ -58,7 +58,7 @@ module Evoasm
           OPERAND_TYPES = %i(reg rm vsib mem imm)
 
           def initialize(unit, index, row)
-            super(unit, {})
+            super(unit)
 
             self.index = index
             self.mnem = row[COL_MNEM]
@@ -346,14 +346,14 @@ module Evoasm
             rm_type = rm_op.type
             byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-            modrm_sib = ModRMSIB.cached unit,
-                                        reg_param: reg_param,
-                                        rm_reg_param: rm_reg_param,
-                                        rm_type: rm_type,
-                                        modrm_reg_bits: modrm_reg_bits,
-                                        rm_reg_access: rm_reg_access,
-                                        reg_access: reg_access,
-                                        byte_regs: byte_regs
+            modrm_sib = unit.find_or_create_node ModRMSIB,
+                                                 reg_param: reg_param,
+                                                 rm_reg_param: rm_reg_param,
+                                                 rm_type: rm_type,
+                                                 modrm_reg_bits: modrm_reg_bits,
+                                                 rm_reg_access: rm_reg_access,
+                                                 reg_access: reg_access,
+                                                 byte_regs: byte_regs
 
             call modrm_sib
             block[opcode_index]
@@ -436,16 +436,16 @@ module Evoasm
                 # [:if, [:eq, [:operand_size], 128], 0b0, 0b1]
               end
 
-            vex = VEX.cached unit,
-                             rex_w: rex_w,
-                             reg_param: reg_op&.param,
-                             rm_reg_param: rm_op&.param,
-                             rm_reg_type: rm_op&.type,
-                             vex_m: vex_m,
-                             vex_v: vex_v,
-                             vex_l: vex_l,
-                             vex_p: vex_p,
-                             encodes_modrm: encodes_modrm?
+            vex = unit.find_or_create_node VEX,
+                                           rex_w: rex_w,
+                                           reg_param: reg_op&.param,
+                                           rm_reg_param: rm_op&.param,
+                                           rm_reg_type: rm_op&.type,
+                                           vex_m: vex_m,
+                                           vex_v: vex_v,
+                                           vex_l: vex_l,
+                                           vex_p: vex_p,
+                                           encodes_modrm: encodes_modrm?
 
             call vex
             block[opcode_index]
@@ -499,14 +499,14 @@ module Evoasm
             reg_op, rm_op, _ = reg_operands
             byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-            rex = REX.cached unit,
-                             force: force_rex,
-                             rex_w: rex_w,
-                             reg_param: reg_op&.param,
-                             rm_reg_param: rm_op&.param,
-                             rm_reg_type: rm_op&.type,
-                             encodes_modrm: encodes_modrm?,
-                             byte_regs: byte_regs
+            rex = unit.find_or_create_node REX,
+                                           force: force_rex,
+                                           rex_w: rex_w,
+                                           reg_param: reg_op&.param,
+                                           rm_reg_param: rm_op&.param,
+                                           rm_reg_type: rm_op&.type,
+                                           encodes_modrm: encodes_modrm?,
+                                           byte_regs: byte_regs
 
             call rex
             block[opcode_index]

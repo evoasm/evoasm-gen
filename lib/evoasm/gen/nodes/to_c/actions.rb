@@ -2,13 +2,13 @@ module Evoasm
   module Gen
     module Nodes
       def_to_c WriteAction do |io|
-        if size.is_a?(Array) && value.is_a?(Array)
-          value_c, size_c = value.reverse.zip(size.reverse).inject(['0', 0]) do |(v_acc, s_acc), (v, s)|
-            [v_acc + " | ((#{v.to_c} & ((1 << #{s}) - 1)) << #{s_acc})", s_acc + s]
+        if sizes.size > 1
+          value_c, size_c = values.zip(sizes).reverse.inject(['0', 0]) do |(v_acc, s_acc), (v, s)|
+            [v_acc + " | ((#{v.to_c} & ((1 << #{s.to_c}) - 1)) << #{s_acc})", s_acc + s.value]
           end
         else
-          value_c = value.to_c
-          size_c = size.to_c false
+          value_c = values.first.to_c
+          size_c = sizes.first.to_c false
         end
         io.puts "evoasm_inst_enc_ctx_write#{size_c}(ctx, #{value_c});"
       end
@@ -55,8 +55,8 @@ module Evoasm
           if args.empty?
             ''
           else
-            args_c = args.map do |expr|
-              "(#{inst_param_val_c_type}) #{expr_to_c expr}"
+            args_c = args.map do |arg|
+              "(#{unit.inst_param_val_c_type}) #{arg.to_c}"
             end.join(', ').prepend(', ')
           end
 
@@ -66,14 +66,14 @@ module Evoasm
 
       class AccessAction
         def access_call_to_c(name, op, acc = 'acc', params = [], eol: false)
-          unit.call_to_c("#{name}_access",
-                         [
+          unit.c_function_call("#{name}_access",
+                               [
                            "(#{bitmap_c_type} *) &#{acc}",
                            "(#{regs.c_type}) #{expr_to_c(op)}",
                            *params
                          ],
-                         base_arch_ctx_prefix,
-                         eol: eol)
+                               base_arch_ctx_prefix,
+                               eol: eol)
         end
 
         def translate_write_access(io)

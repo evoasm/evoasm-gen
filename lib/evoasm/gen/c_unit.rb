@@ -10,6 +10,7 @@ require 'evoasm/gen/nodes/to_c/state_machine'
 require 'evoasm/gen/nodes/to_c/enum'
 require 'evoasm/gen/x64'
 require 'evoasm/gen/x64_unit'
+require 'evoasm/gen/unit'
 
 module Evoasm
   module Gen
@@ -148,10 +149,6 @@ module Evoasm
         end
       end
 
-      def permutation_table_var_name(n)
-        "permutations#{n}"
-      end
-
       def inst_enc_func_name(inst)
         symbol_to_c inst.name, architecture_prefix
       end
@@ -193,7 +190,7 @@ module Evoasm
       end
     end
 
-    class CUnit
+    class CUnit < Unit
       include NameUtil
 
       attr_reader :registered_param_domains
@@ -217,7 +214,7 @@ module Evoasm
 
         @permutation_tables = []
         @unordered_writes = []
-        @state_machines = []
+        @nodes = []
         @parameter_domains = []
         @parameters = []
         @operands = []
@@ -227,63 +224,12 @@ module Evoasm
         load table
       end
 
-      def load_x64_enums
-      end
-
-      def translate_inst(inst)
-        @inst_funcs = @insts.map do |inst|
-          InstructionFunction.new self, inst
-        end
-      end
-
-      def register_param(name)
-        param_names.add name
-      end
-
       def register_parameter(param_name)
         @parameter_names.add param_name
       end
 
-      def find_or_create_prefix_function(writes, translator)
-        _, table_size = request_permutation_table(writes.size)
-        [request(@pref_funcs, writes, translator), table_size]
-      end
-
-      def find_state_machine_function(state_machine)
-        find_or_create_state_machine_function state_machine
-      end
-
-      def find_or_create_state_machine_function(state_machine)
-        if @state_machine_functions.key? state_machine.attributes
-          @state_machine_functions[state_machine.attrs]
-        else
-          function = create_state_machine_function(state_machine)
-          @state_machine_functions[state_machine.attrs] = function
-          function
-        end
-      end
-
-      def create_state_machine_function(state_machine)
-        translator = StateMachineCTranslator.new self, state_machine
-        body = translator.emit
-
-        Function.new io
-      end
-
       def c_context_type
         "evoasm_#{architecture}_inst_enc_ctx"
-      end
-
-      def find_or_create_unordered_write_function(writes)
-
-      end
-
-      def create_instruction_function(instruction)
-        InstructionFunction.new self, instruction
-      end
-
-      def request_func_call(func, translator)
-        request @called_funcs, func, translator
       end
 
       def request_permutation_table(n)
@@ -291,32 +237,46 @@ module Evoasm
         [permutation_table_var_name(n), @permutation_tables[n].size]
       end
 
-      def call_to_c(func, args, prefix = nil)
-        func_name = func.to_s.gsub('?', '_p')
-
-        #if prefix && !NO_ARCH_CTX_ARG_HELPERS.include?(func)
-        #  args.unshift arch_ctx_var_name(Array(prefix).first !~ /#{architecture}/)
-        #end
-
-        "#{symbol_to_c func_name, prefix}(#{args.join ','})"
+      def c_function_call(function_name, args, prefix = nil)
+        "#{symbol_to_c function_name, prefix}(#{args.join ','})"
       end
 
-      def method_missing(name, *args, &block)
-        if name =~ /(.*?)_to_c$/
-          array = instance_variable_get(:"@#$1")
-          raise "#{$1} is nil" unless array
-          all_to_c array, *args
-        else
-          super
-        end
+      def nodes_of_kind(node_class)
+        @nodes.select { |node| node.kind_of? node_class}
       end
 
-      def all_to_c(array, io = StrIO.new)
-        array.each do |el|
-          el.to_c io
+      def nodes_of_kind_to_c(node_class)
+        nodes_to_c nodes_of_kind node_class
+      end
+
+      def nodes_to_c(nodes)
+        io = StrIO.new
+        nodes.each do |node|
+          node.to_c io
         end
         io.string
       end
+
+      def permutation_tables_to_c
+        nodes_of_kind_to_c Nodes::PermutationTable
+      end
+
+      def unordered_writes_to_c
+        nodes_of_kind_to_c Nodes::PermutationTable
+      end
+
+      def state_machines_to_c
+        nodes_of_kind_to_c Nodes::StateMachine
+      end
+
+      def domains_to_c
+        nodes_of_kind_to_c Nodes::Domain
+      end
+
+      def instructions_to_c
+        nodes_to_c @instructions
+      end
+
 
       def parameter_set_function(io = StrIO.new)
         io.puts 'void evoasm_x64_inst_params_set(evoasm_x64_inst_params_t *params, evoasm_x64_inst_param_id_t param, evoasm_inst_param_val_t param_val) {'
@@ -548,7 +508,7 @@ module Evoasm
           64
         when :disp
           32
-        when :legacy_pref_order
+        when :legacy_prefix_order
           3
         else
           raise "missing C type for param #{param_name}"

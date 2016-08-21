@@ -6,7 +6,7 @@ module Evoasm
   module Gen
     module Nodes
       Action = def_node Node
-      WriteAction = def_node Action, :value, :size
+      WriteAction = def_node Action, :values, :sizes
       LogAction = def_node Action, :level, :msg, :args
       AccessAction = def_node Action, :reg, :modes
       CallAction = def_node Action, :state_machine

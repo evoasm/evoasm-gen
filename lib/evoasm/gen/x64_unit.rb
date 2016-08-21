@@ -37,14 +37,15 @@ module Evoasm
         @bit_masks = Enum.new self, :bit_mask, %i(rest 64_127 32_63 0_31), prefix: architecture, flags: true
         @address_sizes = Enum.new self, :addr_size, %i(64 32), prefix: architecture
         @displacement_sizes = Enum.new self, :disp_size, %i(16 32), prefix: architecture
+        @parameter_names = Enum.new self, :inst_param_id, STATIC_PARAMETERS, prefix: architecture
 
         @instructions.each do |instruction|
           @features.add_all instruction.features
           @instruction_flags.add_all instruction.flags
           @exceptions.add_all instruction.exceptions
+          @parameter_names.add_all instruction.parameters.map(&:name)
         end
 
-        @parameter_names = Enum.new self, :inst_param_id, STATIC_PARAMETERS, prefix: architecture
         PARAMETER_ALIASES.each do |alias_key, key|
           @parameter_names.alias alias_key, key
         end

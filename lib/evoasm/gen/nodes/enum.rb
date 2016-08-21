@@ -28,7 +28,7 @@ module Evoasm
         end
 
         def add(symbol)
-          raise ArgumentError, 'can only add symbols or strings'\
+          raise ArgumentError, "can only add symbols or strings not '#{symbol.class}'"\
           unless valid_symbol?(symbol)
           return if @map.key? symbol
 

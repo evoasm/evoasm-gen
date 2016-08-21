@@ -7,6 +7,10 @@ module Evoasm
         module REXUtil
           include StateDSL
 
+          PARAMETERS = %i(rex_r rex_x rex_b
+                          force_rex? reg_index
+                          reg_base rex_w reg0 reg1).freeze
+
           def rex_bit(reg)
             [:div, [:reg_code, reg], 8]
           end
@@ -119,6 +123,8 @@ module Evoasm
           include REXUtil
           include StateDSL
 
+          params *REXUtil::PARAMETERS, :reg0
+
           alias_method :encodes_modrm?, :encodes_modrm
           # reg_param
           # and rm_reg_param
@@ -225,6 +231,10 @@ module Evoasm
           include StateDSL
           include EncodeUtil
 
+          params :reg_base, :reg_index, :scale, :disp, :disp_size,
+                 :force_disp32?, :force_sib?, :reg0, :reg1, :reg2,
+                 :reg0_high_byte?, :reg1_high_byte?, :modrm_reg
+
           def write_modrm__(mod_bits, &block)
             write [mod_bits, :_reg_bits, :_rm_bits], [2, 3, 3]
             to &block
@@ -304,7 +314,7 @@ module Evoasm
           def modrm_sib_disp(rm_bits: nil, sib:, rm_reg_param: nil)
             to_if :and, zero_disp?,
                   matching_disp_size?,
-                  [reg_code_not_in?(:reg_base, 5, 13)] do
+                  reg_code_not_in?(:reg_base, 5, 13) do
               write_modrm(mod_bits: 0b00, rm_bits: rm_bits, rm_reg_param: rm_reg_param) do
                 write_sib if sib
                 return!
@@ -501,6 +511,9 @@ module Evoasm
 
           include REXUtil
           include StateDSL
+
+          params *REXUtil::PARAMETERS, :force_long_vex?, :reg2,
+                 :vex_l, :vex_v
 
           alias_method :encodes_modrm?, :encodes_modrm
 

@@ -4,38 +4,12 @@ module Evoasm
       class StateMachine < Node
 
         class << self
-          def cached(unit, attrs)
-            @cache ||= Hash.new { |h, k| h[k] = new *k }
-            @cache[[unit, attrs]]
-          end
-
-          attr_reader :shared_variables, :local_variables, :parameters, :attributes
+          attr_reader :shared_variables, :local_variables, :parameters
 
           private
 
           def params(*params)
             @parameters = params.freeze
-          end
-
-          def attrs(*attrs)
-            @attributes = attrs.freeze
-
-            @attributes.each do |attr|
-              define_method attr do
-                @attributes[attr]
-              end
-
-              writer_name = :"#{attr}="
-              define_method writer_name do |value|
-                @attributes[attr] = value
-              end
-              private writer_name
-            end
-
-            define_method :eql? do |other|
-              @attributes == other.attributes
-            end
-            alias_method :==, :eql?
           end
 
           def local_vars(*local_vars)
@@ -45,12 +19,6 @@ module Evoasm
           def shared_vars(*shared_vars)
             @shared_variables = shared_vars.freeze
           end
-        end
-
-        def initialize(unit, attrs)
-          super(unit)
-
-          @attributes = attrs
         end
 
         def parameter_name?(name)

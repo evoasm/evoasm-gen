@@ -37,33 +37,45 @@ module Evoasm
 
       def set(name, value)
         raise ArgumentError, 'nil not allowed' if value.nil?
-        add_action :set, expression(name.to_sym), expression(value)
+        add_new_action :set, expression(name.to_sym), expression(value)
         @__state__.add_local_variable name if State.local_variable_name?(name)
       end
 
-      def write(value = nil, size = nil)
-        if Array === size && Array === value
-          raise ArgumentError, 'values and sizes must have same length' unless value.size == size.size
-        end
-        add_action :write, expression(value), expression(size)
+      def new_write_action(value, size)
+        values, sizes =
+          case size
+          when Array
+            if value.size == size.size
+              [expressions(value), expressions(size)]
+            else
+              raise ArgumentError, "values and sizes must have same length (#{value.size} and #{size.size})"
+            end
+          else
+            [[expression(value)], [expression(size)]]
+          end
+        Nodes::WriteAction.new(unit, values, sizes)
+      end
+
+      def write(value, size)
+        add_action new_write_action(value, size)
       end
 
       def unordered_writes(param_name, writes)
         writes = writes.map do |condition, write_args|
-          [expression(condition), WriteAction.new(unit, *expressions(write_args))]
+          [expression(condition), new_write_action(*write_args)]
         end
 
-        add_action :unordered_writes,
-                   expression(param_name),
-                   UnorderedWrites.new(unit, writes)
+        add_new_action :unordered_writes,
+                       expression(param_name),
+                       UnorderedWrites.new(unit, writes)
       end
 
       def call(func)
-        add_action :call, func
+        add_new_action :call, func
       end
 
       def access(op, modes)
-        add_action :access, op, modes
+        add_new_action :access, op, modes
       end
 
       def recover_with(param, range = nil, **opts)
@@ -71,11 +83,11 @@ module Evoasm
       end
 
       def log(level, msg, *args)
-        add_action :log, level, msg, expressions(args)
+        add_new_action :log, level, msg, expressions(args)
       end
 
       def assert(*args)
-        add_action :assert, expressions(args)
+        add_new_action :assert, expressions(args)
       end
 
       def calls?(name)
@@ -87,8 +99,8 @@ module Evoasm
       end
 
       def error(code = nil, msg = nil, reg: nil, param: nil)
-        add_action :error, ErrorCode.new(unit, code), StringLiteral.new(unit, msg),
-                   RegisterConstant.new(unit, reg), ParameterVariable.new(unit, param)
+        add_new_action :error, ErrorCode.new(unit, code), StringLiteral.new(unit, msg),
+                       RegisterConstant.new(unit, reg), ParameterVariable.new(unit, param)
         return!
       end
 
@@ -156,11 +168,7 @@ module Evoasm
           op_name = arg.first
           op_args = expressions(arg[1..-1])
 
-          if HelperOperation.helper_name? op_name
-            HelperOperation.new unit, op_name, op_args
-          else
-            Operation.new unit, op_name, op_args
-          end
+          Operation.new unit, op_name, op_args
         when String, Integer, FalseClass, TrueClass
           new_literal arg
         when ::Symbol
@@ -187,8 +195,12 @@ module Evoasm
         end
       end
 
-      def add_action(*args)
-        @__state__.actions << new_action(*args)
+      def add_new_action(*args)
+        add_action new_action(*args)
+      end
+
+      def add_action(action)
+        @__state__.actions << action
       end
 
       def new_action(name, *args)

@@ -7,6 +7,9 @@ module Evoasm
 
       Expression = def_node Node
       Operation = def_node Expression, :name, :args do
+
+        HELPER_NAMES = %i(reg_code set? log2 disp_size)
+
         def to_s
           args_to_s = args.map(&:to_s).join(', ')
           "#{name}(#{args_to_s})"
@@ -14,7 +17,14 @@ module Evoasm
 
         private
 
+        def helper?
+          HELPER_NAMES.include? name
+        end
+
         def after_initialize
+          unless args.all? { |arg| arg.is_a? Node }
+            raise ArgumentError, 'operation arguments must be kind of node'
+          end
           simplify!
         end
 
@@ -29,16 +39,16 @@ module Evoasm
             when :neq
               [:not, [Operation.new(unit, :eq, args)]]
             when :false?
-              [:eq, [*args, 0]]
+              [:eq, [*args, IntegerLiteral.new(unit, 0)]]
             when :true?
-              [:not, [Operation.new(unit, :false?, *args)]]
+              [:not, [Operation.new(unit, :false?, args)]]
             when :unset?
-              [:not, [Operation.new(unit, :set?, *args)]]
+              [:not, [Operation.new(unit, :set?, args)]]
             when :in?
-              args = self.args[1..-1].map do |arg|
-                Operation.new(unit, :eq, [self.args.first, arg])
+              mapped_args = args[1..-1].map do |arg|
+                Operation.new(unit, :eq, [args.first, arg])
               end
-              [:or, args]
+              [:or, mapped_args]
             when :not_in?
               [:not, [Operation.new(unit, :in?, args)]]
             end
@@ -54,35 +64,24 @@ module Evoasm
       end
 
       Else = def_node Expression
-      HelperOperation = def_node Operation do
-        HELPER_NAMES = %i(reg_code)
-
-        def self.helper_name?(name)
-          HELPER_NAMES.include? name
-
-        end
-      end
 
       PermutationTable = def_node Node, :size do
-        def self.cached(unit, size)
-          @cache ||= Hash.new { |h, k| h[k] = new *k }
-          @cache[[unit, size]]
+        def table
+          (0...size).to_a.permutation.to_a
         end
       end
 
       UnorderedWrites = def_node Node, :writes do
         attr_reader :permutation_table
 
-        def self.cached(unit, writes)
-          @cache ||= Hash.new { |h, k| h[k] = new *k }
-          @cache[[unit, writes]]
-        end
-
         private
 
         def after_initialize
-          @permutation_table = PermutationTable.cached unit, writes.size
+          @permutation_table = unit.find_or_create_node PermutationTable, size: writes.size
         end
+      end
+
+      Domain = def_node Node, :values do
       end
 
       Literal = def_node Expression
