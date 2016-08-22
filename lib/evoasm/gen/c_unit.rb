@@ -128,10 +128,6 @@ module Evoasm
         "_#{insts_var_name}"
       end
 
-      def inst_operands_var_name(inst)
-        "operands_#{inst.name}"
-      end
-
       def inst_param_domains_var_name(inst)
         "domains_#{inst.name}"
       end
@@ -242,7 +238,7 @@ module Evoasm
       end
 
       def nodes_of_kind(node_class)
-        @nodes.select { |node| node.kind_of? node_class}
+        @nodes.select { |node| node.kind_of? node_class }
       end
 
       def nodes_of_kind_to_c(node_class)
@@ -285,13 +281,17 @@ module Evoasm
         end
       end
 
+      def c_instruction_parameters_variable_name(instruction)
+        "params_#{instruction.name}"
+      end
+
       def instruction_parameters_to_c(instruction)
         io = StrIO.new
         parameters = instruction.parameters
 
         return if parameters.empty?
 
-        io.puts "static const #{parameters.first.c_type_name} params_#{instruction.name}[] = {"
+        io.puts "static const #{parameters.first.c_type_name} #{c_instruction_parameters_variable_name instruction}[] = {"
         io.indent do
           parameters.each do |parameter|
             io.puts '{'
@@ -307,21 +307,25 @@ module Evoasm
         io.string
       end
 
+      def c_instruction_operands_variable_name(instruction)
+        "operands_#{instruction.name}"
+      end
+
       def instruction_operands_to_c(instruction)
         io = StrIO.new
         operands = instruction.operands
 
         return if operands.empty?
 
-        # io.puts "static const #{operands.first.c_type_name} #{inst_operands_var_name translator.inst}[] = {"
-        #   io.indent do
-        #     translator.inst.operands.each do |op|
-        #       inst_operand_to_c(translator, op, io, eol: ',')
-        #     end
-        #   end
-        #   io.puts '};'
-        #   io.puts
-        # end
+        io.puts "static const #{operands.first.c_type_name} #{c_instruction_operands_variable_name instruction}[] = {"
+        io.indent do
+          operands.each do |operand|
+            p 'operands'
+            operand.to_c io
+          end
+          io.puts '};'
+          io.puts
+        end
 
         io.string
       end
@@ -568,74 +572,6 @@ module Evoasm
       end
 
       def inst_operand_to_c(translator, op, io = StrIO.new, eol:)
-        io.puts '{'
-        io.indent do
-          io.puts op.access.include?(:r) ? '1' : '0', eol: ','
-          io.puts op.access.include?(:w) ? '1' : '0', eol: ','
-          io.puts op.access.include?(:u) ? '1' : '0', eol: ','
-          io.puts op.access.include?(:c) ? '1' : '0', eol: ','
-          io.puts op.implicit? ? '1' : '0', eol: ','
-          io.puts op.mnem? ? '1' : '0', eol: ','
-
-          params = translator.parameters.reject { |p| State.local_variable_name? p }
-          if op.param
-            param_idx = params.index(op.param) or \
-              raise "param #{op.param} not found in #{params.inspect}" \
-                      " (#{translator.inst.mnem}/#{translator.inst.index})"
-
-            io.puts param_idx, eol: ','
-          else
-            io.puts params.size, eol: ','
-          end
-
-          io.puts operand_type_to_c(op.type), eol: ','
-
-          if op.size1
-            io.puts operand_size_to_c(op.size1), eol: ','
-          else
-            io.puts 'EVOASM_X64_N_OPERAND_SIZES', eol: ','
-          end
-
-          if op.size2
-            io.puts operand_size_to_c(op.size2), eol: ','
-          else
-            io.puts 'EVOASM_X64_N_OPERAND_SIZES', eol: ','
-          end
-
-          if op.reg_type
-            io.puts reg_type_to_c(op.reg_type), eol: ','
-          else
-            io.puts reg_types.n_symbol_to_c, eol: ','
-          end
-
-          if op.accessed_bits.key? :w
-            io.puts bit_mask_to_c(op.accessed_bits[:w]), eol: ','
-          else
-            io.puts bit_masks.all_symbol_to_c, eol: ','
-          end
-
-          io.puts '{'
-          io.indent do
-            case op.type
-            when :reg, :rm
-              if op.reg
-                io.puts register_name_to_c(op.reg), eol: ','
-              else
-                io.puts reg_names.n_symbol_to_c, eol: ','
-              end
-            when :imm
-              if op.imm
-                io.puts op.imm, eol: ','
-              else
-                io.puts 255, eol: ','
-              end
-            else
-              io.puts '255'
-            end
-          end
-          io.puts '}'
-        end
-        io.puts '}', eol: eol
       end
 
       def inst_operands_to_c(io = StrIO.new)

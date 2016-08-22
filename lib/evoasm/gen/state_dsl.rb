@@ -22,7 +22,8 @@ module Evoasm
             return instance_variable_get var_name if instance_variable_defined? var_name
             state = State.new
             call_with_state f.bind(self), state
-            state
+
+            instance_variable_set var_name, state
           end
         end
       end

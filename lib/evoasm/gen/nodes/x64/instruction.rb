@@ -1,5 +1,5 @@
 require 'evoasm/gen/state_dsl'
-require 'evoasm/gen/nodes/state_machine'
+require 'evoasm/gen/nodes/instruction'
 require 'evoasm/gen/nodes/x64/encoding'
 require 'evoasm/gen/core_ext/array'
 require 'evoasm/gen/core_ext/integer'
@@ -60,10 +60,10 @@ module Evoasm
           def initialize(unit, index, row)
             super(unit)
 
-            self.index = index
-            self.mnem = row[COL_MNEM]
-            self.encoding = row[COL_OP_ENC]
-            self.opcode = row[COL_OPCODE].split(/\s+/)
+            @index = index
+            @mnem = row[COL_MNEM]
+            @encoding = row[COL_OP_ENC]
+            @opcode = row[COL_OPCODE].split(/\s+/)
 
             load_features row
             load_exceptions row
@@ -72,7 +72,7 @@ module Evoasm
 
             load_flags
 
-            self.name = name
+            @name = name
           end
 
           # NOTE: enum domains need to be sorted
@@ -199,7 +199,7 @@ module Evoasm
               [$1, $2]
             end
 
-            self.operands = Operand.load unit, ops
+            @operands = Operand.load unit, self, ops
           end
 
           def load_flags
@@ -322,8 +322,8 @@ module Evoasm
 
             # modrm_reg_bits is the bitstring
             # that is used directly to set the ModRM.reg bits
-            # and can be an opcode extension
-            # reg_reg is a *register*.
+            # and can be an opcode extension.
+            # reg is a *register*;
             # if given instead, it is properly handled and encoded
             reg_op, rm_op, = register_operands
 

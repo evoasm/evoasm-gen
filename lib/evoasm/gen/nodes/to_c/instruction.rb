@@ -14,12 +14,6 @@ module Evoasm
           unit.const_name_to_ruby_ffi name, unit.architecture_prefix(:inst)
         end
       end
-
-      class Operand
-        def c_type_name
-          unit.symbol_to_c :operand, architecture_prefix, type: true
-        end
-      end
     end
   end
 end

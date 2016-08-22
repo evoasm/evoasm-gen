@@ -27,8 +27,7 @@ module Evoasm
         end
 
         def parameters
-          parameters = []
-          collect_parameters root_state, parameters
+          @parameters ||= collect_parameters root_state, []
         end
 
         private
@@ -37,7 +36,8 @@ module Evoasm
           node.traverse do |child_node|
             if child_node.is_a?(ParameterVariable)
               parameter_name = child_node.name
-              parameter = Parameter.new unit, parameter_name, child_node.domain || parameter_domain(parameter_name)
+              parameter = Parameter.new unit, parameter_name,
+                                        child_node.domain || parameter_domain(parameter_name)
               parameters << parameter
             end
           end
@@ -55,10 +55,6 @@ module Evoasm
 
           parameters
         end
-      end
-
-      class Instruction < StateMachine
-
       end
     end
   end
