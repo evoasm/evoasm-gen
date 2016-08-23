@@ -389,6 +389,7 @@ module Evoasm
                 return!
               end
             end
+            # NOTE: keep comparison with true!
             if cond != true
               else_to do
                 error :not_encodable, 'index not encodable (0b0100)', param: :reg_index

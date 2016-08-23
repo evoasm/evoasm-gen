@@ -212,7 +212,7 @@ module Evoasm
         @unordered_writes = []
         @nodes = []
         @parameter_domains = []
-        @parameters = []
+        @parameter_names = []
         @operands = []
         @mnemonics = []
 
@@ -258,7 +258,7 @@ module Evoasm
       end
 
       def unordered_writes_to_c
-        nodes_of_kind_to_c Nodes::PermutationTable
+        nodes_of_kind_to_c Nodes::UnorderedWrites
       end
 
       def state_machines_to_c
@@ -320,7 +320,6 @@ module Evoasm
         io.puts "static const #{operands.first.c_type_name} #{c_instruction_operands_variable_name instruction}[] = {"
         io.indent do
           operands.each do |operand|
-            p 'operands'
             operand.to_c io
           end
           io.puts '};'

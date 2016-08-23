@@ -17,6 +17,9 @@ module Evoasm
 
         raise ArgumentError, "invalid attributes #{attrs.keys}" unless attrs.empty?
 
+        if class_ == Nodes::PermutationTable
+          p "creating new perm table #{attr_args}"
+        end
         node = class_.new self, *attr_args
 
         @nodes << node

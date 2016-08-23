@@ -8,8 +8,9 @@ module Evoasm
         class Operand < Nodes::Operand
           include Evoasm::Gen::X64
 
-          attr_reader :name, :param, :type, :size1, :size2, :access,
-                      :reg, :imm, :reg_type, :accessed_bits, :reg_size,
+          attr_reader :name, :parameter_name, :type, :size1, :size2, :read, :written,
+                      :undefined, :cwritten, :read_bits, :written_bits, :cwritten_bits,
+                      :undefined_bits, :reg, :imm, :reg_type, :accessed_bits, :reg_size,
                       :mem_size, :imm_size
 
           IMM_OP_REGEXP = /^(imm|rel)(\d+)?$/
@@ -59,11 +60,27 @@ module Evoasm
             super(unit, instruction)
 
             @name = name
-            @access = flags.gsub(/[^crwu]/, '').each_char.map(&:to_sym)
+            @written = flags.include? 'w'
+            @read = flags.include? 'r'
+            @cwritten = flags.include? 'c'
+            @undefined = flags.include? 'u'
+
             @accessed_bits = {}
 
             flags.scan(/([crwu])\[(\d+)\.\.(\d+)\]/) do |acc, from, to|
-              accessed_bits[acc.to_sym] = (from.to_i..to.to_i)
+              bits = (from.to_i..to.to_i)
+              case acc
+              when 'r'
+                @read_bits = bits
+              when 'w'
+                @written_bits = bits
+              when 'c'
+                @cwritten_bits = bits
+              when 'u'
+                @undefined_bits = bits
+              else
+                raise
+              end
             end
 
             @encoded = flags.include? 'e'
@@ -90,6 +107,11 @@ module Evoasm
             @mnem
           end
 
+          alias read? read
+          alias written? written
+          alias cwritten? cwritten
+          alias undefined? undefined
+
           def size
             @reg_size || @imm_size || @mem_size
           end
@@ -100,6 +122,15 @@ module Evoasm
 
           def size2
             @imm_size
+          end
+
+          def access
+            access = []
+            access << :r if read?
+            access << :w if written?
+            access << :c if cwritten?
+
+            access
           end
 
           private
@@ -115,10 +146,10 @@ module Evoasm
               @imm_size = $2 && $2.to_i
 
               if $1 == 'imm'
-                @param = :"imm#{counters.imm_counter}"
+                @parameter_name = :"imm#{counters.imm_counter}"
                 counters.imm_counter += 1
               else
-                @param = $1.to_sym
+                @parameter_name = $1.to_sym
               end
             when RM_OP_REGEXP
               @type = :rm
@@ -139,7 +170,7 @@ module Evoasm
             when MOFFS_OP_REGEXP
               @type = :mem
               @mem_size = Integer($1)
-              @param = :moffs
+              @parameter_name = :moffs
             when VSIB_OP_REGEXP
               @type = :vsib
               @mem_size = $1.to_i
@@ -148,7 +179,7 @@ module Evoasm
             end
 
             if type == :rm || type == :reg
-              @param = :"reg#{counters.reg_counter}"
+              @parameter_name = :"reg#{counters.reg_counter}"
               counters.reg_counter += 1
             end
           end

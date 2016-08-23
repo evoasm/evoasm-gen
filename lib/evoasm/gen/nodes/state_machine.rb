@@ -26,34 +26,37 @@ module Evoasm
           parameters && parameters.include?(name)
         end
 
-        def parameters
-          @parameters ||= collect_parameters root_state, []
+        def parameter_variables
+          @parameter_variables ||= collect_parameter_variables root_state, []
+          @parameter_variables
         end
 
         private
 
-        def collect_parameters_(node, parameters)
+        def collect_parameter_variables_(node, parameter_variables)
           node.traverse do |child_node|
-            if child_node.is_a?(ParameterVariable)
-              parameter_name = child_node.name
-              parameter = Parameter.new unit, parameter_name,
-                                        child_node.domain || parameter_domain(parameter_name)
-              parameters << parameter
+            case child_node
+            when ParameterVariable
+              unless parameter_variables.include? child_node
+                parameter_variables << child_node
+              end
+            when StateMachine
+              parameter_variables.concat(child_node.parameter_variables).uniq!
             end
           end
         end
 
-        def collect_parameters(state, parameters)
+        def collect_parameter_variables(state, parameter_variables)
           state.actions.each do |action|
-            collect_parameters_ action, parameters
+            collect_parameter_variables_ action, parameter_variables
           end
 
           state.children.each do |child, condition, _|
-            collect_parameters_ condition, parameters if condition
-            collect_parameters child, parameters
+            collect_parameter_variables_ condition, parameter_variables if condition
+            collect_parameter_variables child, parameter_variables
           end
 
-          parameters
+          parameter_variables
         end
       end
     end

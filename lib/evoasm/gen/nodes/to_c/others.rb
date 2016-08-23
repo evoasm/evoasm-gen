@@ -155,24 +155,25 @@ module Evoasm
               "{EVOASM_DOMAIN_TYPE_INTERVAL, #{values.begin}, #{values.end}}"
             when Array
               if values.size > ENUM_MAX_LENGTH
-                raise 'enum exceeds maximal enum length of'
+                raise 'enum exceeds maximal enum length'
               end
               values_c = values.map(&:to_c).join ', '
               "{EVOASM_DOMAIN_TYPE_ENUM, #{values.length}, {#{values_c}}}"
             else
               raise
             end
+          io.puts "static const #{c_type} #{c_variable_name} = #{domain_c};"
+        end
 
-          domain_c_type =
-            case values
-            when Range, Symbol
-              'evoasm_interval_t'
-            when Array
-              "evoasm_enum#{values.size}_t"
-            else
-              raise
-            end
-          io.puts "static const #{domain_c_type} #{c_variable_name} = #{domain_c};"
+        def c_type
+          case values
+          when Range, ::Symbol
+            'evoasm_interval_t'
+          when Array
+            "evoasm_enum#{values.size}_t"
+          else
+            raise
+          end
         end
 
         def c_variable_name
@@ -181,7 +182,7 @@ module Evoasm
             "param_values__#{values.begin.to_s.tr('-', 'm')}_#{values.end}"
           when Array
             "param_values_enum__#{values.join '_'}"
-          when Symbol
+          when ::Symbol
             "param_values_#{values}"
           else
             raise "unexpected values type #{values.class} (#{values.inspect})"

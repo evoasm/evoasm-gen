@@ -79,7 +79,7 @@ module Evoasm
         attr_reader :permutation_table
 
         def domain
-          Domain.new unit, (0...@permutation_table.height)
+          @domain ||= unit.find_or_create_node Domain, values: (0...@permutation_table.height)
         end
 
         private

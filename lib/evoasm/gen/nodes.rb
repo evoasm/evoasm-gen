@@ -60,7 +60,7 @@ module Evoasm
               end
 
               def hash
-                super ^ #{attrs.map { |attr| attr_instance_variable_name attr }.join(' ^ ')}
+                super ^ #{attrs.map { |attr| "#{attr_instance_variable_name attr}.hash" }.join(' ^ ')}
               end
 
               def eql?(other)
@@ -101,19 +101,41 @@ module Evoasm
           @unit = unit
         end
 
+        def eql?(other)
+          other.is_a?(self.class)
+        end
+
+        def inspect(toplevel = false)
+          attr_str = self.class.attributes.map do |attr|
+            "#{attr}:#{send(attr).inspect}"
+          end.join(' ')
+          "<#{self.class.inspect} #{attr_str}>"
+        end
+
         def traverse(&block)
           attrs = self.class.attributes
           attrs.each do |attr|
             value = send attr
-            block[value]
-
-            value.traverse(&block) if value.is_a?(Node)
+            traverse_(value, &block)
           end
         end
 
         def match?(attrs = {})
           attrs.all? do |attr, value|
             send(attr) == value
+          end
+        end
+
+        private
+        def traverse_(value, &block)
+          case value
+          when Array
+            value.each do |el|
+              traverse_ el, &block
+            end
+          when Node
+            block[value]
+            value.traverse(&block)
           end
         end
       end

@@ -4,22 +4,25 @@ module Evoasm
       module X64
         class Operand
           def to_c(io)
-            p 'operand#to_c'
             io.puts '{'
             io.indent do
-              io.puts access.include?(:r) ? '1' : '0', eol: ','
-              io.puts access.include?(:w) ? '1' : '0', eol: ','
-              io.puts access.include?(:u) ? '1' : '0', eol: ','
-              io.puts access.include?(:c) ? '1' : '0', eol: ','
+              io.puts read? ? '1' : '0', eol: ','
+              io.puts written? ? '1' : '0', eol: ','
+              io.puts undefined? ? '1' : '0', eol: ','
+              io.puts cwritten? ? '1' : '0', eol: ','
               io.puts implicit? ? '1' : '0', eol: ','
               io.puts mnem? ? '1' : '0', eol: ','
 
               parameters = instruction.parameters
-              if param
-                param_idx = parameters.index(param) or \
-                raise "param #{param} not found in #{parameters.map(&:name).inspect}" \
+              if parameter_name
+                parameter_index = parameters.index { |parameter| parameter.name == parameter_name }
+
+                if parameter_index.nil?
+                  raise "parameter #{parameter_name.inspect} for #{name} not found in"\
+                        " #{parameters.map(&:name).inspect}" \
                         " (#{instruction.mnem}/#{instruction.index})"
-                io.puts param_idx, eol: ','
+                end
+                io.puts parameter_index, eol: ','
               else
                 io.puts parameters.size, eol: ','
               end

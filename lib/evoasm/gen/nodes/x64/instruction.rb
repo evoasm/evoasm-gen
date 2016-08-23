@@ -78,10 +78,11 @@ module Evoasm
           # NOTE: enum domains need to be sorted
           # (i.e. by their corresponding C enum numeric value)
           GP_REGISTERS = Gen::X64::REGISTERS.fetch(:gp)[0..-5] - [:SP]
+          XMM_REGISTERS = Gen::X64::REGISTERS.fetch :xmm
 
-          def parameter_domain(param_name)
+          def parameter_domain(parameter_name)
             values =
-              case param_name
+              case parameter_name
               when :rex_b, :rex_r, :rex_x, :rex_w,
                 :vex_l, :force_rex?, :lock?, :force_sib?,
                 :force_disp32?, :force_long_vex?, :reg0_high_byte?,
@@ -102,14 +103,14 @@ module Evoasm
               when :reg_index
                 case register_operands[1].type
                 when :vsib
-                  X64::REGISTERS.fetch :xmm
+                  XMM_REGISTERS
                 when :mem, :rm
                   GP_REGISTERS
                 else
                   raise
                 end
               when :imm0, :imm1, :imm, :moffs, :rel
-                imm_op = encoded_operands.find { |op| op.param == param_name }
+                imm_op = encoded_operands.find { |operand| operand.parameter_name == parameter_name }
                 case imm_op.size
                 when 8
                   :int8
@@ -125,7 +126,7 @@ module Evoasm
               when :disp
                 :int32
               when :reg0, :reg1, :reg2, :reg3
-                reg_op = encoded_operands.find { |op| op.param == param_name }
+                reg_op = encoded_operands.find { |operand| operand.parameter_name == parameter_name }
 
                 case reg_op.reg_type
                 when :xmm
@@ -135,13 +136,13 @@ module Evoasm
                 when :gp
                   GP_REGISTERS
                 else
-                  X64::REGISTERS.fetch reg_op.reg_type
+                  Gen::X64::REGISTERS.fetch reg_op.reg_type
                 end
               else
-                raise "missing domain for param #{param_name}"
+                raise "missing domain for parameter '#{parameter_name}'"
               end
 
-            Domain.new unit, values
+            unit.find_or_create_node Domain, values: values
           end
 
           def name
@@ -231,8 +232,8 @@ module Evoasm
           end
 
           def xmm_regs(zmm: false)
-            regs = X64::REGISTERS.fetch(:xmm).dup
-            regs.concat X64::REGISTERS.fetch(:zmm) if zmm
+            regs = Gen::X64::REGISTERS.fetch(:xmm).dup
+            regs.concat Gen::X64::REGISTERS.fetch(:zmm) if zmm
 
             regs
           end
@@ -304,7 +305,7 @@ module Evoasm
 
             byte = Integer($1, 16)
             reg_op, = register_operands
-            reg_op.param == :reg0 or fail "expected reg_op to have param reg0 not #{reg_op.param}"
+            reg_op.parameter_name == :reg0 or raise "expected reg_op to have param reg0 not #{reg_op.parameter_name}"
 
             set_reg_bits(:_reg_code, :reg0, reg_op.size == 8) do
               write [:add, byte, [:mod, :_reg_code, 8]], 8
@@ -334,13 +335,13 @@ module Evoasm
             reg_param, rm_reg_param, modrm_reg_bits =
               case $1
               when 'r'
-                [reg_op.param, rm_op.param, nil]
+                [reg_op.parameter_name, rm_op.parameter_name, nil]
               when /^(\d)$/
-                [nil, rm_op.param, Integer($1)]
+                [nil, rm_op.parameter_name, Integer($1)]
               when '?'
-                [nil, rm_op.param, nil]
+                [nil, rm_op.parameter_name, nil]
               else
-                fail "unexpected modrm reg specifier '#{$1}'"
+                raise "unexpected modrm reg specifier '#{$1}'"
               end
 
             rm_reg_access = rm_op&.access
@@ -357,6 +358,7 @@ module Evoasm
                                                  rm_reg_access: rm_reg_access,
                                                  reg_access: reg_access,
                                                  byte_regs: byte_regs
+
 
             call modrm_sib
             block[opcode_index]
@@ -413,12 +415,12 @@ module Evoasm
 
             reg_op, rm_op, vex_op = register_operands
 
-            access(vex_op.param, vex_op.access) if vex_op
+            access(vex_op.parameter_name, vex_op.access) if vex_op
 
             vex_v =
               case encoding
               when 'RVM', 'RVMI', 'RVMR', 'MVR', 'RMV', 'RMVI', 'VM', 'VMI'
-                [:reg_code, vex_op.param]
+                [:reg_code, vex_op.parameter_name]
               when 'RM', 'RMI', 'XM', 'MR', 'MRI', 'M'
                 0b0000
               when 'NP'
@@ -441,8 +443,8 @@ module Evoasm
 
             vex = unit.find_or_create_node VEX,
                                            rex_w: rex_w,
-                                           reg_param: reg_op&.param,
-                                           rm_reg_param: rm_op&.param,
+                                           reg_param: reg_op&.parameter_name,
+                                           rm_reg_param: rm_op&.parameter_name,
                                            rm_reg_type: rm_op&.type,
                                            vex_m: vex_m,
                                            vex_v: vex_v,
@@ -505,8 +507,8 @@ module Evoasm
             rex = unit.find_or_create_node REX,
                                            force: force_rex,
                                            rex_w: rex_w,
-                                           reg_param: reg_op&.param,
-                                           rm_reg_param: rm_op&.param,
+                                           reg_param: reg_op&.parameter_name,
+                                           rm_reg_param: rm_op&.parameter_name,
                                            rm_reg_type: rm_op&.type,
                                            encodes_modrm: encodes_modrm?,
                                            byte_regs: byte_regs
@@ -542,18 +544,18 @@ module Evoasm
               when '/is4'
                 write [:shl, [:reg_code, :reg3], 4], 8
               else
-                fail "invalid immediate specifier '#{byte}'"\
-                  " found in immediate encoding #{mnem}" if encoding =~ /I$/
+                raise "invalid immediate specifier '#{byte}'"\
+                      " found in immediate encoding #{mnem}" if encoding =~ /I$/
               end
             end
 
             block[opcode_index] if block
           end
 
-          def access_implicit_ops
-            operands.each do |op|
-              if op.implicit? && op.type == :reg
-                access op.reg, op.access
+          def access_implicit_operands
+            operands.each do |operand|
+              if operand.implicit? && operand.type == :reg
+                access operand.reg, operand.access
               end
             end
           end
@@ -562,7 +564,7 @@ module Evoasm
             comment mnem
             log :debug, name
 
-            access_implicit_ops
+            access_implicit_operands
 
             encode_legacy_prefs do
               encode_mand_pref(0) do |opcode_index|
