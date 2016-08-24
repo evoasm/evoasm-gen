@@ -142,51 +142,56 @@ module Evoasm
       end
 
       class Domain
-
-        ENUM_MAX_LENGTH = 32
-
         def to_c(io)
-          domain_c =
-            case values
-            when /int(\d+)/
-              type = $1 == '64' ? 'EVOASM_DOMAIN_TYPE_INT64' : 'EVOASM_DOMAIN_TYPE_INTERVAL'
-              "{#{type}, INT#{$1}_MIN, INT#{$1}_MAX}"
-            when Range
-              "{EVOASM_DOMAIN_TYPE_INTERVAL, #{values.begin}, #{values.end}}"
-            when Array
-              if values.size > ENUM_MAX_LENGTH
-                raise 'enum exceeds maximal enum length'
-              end
-              values_c = values.map(&:to_c).join ', '
-              "{EVOASM_DOMAIN_TYPE_ENUM, #{values.length}, {#{values_c}}}"
-            else
-              raise
-            end
-          io.puts "static const #{c_type} #{c_variable_name} = #{domain_c};"
+          io.puts "static const #{c_type} #{c_variable_name} = #{body_to_c};"
+        end
+      end
+
+      class ArrayDomain
+        MAX_LENGTH = 32
+
+        def body_to_c
+          raise 'enum exceeds maximal enum length' if values.size > MAX_LENGTH
+
+          values_c = values.map(&:to_c).join ', '
+          "{EVOASM_DOMAIN_TYPE_ENUM, #{values.length}, {#{values_c}}}"
         end
 
         def c_type
-          case values
-          when Range, ::Symbol
-            'evoasm_interval_t'
-          when Array
-            "evoasm_enum#{values.size}_t"
-          else
-            raise
-          end
+          "evoasm_array#{values.size}_domain_t"
         end
 
         def c_variable_name
-          case values
-          when Range
-            "param_values__#{values.begin.to_s.tr('-', 'm')}_#{values.end}"
-          when Array
-            "param_values_enum__#{values.join '_'}"
-          when ::Symbol
-            "param_values_#{values}"
-          else
-            raise "unexpected values type #{values.class} (#{values.inspect})"
-          end
+          "array_domain__#{values.join '_'}"
+        end
+      end
+
+      class RangeDomain
+        def body_to_c
+          "{EVOASM_DOMAIN_TYPE_RANGE, #{min}, #{max}}"
+        end
+
+        def c_type
+          'evoasm_array_domain_t'
+        end
+
+        def c_variable_name
+          "range_domain__#{min.to_s.tr('-', 'm')}_#{max.to_s.tr('-', 'm')}"
+        end
+      end
+
+      class TypeDomain
+        def body_to_c
+          type =~ /int(\d+)/ || raise
+          "{EVOASM_DOMAIN_TYPE_INT#$1}"
+        end
+
+        def c_type
+          'evoasm_type_domain_t'
+        end
+
+        def c_variable_name
+          "type_domain__#{type}"
         end
       end
 

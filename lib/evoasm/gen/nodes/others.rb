@@ -70,6 +70,10 @@ module Evoasm
           @table ||= (0...width).to_a.permutation.to_a
         end
 
+        def after_initialize
+          @table ||= (0...width).to_a.permutation.to_a
+        end
+
         def height
           table.size
         end
@@ -79,23 +83,35 @@ module Evoasm
         attr_reader :permutation_table
 
         def domain
-          @domain ||= unit.find_or_create_node Domain, values: (0...@permutation_table.height)
+          @domain ||= unit.find_or_create_node RangeDomain, 0, @permutation_table.height - 1
         end
 
         private
 
         def after_initialize
-          @permutation_table = unit.find_or_create_node PermutationTable, width: writes.size
+          @permutation_table = unit.find_or_create_node PermutationTable, writes.size
         end
       end
 
-      Domain = def_node Node, :values do
-      end
+      Domain = def_node Node
+      ArrayDomain = def_node Domain, :values
+      RangeDomain = def_node Domain, :min, :max
+      TypeDomain = def_node Domain, :type
 
       Literal = def_node Expression
       ValueLiteral = def_node Literal, :value
       StringLiteral = def_node ValueLiteral
-      IntegerLiteral = def_node ValueLiteral
+      IntegerLiteral = def_node ValueLiteral do
+        include Comparable
+
+        def <=>(other)
+          @value <=> other.value
+        end
+
+        def succ
+          IntegerLiteral.new unit, value + 1
+        end
+      end
       TrueLiteral = def_node Literal
       FalseLiteral = def_node Literal
       Symbol = def_node Expression, :name

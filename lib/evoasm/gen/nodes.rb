@@ -105,7 +105,7 @@ module Evoasm
           other.is_a?(self.class)
         end
 
-        def inspect(toplevel = false)
+        def inspect
           attr_str = self.class.attributes.map do |attr|
             "#{attr}:#{send(attr).inspect}"
           end.join(' ')
@@ -120,13 +120,34 @@ module Evoasm
           end
         end
 
-        def match?(attrs = {})
-          attrs.all? do |attr, value|
-            send(attr) == value
+        def match?(attrs)
+          case attrs
+          when Hash
+            hash_match? attrs
+          when Array
+            array_match? attrs
           end
         end
 
         private
+
+        def hash_match?(hash_or_enumerator)
+          hash_or_enumerator.all? do |attr, value|
+            send(attr) == value
+          end
+        end
+
+        def array_match?(array)
+          attributes = self.class.attributes
+
+          if array.size != attributes.size
+            raise ArgumentError,
+                  "wrong number of attributes (#{array.size} for #{attributes})"
+          end
+
+          hash_match? attributes.zip(array)
+        end
+
         def traverse_(value, &block)
           case value
           when Array

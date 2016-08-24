@@ -81,68 +81,67 @@ module Evoasm
           XMM_REGISTERS = Gen::X64::REGISTERS.fetch :xmm
 
           def parameter_domain(parameter_name)
-            values =
-              case parameter_name
-              when :rex_b, :rex_r, :rex_x, :rex_w,
-                :vex_l, :force_rex?, :lock?, :force_sib?,
-                :force_disp32?, :force_long_vex?, :reg0_high_byte?,
-                :reg1_high_byte?
-                (0..1)
-              when :addr_size
-                [32, 64]
-              when :disp_size
-                [16, 32]
-              when :scale
-                [1, 2, 4, 8]
-              when :modrm_reg
-                (0..7)
-              when :vex_v
-                (0..15)
-              when :reg_base
-                GP_REGISTERS
-              when :reg_index
-                case register_operands[1].type
-                when :vsib
-                  XMM_REGISTERS
-                when :mem, :rm
-                  GP_REGISTERS
-                else
-                  raise
-                end
-              when :imm0, :imm1, :imm, :moffs, :rel
-                imm_op = encoded_operands.find { |operand| operand.parameter_name == parameter_name }
-                case imm_op.size
-                when 8
-                  :int8
-                when 16
-                  :int16
-                when 32
-                  :int32
-                when 64
-                  :int64
-                else
-                  raise "unexpected imm size '#{imm_op.size}'"
-                end
-              when :disp
-                :int32
-              when :reg0, :reg1, :reg2, :reg3
-                reg_op = encoded_operands.find { |operand| operand.parameter_name == parameter_name }
+            case parameter_name
+            when :rex_b, :rex_r, :rex_x, :rex_w,
+              :vex_l, :force_rex?, :lock?, :force_sib?,
+              :force_disp32?, :force_long_vex?, :reg0_high_byte?,
+              :reg1_high_byte?
 
-                case reg_op.reg_type
-                when :xmm
-                  xmm_regs zmm: false
-                when :zmm
-                  xmm_regs zmm: true
-                when :gp
-                  GP_REGISTERS
-                else
-                  Gen::X64::REGISTERS.fetch reg_op.reg_type
-                end
+              range_domain 0, 1
+            when :addr_size
+              range_domain 32, 64
+            when :disp_size
+              array_domain [16, 32]
+            when :scale
+              array_domain [1, 2, 4, 8]
+            when :modrm_reg
+              range_domain 0, 7
+            when :vex_v
+              range_domain 0, 15
+            when :reg_base
+              gp_registers_domain
+            when :reg_index
+              case register_operands[1].type
+              when :vsib
+                xmm_registers_domain
+              when :mem, :rm
+                gp_registers_domain
               else
-                raise "missing domain for parameter '#{parameter_name}'"
+                raise
               end
+            when :imm0, :imm1, :imm, :moffs, :rel
+              imm_op = encoded_operands.find { |operand| operand.parameter_name == parameter_name }
+              case imm_op.size
+              when 8
+                type_domain :int8
+              when 16
+                type_domain :int16
+              when 32
+                type_domain :int32
+              when 64
+                type_domain :int64
+              else
+                raise "unexpected imm size '#{imm_op.size}'"
+              end
+            when :disp
+              type_domain :int32
+            when :reg0, :reg1, :reg2, :reg3
+              reg_op = encoded_operands.find { |operand| operand.parameter_name == parameter_name }
 
-            unit.find_or_create_node Domain, values: values
+              case reg_op.reg_type
+              when :xmm
+                xmm_registers_domain
+              when :zmm
+                xmm_registers_domain zmm: true
+              when :gp
+                gp_registers_domain
+              else
+                values = register_constants Gen::X64::REGISTERS.fetch(reg_op.reg_type)
+                unit.find_or_create_node ArrayDomain, values
+              end
+            else
+              raise "missing domain for parameter '#{parameter_name}'"
+            end
           end
 
           def name
@@ -156,6 +155,43 @@ module Evoasm
           end
 
           private
+
+          def type_domain(type)
+            unit.find_or_create_node TypeDomain, type
+          end
+
+          def range_domain(min, max)
+            unit.find_or_create_node RangeDomain,
+                                     min,
+                                     max
+          end
+
+          def array_domain(values)
+            values = values.map { |value| IntegerLiteral.new unit, value }
+            unit.find_or_create_node ArrayDomain, values
+          end
+
+          def gp_registers_domain
+            unit.find_or_create_node ArrayDomain, register_constants(GP_REGISTERS)
+          end
+
+          def xmm_registers_domain(zmm: false)
+            unit.find_or_create_node ArrayDomain, register_constants(xmm_regs(zmm: zmm))
+          end
+
+          def register_constants(register_names)
+            register_names.map do |register_name|
+              RegisterConstant.new unit, register_name
+            end
+          end
+
+          def integer_literal(value)
+            IntegerLiteral.new unit, value
+          end
+
+          def integer_literals(values)
+            values.map { |value| integer_literal value }
+          end
 
           def load_features(row)
             self.features = row[COL_FEATURES].strip

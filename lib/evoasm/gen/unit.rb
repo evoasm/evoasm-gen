@@ -1,8 +1,10 @@
 module Evoasm
   module Gen
     class Unit
-      def find_or_create_node(class_, attrs)
+      def find_or_create_node(class_, *array, **hash)
         @nodes ||= []
+
+        attrs = array.empty? ? hash : array
 
         node = @nodes.find do |node|
           node.is_a?(class_) && node.match?(attrs)
@@ -10,22 +12,32 @@ module Evoasm
 
         return node if node
 
-        attr_args = []
+        if attrs.is_a? Hash
+          create_node class_, hash_to_attr_args(class_, attrs)
+        else
+          create_node class_, attrs
+         end
+      end
+
+      private
+
+      def hash_to_attr_args(class_, hash)
+        attrs = []
         class_.attributes.each do |attr|
-          attr_args.push attrs.delete attr
+          attrs.push hash.delete attr
         end
+        raise ArgumentError, "invalid attributes #{hash.keys}" unless hash.empty?
+        attrs
+      end
 
-        raise ArgumentError, "invalid attributes #{attrs.keys}" unless attrs.empty?
-
-        if class_ == Nodes::PermutationTable
-          p "creating new perm table #{attr_args}"
-        end
-        node = class_.new self, *attr_args
-
+      def create_node(class_, attrs)
+        node = class_.new self, *attrs
         @nodes << node
-
         node
       end
+
     end
+
+
   end
 end
