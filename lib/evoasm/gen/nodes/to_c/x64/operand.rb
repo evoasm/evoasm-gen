@@ -3,6 +3,15 @@ module Evoasm
     module Nodes
       module X64
         class Operand
+
+          def operand_type_to_c(name)
+            unit.constant_name_to_c name, unit.architecture_prefix(:operand_type)
+          end
+
+          def operand_size_to_c(size)
+            unit.constant_name_to_c size, unit.architecture_prefix(:operand_size)
+          end
+
           def to_c(io)
             io.puts '{'
             io.indent do
@@ -11,7 +20,7 @@ module Evoasm
               io.puts undefined? ? '1' : '0', eol: ','
               io.puts cwritten? ? '1' : '0', eol: ','
               io.puts implicit? ? '1' : '0', eol: ','
-              io.puts mnem? ? '1' : '0', eol: ','
+              io.puts mnemonic? ? '1' : '0', eol: ','
 
               parameters = instruction.parameters
               if parameter_name
@@ -20,29 +29,29 @@ module Evoasm
                 if parameter_index.nil?
                   raise "parameter #{parameter_name.inspect} for #{name} not found in"\
                         " #{parameters.map(&:name).inspect}" \
-                        " (#{instruction.mnem}/#{instruction.index})"
+                        " (#{instruction.mnemonic}/#{instruction.index})"
                 end
                 io.puts parameter_index, eol: ','
               else
                 io.puts parameters.size, eol: ','
               end
 
-              io.puts unit.operand_type_to_c(type), eol: ','
+              io.puts operand_type_to_c(type), eol: ','
 
               if size1
-                io.puts unit.operand_size_to_c(size1), eol: ','
+                io.puts operand_size_to_c(size1), eol: ','
               else
                 io.puts 'EVOASM_X64_N_OPERAND_SIZES', eol: ','
               end
 
               if size2
-                io.puts unit.operand_size_to_c(size2), eol: ','
+                io.puts operand_size_to_c(size2), eol: ','
               else
                 io.puts 'EVOASM_X64_N_OPERAND_SIZES', eol: ','
               end
 
               if reg_type
-                io.puts unit.reg_type_to_c(reg_type), eol: ','
+                io.puts unit.register_type_to_c(reg_type), eol: ','
               else
                 io.puts unit.register_types.n_symbol_to_c, eol: ','
               end

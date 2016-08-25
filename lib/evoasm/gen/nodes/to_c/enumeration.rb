@@ -1,10 +1,10 @@
-require 'evoasm/gen/strio'
+require 'evoasm/gen/core_ext/string_io'
 
 module Evoasm
   module Gen
     module Nodes
-      class Enum
-        def to_c(io = StrIO.new)
+      class Enumeration
+        def to_c(io = StringIO.new)
           raise 'name missing' unless name
 
           type_name = c_type_name
@@ -43,10 +43,6 @@ module Evoasm
           io.string
         end
 
-        def c_type(typedef = false)
-          "#{typedef ? '' : 'enum '}#{c_type_name}"
-        end
-
         def all_symbol_to_c
           unit.symbol_to_c "#{c_symbol_prefix}_all", @prefix, const: true
         end
@@ -59,7 +55,7 @@ module Evoasm
           unit.symbol_to_c symbol_name, Array(@prefix) + [c_symbol_prefix], const: true
         end
 
-        def to_ruby_ffi(io = StrIO.new)
+        def to_ruby_ffi(io = StringIO.new)
           io.indent(2) do
             io.puts "enum :#{ruby_ffi_type_name}, ["
             io.indent do
@@ -72,7 +68,7 @@ module Evoasm
                     if flags?
                       "1 << #{value}"
                     else
-                      "#{value}"
+                      value.to_s
                     end
                   end
                 io.puts ":#{symbol_name}, #{symbol_value},", eol: "\n"

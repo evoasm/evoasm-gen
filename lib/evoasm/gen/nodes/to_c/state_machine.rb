@@ -14,7 +14,7 @@ module Evoasm
             @id ||= INST_STATE_ID_MAX
             @id_map ||= Hash.new { |h, k| h[k] = (@id += 1) }
             @state_machine = state_machine
-            @io = StrIO.new
+            @io = StringIO.new
             @io.indent = 2
           end
 
@@ -89,8 +89,8 @@ module Evoasm
             end
           end
 
-          def translate_body(state, untranslated_states, inlined = false)
-            raise state.actions.inspect unless deterministic?(state)
+          def translate_body(state, untranslated_states, inlined: false)
+            raise state.actions.inspect unless state.deterministic?
             io.puts '/* begin inlined */' if inlined
 
             translate_label state unless inlined
@@ -115,10 +115,6 @@ module Evoasm
             end
           end
 
-          def has_else?(state)
-            state.children.any? { |_, condition| condition.is_a?(Else) }
-          end
-
           def translate_ret(_state)
             io.puts 'goto exit;'
           end
@@ -131,11 +127,11 @@ module Evoasm
             io.puts "goto #{state_label child};"
           end
 
-          def translate_transition(state, untranslated_states, condition, &block)
+          def translate_transition(state, condition, untranslated_states, &block)
             condition.if_to_c io do
-              if inlineable?(state)
+              if state.inlineable?
                 block[] if block
-                translate_body(state, untranslated_states, true)
+                translate_body(state, untranslated_states, inlined: true)
                 true
               else
                 untranslated_states << state unless id_map.key?(state)
@@ -147,46 +143,21 @@ module Evoasm
           end
 
           def translate_transitions(state, untranslated_states, &block)
-            state.children
-              .sort_by { |_, _, attrs| attrs[:priority] }
-              .each do |child, condition|
-              translate_transition child, untranslated_states, condition, &block
+            children = state.ordered_children
+
+            children.each do |child, condition|
+              translate_transition child, condition, untranslated_states, &block
             end
 
-            raise 'missing else branch' if can_get_stuck?(state)
+            raise 'missing else branch' if state.can_get_stuck?
           end
 
-          def can_get_stuck?(state)
-            return false if state.returns?
-            return false if has_else? state
-
-            raise state.actions.inspect if state.children.empty?
-
-            return false if state.children.any? do |_child, condition|
-              condition.is_a?(TrueLiteral)
-            end
-
-            true
-          end
-
-          def translate_actions(state, actions, _untranslated_states)
+          def translate_actions(_state, actions, _untranslated_states)
             io.puts '/* actions */'
             until actions.empty?
               action = actions.pop
               action.to_c io
             end
-          end
-
-          def deterministic?(state)
-            n_children = state.children.size
-
-            n_children <= 1 ||
-              (n_children == 2 && has_else?(state))
-          end
-
-          def inlineable?(state)
-            state.parents.size == 1 &&
-              deterministic?(state.parents.first)
           end
         end
 
@@ -204,10 +175,10 @@ module Evoasm
         end
 
         def c_prototype
-          "#{c_return_type} #{c_function_name}(#{unit.c_context_type} *ctx)"
+          "#{c_return_type_name} #{c_function_name}(#{unit.c_context_type} *ctx)"
         end
 
-        def c_return_type
+        def c_return_type_name
           'evoasm_success_t'
         end
 

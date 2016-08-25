@@ -24,19 +24,63 @@ module Evoasm
         all_local_variables
       end
 
-      def self.local_variable_name?(name)
-        name.to_s[0] == '_'
+      def ordered_children
+        return @ordered_children if @ordered_children
+        sorted_children = @children.sort_by { |_, _, attrs| attrs[:priority] }
+
+        @ordered_children =
+          if sorted_children.size == 2
+            first_child, second_child = sorted_children
+
+            _, first_condition, = first_child
+            _, second_condition, = second_child
+
+            if second_condition.is_a?(Nodes::Else)
+              case first_condition
+              when Nodes::TrueLiteral
+                [first_child]
+              when Nodes::FalseLiteral
+                [second_child]
+              else
+                sorted_children
+              end
+            else
+              raise
+            end
+          else
+            sorted_children
+          end
       end
 
-      def self.shared_variable_name?(name)
-        name.to_s[0] == '@'
+      def can_get_stuck?
+        return false if returns?
+        return false if else_child?
+
+        raise state.actions.inspect if children.empty?
+
+        return false if children.any? do |_child, condition|
+          condition.is_a?(Nodes::TrueLiteral)
+        end
+
+        true
+      end
+
+      def else_child?
+        @children.any? { |_, condition,| condition.is_a?(Nodes::Else) }
+      end
+
+      def deterministic?
+        n_children = children.size
+
+        n_children <= 1 ||
+          (n_children == 2 && else_child?)
+      end
+
+      def inlineable?
+        parents.size == 1 && parents.first.deterministic?
       end
 
       def add_local_variable(name)
-        unless self.class.local_variable_name? name
-          raise ArgumentError, 'local_variables must start with underscore'
-        end
-
         @own_local_variables << name unless @own_local_variables.include? name
       end
 
@@ -103,10 +147,9 @@ module Evoasm
         if condition
           edge_label <<
             if condition.first == :else
-              "<b> else</b><br></ br> \ n "
+              "<b>else</b><br></br>\n"
             else
-              "<b> if
-                                                                                           </b> #{expr_to_s condition}<br></ br> \ n "
+              "<b>if</b> #{expr_to_s condition}<br></br>\n"
             end
         end
 

@@ -1,5 +1,5 @@
 require 'erubis'
-require 'evoasm/gen/strio'
+require 'evoasm/gen/core_ext/string_io'
 require 'evoasm/gen/c_unit'
 require 'evoasm/gen/x64'
 

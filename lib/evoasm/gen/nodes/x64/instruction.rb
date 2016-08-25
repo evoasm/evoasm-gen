@@ -4,28 +4,22 @@ require 'evoasm/gen/nodes/x64/encoding'
 require 'evoasm/gen/core_ext/array'
 require 'evoasm/gen/core_ext/integer'
 require 'evoasm/gen/x64'
+require 'evoasm/gen/nodes/x64/instruction_state_machine'
 
 module Evoasm
   module Gen
     module Nodes
       module X64
         class Instruction < Nodes::Instruction
-          include StateDSL
-          include EncodeUtil # for set_reg_code
-
           require 'evoasm/gen/nodes/x64/operand'
 
-          attrs :mnem, :opcode,
+          attrs :mnemonic, :opcode,
                 :operands,
                 :encoding, :features,
-                :prefs, :name, :index,
+                :prefixes, :name, :index,
                 :flags, :exceptions
 
-          params :imm0, :lock?, :legacy_prefix_order, :rel,
-                 :imm1, :moffs, :addr_size, :reg0, :reg1, :reg2, :reg3,
-                 :reg0_high_byte?
-
-          local_vars :reg_code
+          attr_reader :state_machine
 
           COL_OPCODE = 0
           COL_MNEM = 1
@@ -35,44 +29,25 @@ module Evoasm
           COL_FEATURES = 5
           COL_EXCEPTIONS = 6
 
-          HEX_BYTE_REGEXP = /^[A-F0-9]{2}$/
-
-          LEGACY_PREFIX_BYTES = {
-            cs_bt: 0x2E,
-            ss: 0x36,
-            ds_bnt: 0x3E,
-            es: 0x26,
-            fs: 0x64,
-            gs: 0x65,
-            lock: 0xF0,
-            pref66: 0x66,
-            pref67: 0x67
-          }.freeze
-
-          LEGACY_PREFIX_CONDITIONS = {
-            pref67: [:eq, :addr_size, :ADDR_SIZE32]
-          }.freeze
-
-          MAND_PREF_BYTES = %w(66 F2 F3 F0)
-
-          OPERAND_TYPES = %i(reg rm vsib mem imm)
+          OPERAND_TYPES = %i(reg rm vsib mem imm).freeze
 
           def initialize(unit, index, row)
             super(unit)
 
             @index = index
-            @mnem = row[COL_MNEM]
+            @mnemonic = row[COL_MNEM]
             @encoding = row[COL_OP_ENC]
             @opcode = row[COL_OPCODE].split(/\s+/)
 
             load_features row
             load_exceptions row
             load_operands row
-            load_prefs row
+            load_prefixes row
 
             load_flags
 
             @name = name
+            @state_machine = InstructionStateMachine.new unit, self
           end
 
           # NOTE: enum domains need to be sorted
@@ -137,7 +112,7 @@ module Evoasm
                 gp_registers_domain
               else
                 values = register_constants Gen::X64::REGISTERS.fetch(reg_op.reg_type)
-                unit.find_or_create_node ArrayDomain, values
+                unit.find_or_create_node EnumerationDomain, values
               end
             else
               raise "missing domain for parameter '#{parameter_name}'"
@@ -145,16 +120,66 @@ module Evoasm
           end
 
           def name
-            ops_str = operands.select(&:mnem?).map do |op|
+            ops_str = operands.select(&:mnemonic?).map do |op|
               op.name.gsub('/m', 'm').downcase
             end.join('_')
 
-            name = mnem.downcase.tr('/', '_')
+            name = mnemonic.downcase.tr('/', '_')
             name << "_#{ops_str}" unless ops_str.empty?
             name
           end
 
+          def encodes_vex?
+            opcode[0] =~ /^VEX/
+          end
+
+          def exceptions_bitmap
+            unit.exceptions.bitmap do |flag, _|
+              exceptions.include?(flag)
+            end
+          end
+
+          def features_bitmap
+            unit.features.bitmap do |flag, _|
+              features.include?(flag)
+            end
+          end
+
+          def rex_possible?
+            prefixes.key? :rex_w
+          end
+
+          def encodes_modrm?
+            encoding.include? 'M'
+          end
+
+          def encoded_operands
+            @encoded_operands ||= operands.select(&:encoded?)
+          end
+
+          def register_operands
+            return @regs if @regs
+
+            r_idx = encoding.index(/R|O/)
+            reg_reg = r_idx && encoded_operands[r_idx]
+
+            m_idx = encoding.index 'M'
+            reg_rm = m_idx && encoded_operands[m_idx]
+
+            v_idx = encoding.index 'V'
+            reg_vex = v_idx && encoded_operands[v_idx]
+
+            @regs = [reg_reg, reg_rm, reg_vex]
+          end
+
           private
+
+          def xmm_regs(zmm: false)
+            regs = Gen::X64::REGISTERS.fetch(:xmm).dup
+            regs.concat Gen::X64::REGISTERS.fetch(:zmm) if zmm
+
+            regs
+          end
 
           def type_domain(type)
             unit.find_or_create_node TypeDomain, type
@@ -168,15 +193,15 @@ module Evoasm
 
           def array_domain(values)
             values = values.map { |value| IntegerLiteral.new unit, value }
-            unit.find_or_create_node ArrayDomain, values
+            unit.find_or_create_node EnumerationDomain, values
           end
 
           def gp_registers_domain
-            unit.find_or_create_node ArrayDomain, register_constants(GP_REGISTERS)
+            unit.find_or_create_node EnumerationDomain, register_constants(GP_REGISTERS)
           end
 
           def xmm_registers_domain(zmm: false)
-            unit.find_or_create_node ArrayDomain, register_constants(xmm_regs(zmm: zmm))
+            unit.find_or_create_node EnumerationDomain, register_constants(xmm_regs(zmm: zmm))
           end
 
           def register_constants(register_names)
@@ -215,8 +240,8 @@ module Evoasm
               end
           end
 
-          def load_prefs(row)
-            self.prefs =
+          def load_prefixes(row)
+            self.prefixes =
               row[COL_PREFS].split('; ').map do |op|
                 op =~ %r{(.+?):(.+?)/(.+)} or fail("invalid prefix op '#{op}'")
                 value =
@@ -265,375 +290,6 @@ module Evoasm
                 hash[param_or_reg] = op.access
               end
             end
-          end
-
-          def xmm_regs(zmm: false)
-            regs = Gen::X64::REGISTERS.fetch(:xmm).dup
-            regs.concat Gen::X64::REGISTERS.fetch(:zmm) if zmm
-
-            regs
-          end
-
-          def vex?
-            opcode[0] =~ /^VEX/
-          end
-
-          def write_byte_str(byte_str)
-            write Integer(byte_str, 16), 8
-          end
-
-          def mand_pref_byte?(byte)
-            MAND_PREF_BYTES.include? byte
-          end
-
-          def encode_mand_pref(opcode_index, &block)
-            while mand_pref_byte? opcode[opcode_index]
-              write_byte_str opcode[opcode_index]
-              opcode_index += 1
-            end
-
-            block[opcode_index]
-          end
-
-          def encode_legacy_prefs(&block)
-            writes = []
-
-            LEGACY_PREFIX_BYTES.each do |prefix, byte|
-              next unless prefs.key? prefix
-              needed, = prefs.fetch prefix
-
-              condition =
-                case needed
-                when :required
-                  true
-                when :optional
-                  :"#{prefix}?"
-                when :operand
-                  LEGACY_PREFIX_CONDITIONS.fetch prefix
-                else
-                  raise
-                end
-
-              writes << [condition, [byte, 8]]
-            end
-
-            unordered_writes(:legacy_prefix_order, writes) if writes.any?
-
-            block[]
-          end
-
-          def encode_opcode(opcode_index, &block)
-            while opcode[opcode_index] =~ HEX_BYTE_REGEXP
-              write_byte_str opcode[opcode_index]
-              opcode_index += 1
-            end
-
-            if encoding.include? 'O'
-              encode_o_opcode opcode_index, &block
-            else
-              block[opcode_index]
-            end
-          end
-
-          def encode_o_opcode(opcode_index, &block)
-            opcode[opcode_index] =~ /^([[:xdigit:]]{2})\+r(?:b|w|d|q)$/ || raise
-            opcode_index += 1
-
-            byte = Integer($1, 16)
-            reg_op, = register_operands
-            reg_op.parameter_name == :reg0 or raise "expected reg_op to have param reg0 not #{reg_op.parameter_name}"
-
-            set_reg_bits(:_reg_code, :reg0, reg_op.size == 8) do
-              write [:add, byte, [:mod, :_reg_code, 8]], 8
-              access :reg0, reg_op.access
-              block[opcode_index]
-            end
-          end
-
-          def encodes_modrm?
-            encoding.include? 'M'
-          end
-
-          def encode_modrm_sib(opcode_index, &block)
-            return block[opcode_index] unless encodes_modrm?
-
-            # modrm_reg_bits is the bitstring
-            # that is used directly to set the ModRM.reg bits
-            # and can be an opcode extension.
-            # reg is a *register*;
-            # if given instead, it is properly handled and encoded
-            reg_op, rm_op, = register_operands
-
-            byte = opcode[opcode_index]
-            opcode_index += 1
-            byte =~ %r{/(r|\d|\?)} or raise "unexpected opcode byte #{byte} in #{mnem}"
-
-            reg_param, rm_reg_param, modrm_reg_bits =
-              case $1
-              when 'r'
-                [reg_op.parameter_name, rm_op.parameter_name, nil]
-              when /^(\d)$/
-                [nil, rm_op.parameter_name, Integer($1)]
-              when '?'
-                [nil, rm_op.parameter_name, nil]
-              else
-                raise "unexpected modrm reg specifier '#{$1}'"
-              end
-
-            rm_reg_access = rm_op&.access
-            reg_access = reg_op&.access
-
-            rm_type = rm_op.type
-            byte_regs = reg_op&.size == 8 || rm_op&.size == 8
-
-            modrm_sib = unit.find_or_create_node ModRMSIB,
-                                                 reg_param: reg_param,
-                                                 rm_reg_param: rm_reg_param,
-                                                 rm_type: rm_type,
-                                                 modrm_reg_bits: modrm_reg_bits,
-                                                 rm_reg_access: rm_reg_access,
-                                                 reg_access: reg_access,
-                                                 byte_regs: byte_regs
-
-
-            call modrm_sib
-            block[opcode_index]
-          end
-
-          def rex_possible?
-            prefs.key? :rex_w
-          end
-
-          def encode_rex_or_vex(opcode_index, &block)
-            if vex?
-              encode_vex(opcode_index, &block)
-            elsif rex_possible?
-              encode_rex(opcode_index, &block)
-            else
-              block[opcode_index]
-            end
-          end
-
-          def encode_vex(opcode_index, &block)
-            vex = opcode[opcode_index].split '.'
-            opcode_index += 1
-
-            raise "invalid VEX start '#{vex.first}'" unless vex.first == 'VEX'
-
-            vex_m =
-              if vex.include? '0F38'
-                0b10
-              elsif vex.include? '0F3A'
-                0b11
-              else
-                0b01
-              end
-
-            vex_p =
-              if vex.include? '66'
-                0b01
-              elsif vex.include? 'F3'
-                0b10
-              elsif vex.include? 'F2'
-                0b11
-              else
-                0b00
-              end
-
-            # vex_type = vex.&(%w(NDS NDD DDS)).first
-
-            rex_w =
-              if vex.include? 'W1'
-                0b01
-              elsif vex.include? 'W0'
-                0b00
-              end
-
-            reg_op, rm_op, vex_op = register_operands
-
-            access(vex_op.parameter_name, vex_op.access) if vex_op
-
-            vex_v =
-              case encoding
-              when 'RVM', 'RVMI', 'RVMR', 'MVR', 'RMV', 'RMVI', 'VM', 'VMI'
-                [:reg_code, vex_op.parameter_name]
-              when 'RM', 'RMI', 'XM', 'MR', 'MRI', 'M'
-                0b0000
-              when 'NP'
-                nil
-              else
-                raise "unknown VEX encoding #{encoding} in #{mnem}"
-              end
-
-            vex_l =
-              if vex.include? 'LIG'
-                nil
-              elsif vex.include? '128'
-                0b0
-              elsif vex.include? '256'
-                0b1
-              elsif vex.include? 'LZ'
-                0b0
-                # [:if, [:eq, [:operand_size], 128], 0b0, 0b1]
-              end
-
-            vex = unit.find_or_create_node VEX,
-                                           rex_w: rex_w,
-                                           reg_param: reg_op&.parameter_name,
-                                           rm_reg_param: rm_op&.parameter_name,
-                                           rm_reg_type: rm_op&.type,
-                                           vex_m: vex_m,
-                                           vex_v: vex_v,
-                                           vex_l: vex_l,
-                                           vex_p: vex_p,
-                                           encodes_modrm: encodes_modrm?
-
-            call vex
-            block[opcode_index]
-          end
-
-          def encoded_operands
-            @encoded_operands ||= operands.select(&:encoded?)
-          end
-
-          def register_operands
-            return @regs if @regs
-
-            r_idx = encoding.index(/R|O/)
-            reg_reg = r_idx && encoded_operands[r_idx]
-
-            m_idx = encoding.index 'M'
-            reg_rm = m_idx && encoded_operands[m_idx]
-
-            v_idx = encoding.index 'V'
-            reg_vex = v_idx && encoded_operands[v_idx]
-
-            @regs = [reg_reg, reg_rm, reg_vex]
-          end
-
-          def encode_rex(opcode_index, &block)
-            rex_w_required, rex_w_value = prefs[:rex_w]
-
-            case rex_w_required
-              # 64-bit operand size
-            when :required
-              force_rex = true
-              rex_w = rex_w_value
-              # non 64-bit operand size
-              # only to access extended regs
-            when :optional
-              force_rex = false
-
-              rex_w = case rex_w_value
-                      when :any then
-                        nil
-                      when 0x0 then
-                        0x0
-                      else
-                        fail "unexpected REX pref value #{rex_w_value}"
-                      end
-            else
-              force_rex = false
-              rex_w = nil
-            end
-
-            reg_op, rm_op, _ = register_operands
-            byte_regs = reg_op&.size == 8 || rm_op&.size == 8
-
-            rex = unit.find_or_create_node REX,
-                                           force: force_rex,
-                                           rex_w: rex_w,
-                                           reg_param: reg_op&.parameter_name,
-                                           rm_reg_param: rm_op&.parameter_name,
-                                           rm_reg_type: rm_op&.type,
-                                           encodes_modrm: encodes_modrm?,
-                                           byte_regs: byte_regs
-
-            call rex
-            block[opcode_index]
-          end
-
-          def imm_param_name(index)
-            case encoding
-            when 'FD', 'TD'
-              :moffs
-            when 'D'
-              :rel
-            else
-              :"imm#{index}"
-            end
-          end
-
-          def encode_imm_or_imm_reg(opcode_index, &block)
-            imm_counter = 0
-
-            loop do
-              byte = opcode[opcode_index]
-              opcode_index += 1
-
-              break if byte.nil?
-
-              case byte
-              when /^(?:i|c)(?:b|w|d|o|q)$/
-                write imm_param_name(imm_counter), imm_code_size(byte)
-                imm_counter += 1
-              when '/is4'
-                write [:shl, [:reg_code, :reg3], 4], 8
-              else
-                raise "invalid immediate specifier '#{byte}'"\
-                      " found in immediate encoding #{mnem}" if encoding =~ /I$/
-              end
-            end
-
-            block[opcode_index] if block
-          end
-
-          def access_implicit_operands
-            operands.each do |operand|
-              if operand.implicit? && operand.type == :reg
-                access operand.reg, operand.access
-              end
-            end
-          end
-
-          static_state def root_state
-            comment mnem
-            log :debug, name
-
-            access_implicit_operands
-
-            encode_legacy_prefs do
-              encode_mand_pref(0) do |opcode_index|
-                encode_rex_or_vex(opcode_index) do |opcode_index|
-                  encode_opcode(opcode_index) do |opcode_index|
-                    encode_modrm_sib(opcode_index) do |opcode_index|
-                      encode_imm_or_imm_reg(opcode_index) do |opcode_index|
-                        done
-                      end
-                    end
-                  end
-                end
-              end
-            end
-          end
-
-          def imm_code_size(code)
-            case code
-            when 'ib', 'cb' then
-              8
-            when 'iw', 'cw' then
-              16
-            when 'id', 'cd' then
-              32
-            when 'io', 'cq' then
-              64
-            else
-              raise "invalid imm code #{code}"
-            end
-          end
-
-          def done
-            return!
           end
         end
       end

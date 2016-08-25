@@ -39,7 +39,7 @@ module Evoasm
       def set(name, value)
         raise ArgumentError, 'nil not allowed' if value.nil?
         add_new_action :set, expression(name.to_sym), expression(value)
-        @__state__.add_local_variable name if State.local_variable_name?(name)
+        @__state__.add_local_variable name if local_variable_name?(name)
       end
 
       def new_write_action(value, size)
@@ -232,6 +232,14 @@ module Evoasm
         else
           literal_class.new unit
         end
+      end
+
+      def local_variable_name?(name)
+        name.to_s[0] == '_'
+      end
+
+      def shared_variable_name?(name)
+        name.to_s[0] == '@'
       end
 
       def call_with_state(block, state)

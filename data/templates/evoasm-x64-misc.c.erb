@@ -26,7 +26,7 @@ evoasm_x64_ctx_load_cpuid(evoasm_x64_ctx_t *x64_ctx) {
   EVOASM_TRY(enc_failed, evoasm_x64_func_prolog, x64_ctx, &buf, EVOASM_X64_ABI_SYSV);
 
 <% remaining_flags = unit.features.symbols %>
-<% io = StrIO.new %>
+<% io = StringIO.new %>
 <% Evoasm::Gen::X64::CPUID.each_with_index do |((eax_val, ecx_val), out_regs), index0| %>
 
   EVOASM_X64_SET(EVOASM_X64_INST_PARAM_REG0, EVOASM_X64_REG_A);

@@ -1,13 +1,13 @@
 require 'erubis'
-require 'evoasm/gen/strio'
-require 'evoasm/gen/nodes/enum'
+require 'evoasm/gen/core_ext/string_io'
+require 'evoasm/gen/nodes/enumeration'
 require 'evoasm/gen/core_ext/string'
 
 #require 'evoasm/gen/to_c/translator_util'
 require 'evoasm/gen/nodes/x64/instruction'
 require 'evoasm/gen/nodes/to_c/instruction'
 require 'evoasm/gen/nodes/to_c/state_machine'
-require 'evoasm/gen/nodes/to_c/enum'
+require 'evoasm/gen/nodes/to_c/enumeration'
 require 'evoasm/gen/x64'
 require 'evoasm/gen/x64_unit'
 require 'evoasm/gen/unit'
@@ -20,11 +20,11 @@ module Evoasm
         'evoasm'
       end
 
-      def constant_to_c(name, prefix)
+      def constant_name_to_c(name, prefix)
         symbol_to_c name, prefix, const: true
       end
 
-      def const_name_to_ruby_ffi(name, prefix)
+      def constant_name_to_ruby_ffi(name, prefix)
         symbol_to_ruby_ffi name, prefix, const: true
       end
 
@@ -59,57 +59,28 @@ module Evoasm
         end
       end
 
-      def base_arch_ctx_prefix(name = nil)
-        ['arch_ctx', name]
-      end
-
-      def base_arch_prefix(name = nil)
-        ['arch', name]
-      end
-
-      def arch_ctx_prefix(name = nil)
-        ["#{architecture}_ctx", name]
-      end
-
       def architecture_prefix(name = nil)
         ["#{architecture}", name]
       end
 
-      def error_code_to_c(name)
-        prefix = name == :ok ? :error_code : base_arch_prefix(:error_code)
-        constant_to_c name, prefix
-      end
-
       def register_name_to_c(name)
-        constant_to_c name, architecture_prefix(:reg)
+        constant_name_to_c name, architecture_prefix(:reg)
       end
 
-      def exception_to_c(name)
-        constant_to_c name, architecture_prefix(:exception)
-      end
-
-      def reg_type_to_c(name)
-        constant_to_c name, architecture_prefix(:reg_type)
-      end
-
-      def operand_type_to_c(name)
-        constant_to_c name, architecture_prefix(:operand_type)
-      end
-
-      def operand_size_to_c(size)
-        constant_to_c size, architecture_prefix(:operand_size)
+      def register_type_to_c(name)
+        constant_name_to_c name, architecture_prefix(:reg_type)
       end
 
       def feature_name_to_c(name)
-        constant_to_c name, architecture_prefix(:feature)
+        constant_name_to_c name, architecture_prefix(:feature)
       end
 
       def inst_flag_to_c(flag)
-        constant_to_c flag, architecture_prefix(:inst_flag)
+        constant_name_to_c flag, architecture_prefix(:inst_flag)
       end
 
       def inst_param_name_to_c(name)
-        constant_to_c name, architecture_prefix(:inst_param)
+        constant_name_to_c name, architecture_prefix(:inst_param)
       end
 
       def inst_params_var_name(inst)
@@ -246,7 +217,7 @@ module Evoasm
       end
 
       def nodes_to_c(nodes)
-        io = StrIO.new
+        io = StringIO.new
         nodes.each do |node|
           node.to_c io
         end
@@ -270,23 +241,22 @@ module Evoasm
       end
 
       def parameters_to_c
+        io = StringIO.new
         @instructions.each do |instruction|
-          instruction_parameters_to_c instruction
+          instruction_parameters_to_c instruction, io
         end
+        io.string
       end
 
       def operands_to_c
+        io = StringIO.new
         @instructions.each do |instruction|
-          instruction_operands_to_c instruction
+          instruction_operands_to_c instruction, io
         end
+        io.string
       end
 
-      def c_instruction_parameters_variable_name(instruction)
-        "params_#{instruction.name}"
-      end
-
-      def instruction_parameters_to_c(instruction)
-        io = StrIO.new
+      def instruction_parameters_to_c(instruction, io)
         parameters = instruction.parameters
 
         return if parameters.empty?
@@ -304,15 +274,10 @@ module Evoasm
         end
         io.puts '};'
         io.puts
-        io.string
       end
 
-      def c_instruction_operands_variable_name(instruction)
-        "operands_#{instruction.name}"
-      end
 
-      def instruction_operands_to_c(instruction)
-        io = StrIO.new
+      def instruction_operands_to_c(instruction, io)
         operands = instruction.operands
 
         return if operands.empty?
@@ -325,15 +290,14 @@ module Evoasm
           io.puts '};'
           io.puts
         end
-
-        io.string
       end
 
       def instructions_to_c
+        nodes_to_c @instructions.map(&:state_machine)
         nodes_to_c @instructions
       end
 
-      def parameter_set_function(io = StrIO.new)
+      def parameter_set_function(io = StringIO.new)
         io.puts 'void evoasm_x64_inst_params_set(evoasm_x64_inst_params_t *params, evoasm_x64_inst_param_id_t param, evoasm_inst_param_val_t param_val) {'
         io.indent do
           io.puts "switch(param) {"
@@ -366,7 +330,7 @@ module Evoasm
         Math.log2(max_params_per_inst + 1).ceil.to_i
       end
 
-      def inst_params_type_decl_to_c(io = StrIO.new)
+      def inst_params_type_decl_to_c(io = StringIO.new)
         io.puts 'typedef struct {'
         io.indent do
           params = parameter_names.symbols.select { |key| !parameter_names.alias? key }.flat_map do |param_name|
@@ -391,12 +355,34 @@ module Evoasm
       def bit_mask_to_c(mask)
         name =
           case mask
-          when Range then
+          when Range
             "#{mask.min}_#{mask.max}"
           else
             mask.to_s
           end
-        constant_to_c name, architecture_prefix(:bit_mask)
+        constant_name_to_c name, architecture_prefix(:bit_mask)
+      end
+
+      def c_instruction_parameters_variable_name(instruction)
+        "params_#{instruction.name}"
+      end
+
+      def c_instruction_mnemonic_variable_name(instruction)
+        "mnem_#{instruction.name}"
+      end
+
+      def c_instruction_operands_variable_name(instruction)
+        "operands_#{instruction.name}"
+      end
+
+      def mnemonics_to_c
+        io = StringIO.new
+
+        @instructions.each do |instruction|
+          io.puts %Q{static const char #{c_instruction_mnemonic_variable_name instruction}[] = "#{instruction.mnemonic}";}
+        end
+
+        io.string
       end
 
       private
@@ -444,7 +430,7 @@ module Evoasm
         insts
       end
 
-      def inst_funcs_to_c(io = StrIO.new)
+      def inst_funcs_to_c(io = StringIO.new)
         @inst_translators = insts.map do |inst|
           inst_translator = StateMachineCTranslator.new architecture, self
           inst_translator.emit_inst_func io, inst
@@ -454,7 +440,7 @@ module Evoasm
         io.string
       end
 
-      def called_funcs_to_c(io = StrIO.new)
+      def called_funcs_to_c(io = StringIO.new)
         @called_funcs.each do |func, (id, translators)|
           func_translator = StateMachineCTranslator.new architecture, self
           func_translator.emit_called_func io, func, id
@@ -471,7 +457,7 @@ module Evoasm
         io.puts '{'
         io.indent do
           io.puts inst.operands.size, eol: ','
-          io.puts inst_name_to_c(inst), eol: ','
+          io.puts constainst_name_to_c(inst), eol: ','
           io.puts params.size, eol: ','
           io.puts exceptions_bitmap(inst), eol: ','
           io.puts inst_flags_to_c(inst), eol: ','
@@ -495,7 +481,7 @@ module Evoasm
         io.puts '},'
       end
 
-      def insts_to_c(io = StrIO.new)
+      def insts_to_c(io = StringIO.new)
         io.puts "static const evoasm_x64_inst_t #{static_insts_var_name}[] = {"
         @inst_translators.each do |translator|
           inst_to_c io, translator.inst, translator.parameters
@@ -526,7 +512,7 @@ module Evoasm
         io.puts
       end
 
-      def inst_params_to_c(io = StrIO.new)
+      def inst_params_to_c(io = StringIO.new)
         @inst_translators.each do |translator|
           inst_param_to_c io, translator.inst, translator.parameters, translator.param_domains
         end
@@ -570,10 +556,10 @@ module Evoasm
         end
       end
 
-      def inst_operand_to_c(translator, op, io = StrIO.new, eol:)
+      def inst_operand_to_c(translator, op, io = StringIO.new, eol:)
       end
 
-      def inst_operands_to_c(io = StrIO.new)
+      def inst_operands_to_c(io = StringIO.new)
         @inst_translators.each do |translator|
           next if translator.inst.operands.empty?
           io.puts "static const #{operand_c_type} #{inst_operands_var_name translator.inst}[] = {"
@@ -584,14 +570,6 @@ module Evoasm
           end
           io.puts '};'
           io.puts
-        end
-
-        io.string
-      end
-
-      def inst_mnems_to_c(io = StrIO.new)
-        @inst_translators.each do |translator|
-          io.puts %Q{static const char #{inst_mnem_var_name translator.inst}[] = "#{translator.inst.mnem}";}
         end
 
         io.string
@@ -629,7 +607,7 @@ module Evoasm
         io.puts "static const #{domain_c_type} #{param_domain_var_name domain} = #{domain_c};"
       end
 
-      def param_domains_to_c(io = StrIO.new)
+      def param_domains_to_c(io = StringIO.new)
         registered_param_domains.each do |domain|
           param_domain_to_c io, domain
         end
@@ -652,7 +630,7 @@ module Evoasm
         id
       end
 
-      def pref_funcs_to_c(io = StrIO.new)
+      def pref_funcs_to_c(io = StringIO.new)
         @pref_funcs.each do |writes, (id, translators)|
           func_translator = StateMachineCTranslator.new architecture, self
           func_translator.emit_pref_func io, writes, id
@@ -665,36 +643,6 @@ module Evoasm
         io.string
       end
 
-      def inst_flags_to_c(inst)
-        if inst.flags.empty?
-          '0'
-        else
-          inst.flags.map { |flag| inst_flag_to_c flag }
-            .join ' | '
-        end
-      end
-
-      def features_bitmap(inst)
-        bitmap(features) do |flag, _|
-          inst.features.include?(flag)
-        end
-      end
-
-      def exceptions_bitmap(inst)
-        bitmap(exceptions) do |flag, _|
-          inst.exceptions.include?(flag)
-        end
-      end
-
-      def bitmap(enum, &block)
-        enum.symbols.each_with_index.inject(0) do |acc, (flag, index)|
-          if block[flag, index]
-            acc | (1 << index)
-          else
-            acc
-          end
-        end
-      end
     end
   end
 end

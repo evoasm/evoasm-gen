@@ -85,8 +85,8 @@ module Evoasm
 
             @encoded = flags.include? 'e'
 
-            # mnem operand
-            @mnem = flags.include? 'm'
+            # mnemonic operand
+            @mnemonic = flags.include? 'm'
 
             if name == name.upcase
               initialize_implicit
@@ -103,8 +103,8 @@ module Evoasm
             @implicit
           end
 
-          def mnem?
-            @mnem
+          def mnemonic?
+            @mnemonic
           end
 
           alias read? read

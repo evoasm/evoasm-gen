@@ -70,10 +70,6 @@ module Evoasm
           @table ||= (0...width).to_a.permutation.to_a
         end
 
-        def after_initialize
-          @table ||= (0...width).to_a.permutation.to_a
-        end
-
         def height
           table.size
         end
@@ -83,18 +79,20 @@ module Evoasm
         attr_reader :permutation_table
 
         def domain
-          @domain ||= unit.find_or_create_node RangeDomain, 0, @permutation_table.height - 1
+          @domain ||= unit.find_or_create_node RangeDomain,
+                                               0, @permutation_table.height - 1
         end
 
         private
 
         def after_initialize
+          raise 'unordered write with single write' if writes.size == 1
           @permutation_table = unit.find_or_create_node PermutationTable, writes.size
         end
       end
 
       Domain = def_node Node
-      ArrayDomain = def_node Domain, :values
+      EnumerationDomain = def_node Domain, :values
       RangeDomain = def_node Domain, :min, :max
       TypeDomain = def_node Domain, :type
 

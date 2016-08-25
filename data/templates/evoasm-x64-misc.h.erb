@@ -14,7 +14,7 @@ evoasm_x64_reg_type(evoasm_x64_reg_id_t reg) {
   switch(reg) {
 <% Evoasm::Gen::X64::REGISTERS.each do |reg_type, regs| %>
   <% regs.each do |reg| %>
-    case <%= unit.register_name_to_c reg %>: return <%= unit.reg_type_to_c reg_type %>;
+    case <%= unit.register_name_to_c reg %>: return <%= unit.register_type_to_c reg_type %>;
   <% end %>
 <% end %>
     default: evoasm_assert_not_reached();

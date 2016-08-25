@@ -1,10 +1,10 @@
-require 'evoasm/gen/strio'
+require 'evoasm/gen/core_ext/string_io'
 require 'evoasm/gen/nodes'
 
 module Evoasm
   module Gen
     module Nodes
-      class Enum < Node
+      class Enumeration < Node
         attr_reader :name, :flags
 
         def initialize(unit, name, elems = [], prefix: nil, flags: false)
@@ -50,6 +50,16 @@ module Evoasm
 
         def each_alias(&block)
           @aliases.each &block
+        end
+
+        def bitmap(&block)
+          symbols.each_with_index.inject(0) do |acc, (flag, index)|
+            if block[flag, index]
+              acc | (1 << index)
+            else
+              acc
+            end
+          end
         end
 
         def symbols

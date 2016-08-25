@@ -1,4 +1,4 @@
-require 'evoasm/gen/strio'
+require 'evoasm/gen/core_ext/string_io'
 
 module Evoasm
   module Gen
@@ -143,12 +143,18 @@ module Evoasm
 
       class Domain
         def to_c(io)
-          io.puts "static const #{c_type} #{c_variable_name} = #{body_to_c};"
+          io.puts "static const #{c_type_name} #{c_variable_name} = #{body_to_c};"
         end
       end
 
-      class ArrayDomain
+      class EnumerationDomain
         MAX_LENGTH = 32
+
+        def after_initialize
+          @@index ||= 0
+          @index = @@index
+          @@index += 1
+        end
 
         def body_to_c
           raise 'enum exceeds maximal enum length' if values.size > MAX_LENGTH
@@ -157,12 +163,12 @@ module Evoasm
           "{EVOASM_DOMAIN_TYPE_ENUM, #{values.length}, {#{values_c}}}"
         end
 
-        def c_type
-          "evoasm_array#{values.size}_domain_t"
+        def c_type_name
+          "evoasm_enum#{values.size}_domain_t"
         end
 
         def c_variable_name
-          "array_domain__#{values.join '_'}"
+          "enum_domain__#{@index}"
         end
       end
 
@@ -171,8 +177,8 @@ module Evoasm
           "{EVOASM_DOMAIN_TYPE_RANGE, #{min}, #{max}}"
         end
 
-        def c_type
-          'evoasm_array_domain_t'
+        def c_type_name
+          'evoasm_range_domain_t'
         end
 
         def c_variable_name
@@ -186,7 +192,7 @@ module Evoasm
           "{EVOASM_DOMAIN_TYPE_INT#$1}"
         end
 
-        def c_type
+        def c_type_name
           'evoasm_type_domain_t'
         end
 
@@ -246,15 +252,15 @@ module Evoasm
       end
 
       def_to_c Constant do
-        unit.constant_to_c name, [unit.architecture]
+        unit.constant_name_to_c name, [unit.architecture]
+      end
+
+      def_to_c RegisterConstant do
+        unit.constant_name_to_c name, [unit.architecture, 'reg']
       end
 
       def_to_c SharedVariable do
         "ctx->shared.#{name}"
-      end
-
-      def_to_c RegisterConstant do
-        unit.symbol_to_c name, [unit.architecture], const: true
       end
 
       def_to_c ErrorCode do
