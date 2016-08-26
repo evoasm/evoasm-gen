@@ -32,16 +32,28 @@ module Evoasm
         end
 
         private
+        def add_parameter_variable(parameter_variables, new_parameter_variable)
+          index = parameter_variables.index new_parameter_variable
+          if index
+            parameter_variables[index].undefinedable ||= new_parameter_variable.undefinedable?
+          else
+            parameter_variables << new_parameter_variable
+          end
+        end
+
+        def merge_parameter_variables(parameter_variables, new_parameter_variables)
+          new_parameter_variables.each do |new_parameter_variable|
+            add_parameter_variable parameter_variables, new_parameter_variable
+          end
+        end
 
         def collect_parameter_variables_(node, parameter_variables)
           node.traverse do |child_node|
             case child_node
             when ParameterVariable
-              unless parameter_variables.include? child_node
-                parameter_variables << child_node
-              end
+              add_parameter_variable parameter_variables, child_node
             when StateMachine
-              parameter_variables.concat(child_node.parameter_variables).uniq!
+              merge_parameter_variables parameter_variables, child_node.parameter_variables
             end
           end
         end

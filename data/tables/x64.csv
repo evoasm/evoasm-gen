@@ -572,13 +572,13 @@ VEX.LZ.0F.WIG AE /2,VLDMXCSR,M,m32:mer; MM:w; FZ:w; RC:w; PM:w; UM:w; OM:w; ZM:w
 8D /r,LEA,RM,r16:mew; m:mer,pref66:required/1; pref67:operand/1,,UD
 8D /r,LEA,RM,r32:mew; m:mer,rex_w:optional/0; pref67:operand/1,,UD
 8D /r,LEA,RM,r64:mew; m:mer,rex_w:required/1; pref67:operand/1,,UD
-C9,LEAVE,NP,SP:rw; BP:rw,pref66:required/1,,SSXX; PF; AC
-C9,LEAVE,NP,RSP:rw; RBP:rw,,,SSXX; PF; AC
+C9,LEAVEW,NP,SP:rw; BP:rw,pref66:required/1,,SSXX; PF; AC
+C9,LEAVEQ,NP,RSP:rw; RBP:rw,,,SSXX; PF; AC
 0F AE E8,LFENCE,NP,,,,
-AC,LODS,NP,SIL:rw; [SIL]:r; m8:w; IF:w,repe:illegal/0,,
-AD,LODS,NP,SI:rw; [SI]:r; m16:w; IF:w,repe:illegal/0; pref66:required/1,,
-AD,LODS,NP,ESI:rw; [ESI]:r; m32:w; IF:w,repe:illegal/0; rex_w:optional/0,,
-AD,LODS,NP,RSI:rw; [RSI]:r; m64:w; IF:w,repe:illegal/0; rex_w:required/1,,
+AC,LODSB,NP,SIL:rw; [SIL]:r; m8:w; IF:w,repe:illegal/0,,
+AD,LODSW,NP,SI:rw; [SI]:r; m16:w; IF:w,repe:illegal/0; pref66:required/1,,
+AD,LODSD,NP,ESI:rw; [ESI]:r; m32:w; IF:w,repe:illegal/0; rex_w:optional/0,,
+AD,LODSQ,NP,RSI:rw; [RSI]:r; m64:w; IF:w,repe:illegal/0; rex_w:required/1,,
 E2 cb,LOOP,D,rel8:mer; RCX:r,,,
 E1 cb,LOOPE,D,rel8:mer; RCX:r; CF:r,,,
 E0 cb,LOOPNE,D,rel8:mer; RCX:r; CF:r,,,
@@ -1858,32 +1858,32 @@ F3 0F C7 /7,RDPID,M,r64:mew,pref67:operand/1,RDPID,
 0F C7 /7,RDSEED,M,r16:mew; CF:w; OF:w; SF:w; ZF:w; AF:w; PF:w,pref66:required/1; pref67:operand/1,RDSEED,
 0F C7 /7,RDSEED,M,r32:mew; CF:w; OF:w; SF:w; ZF:w; AF:w; PF:w,rex_w:optional/0; pref67:operand/1,RDSEED,
 0F C7 /7,RDSEED,M,r64:mew; CF:w; OF:w; SF:w; ZF:w; AF:w; PF:w,rex_w:required/1; pref67:operand/1,RDSEED,
-A4,REP_MOVS,NP,SIL:rw; [SIL]:r; DIL:rw; [DIL]:rw; CL:rw,repe:required/1; rex_w:required/1,,
-A5,REP_MOVS,NP,SI:rw; [SI]:r; DI:rw; [DI]:rw; CX:rw,repe:required/1; pref66:required/1,,
-A5,REP_MOVS,NP,ESI:rw; [ESI]:r; EDI:rw; [EDI]:rw; ECX:rw,repe:required/1; rex_w:optional/0,,
-A5,REP_MOVS,NP,RSI:rw; [RSI]:r; RDI:rw; [RDI]:rw; RCX:rw,repe:required/1; rex_w:required/1,,
-AC,REP_LODS,NP,SIL:rw; [SIL]:r; AL:w; CL:rw,repe:required/1; rex_w:required/1,,
-AD,REP_LODS,NP,SI:rw; [SI]:r; AX:w; CX:rw,repe:required/1; pref66:required/1,,
-AD,REP_LODS,NP,ESI:rw; [ESI]:r; EAX:w; ECX:rw,repe:required/1; rex_w:optional/0,,
-AD,REP_LODS,NP,RSI:rw; [RSI]:r; RAX:w; RCX:rw,repe:required/1; rex_w:required/1,,
-AA,REP_STOS,NP,SIL:rw; DIL:rw; [DIL]:w; AL:r; CL:rw,repe:required/1; rex_w:required/1,,
-AB,REP_STOS,NP,SI:rw; DI:rw; [DI]:w; AX:r; CX:rw,repe:required/1; pref66:required/1,,
-AB,REP_STOS,NP,ESI:rw; EDI:rw; [EDI]:w; EAX:r; ECX:rw,repe:required/1; rex_w:optional/0,,
-AB,REP_STOS,NP,RSI:rw; RDI:rw; [RDI]:w; RAX:r; RCX:rw,repe:required/1; rex_w:required/1,,
-A6,REPE_CMPS,NP,SIL:rw; [SIL]:r; DIL:rw; [DIL]:r; CL:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; repne:required/1; rex_w:required/1,,SS; GP; PF; AC
-A7,REPE_CMPS,NP,SI:rw; [SI]:r; DI:rw; [DI]:r; CX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; pref66:required/1,,SS; GP; PF; AC
-A7,REPE_CMPS,NP,ESI:rw; [ESI]:r; EDI:rw; [EDI]:r; ECX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; rex_w:optional/0,,SS; GP; PF; AC
-A7,REPE_CMPS,NP,RSI:rw; [RSI]:r; RDI:rw; [RDI]:r; RCX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; rex_w:required/1,,SS; GP; PF; AC
-AE,REPE_SCAS,NP,SIL:rw; DIL:rw; [DIL]:r; AL:r; CL:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; repne:required/1; rex_w:required/1,,GP; PF; AC
-AF,REPE_SCAS,NP,SI:rw; DI:rw; [DI]:r; AX:r; CX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; pref66:required/1,,GP; PF; AC
-AF,REPE_SCAS,NP,ESI:rw; EDI:rw; [EDI]:r; EAX:r; ECX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; rex_w:optional/0,,GP; PF; AC
-AF,REPE_SCAS,NP,RSI:rw; RDI:rw; [RDI]:r; RAX:r; RCX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; rex_w:required/1,,GP; PF; AC
-A7,REPNE_CMPS,NP,SI:rw; [SI]:r; DI:rw; [DI]:r; CX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; pref66:required/1,,SS; GP; PF; AC
-A7,REPNE_CMPS,NP,ESI:rw; [ESI]:r; EDI:rw; [EDI]:r; ECX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; rex_w:optional/0,,SS; GP; PF; AC
-A7,REPNE_CMPS,NP,RSI:rw; [RSI]:r; RDI:rw; [RDI]:r; RCX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; rex_w:required/1,,SS; GP; PF; AC
-AF,REPNE_SCAS,NP,SI:rw; DI:rw; [DI]:r; AX:r; CX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; pref66:required/1,,GP; PF; AC
-AF,REPNE_SCAS,NP,ESI:rw; EDI:rw; [EDI]:r; EAX:r; ECX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; rex_w:optional/0,,GP; PF; AC
-AF,REPNE_SCAS,NP,RSI:rw; RDI:rw; [RDI]:r; RAX:r; RCX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; rex_w:required/1,,GP; PF; AC
+A4,REP_MOVSB,NP,SIL:rw; [SIL]:r; DIL:rw; [DIL]:rw; CL:rw,repe:required/1; rex_w:required/1,,
+A5,REP_MOVSW,NP,SI:rw; [SI]:r; DI:rw; [DI]:rw; CX:rw,repe:required/1; pref66:required/1,,
+A5,REP_MOVSD,NP,ESI:rw; [ESI]:r; EDI:rw; [EDI]:rw; ECX:rw,repe:required/1; rex_w:optional/0,,
+A5,REP_MOVSQ,NP,RSI:rw; [RSI]:r; RDI:rw; [RDI]:rw; RCX:rw,repe:required/1; rex_w:required/1,,
+AC,REP_LODSB,NP,SIL:rw; [SIL]:r; AL:w; CL:rw,repe:required/1; rex_w:required/1,,
+AD,REP_LODSW,NP,SI:rw; [SI]:r; AX:w; CX:rw,repe:required/1; pref66:required/1,,
+AD,REP_LODSD,NP,ESI:rw; [ESI]:r; EAX:w; ECX:rw,repe:required/1; rex_w:optional/0,,
+AD,REP_LODSQ,NP,RSI:rw; [RSI]:r; RAX:w; RCX:rw,repe:required/1; rex_w:required/1,,
+AA,REP_STOSB,NP,SIL:rw; DIL:rw; [DIL]:w; AL:r; CL:rw,repe:required/1; rex_w:required/1,,
+AB,REP_STOSW,NP,SI:rw; DI:rw; [DI]:w; AX:r; CX:rw,repe:required/1; pref66:required/1,,
+AB,REP_STOSD,NP,ESI:rw; EDI:rw; [EDI]:w; EAX:r; ECX:rw,repe:required/1; rex_w:optional/0,,
+AB,REP_STOSQ,NP,RSI:rw; RDI:rw; [RDI]:w; RAX:r; RCX:rw,repe:required/1; rex_w:required/1,,
+A6,REPE_CMPSB,NP,SIL:rw; [SIL]:r; DIL:rw; [DIL]:r; CL:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; repne:required/1; rex_w:required/1,,SS; GP; PF; AC
+A7,REPE_CMPSW,NP,SI:rw; [SI]:r; DI:rw; [DI]:r; CX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; pref66:required/1,,SS; GP; PF; AC
+A7,REPE_CMPSD,NP,ESI:rw; [ESI]:r; EDI:rw; [EDI]:r; ECX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; rex_w:optional/0,,SS; GP; PF; AC
+A7,REPE_CMPSQ,NP,RSI:rw; [RSI]:r; RDI:rw; [RDI]:r; RCX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; rex_w:required/1,,SS; GP; PF; AC
+AE,REPE_SCASB,NP,SIL:rw; DIL:rw; [DIL]:r; AL:r; CL:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; repne:required/1; rex_w:required/1,,GP; PF; AC
+AF,REPE_SCASW,NP,SI:rw; DI:rw; [DI]:r; AX:r; CX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; pref66:required/1,,GP; PF; AC
+AF,REPE_SCASD,NP,ESI:rw; EDI:rw; [EDI]:r; EAX:r; ECX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; rex_w:optional/0,,GP; PF; AC
+AF,REPE_SCASQ,NP,RSI:rw; RDI:rw; [RDI]:r; RAX:r; RCX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:required/1; rex_w:required/1,,GP; PF; AC
+A7,REPNE_CMPSW,NP,SI:rw; [SI]:r; DI:rw; [DI]:r; CX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; pref66:required/1,,SS; GP; PF; AC
+A7,REPNE_CMPSD,NP,ESI:rw; [ESI]:r; EDI:rw; [EDI]:r; ECX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; rex_w:optional/0,,SS; GP; PF; AC
+A7,REPNE_CMPSQ,NP,RSI:rw; [RSI]:r; RDI:rw; [RDI]:r; RCX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; rex_w:required/1,,SS; GP; PF; AC
+AF,REPNE_SCASW,NP,SI:rw; DI:rw; [DI]:r; AX:r; CX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; pref66:required/1,,GP; PF; AC
+AF,REPNE_SCASD,NP,ESI:rw; EDI:rw; [EDI]:r; EAX:r; ECX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; rex_w:optional/0,,GP; PF; AC
+AF,REPNE_SCASQ,NP,RSI:rw; RDI:rw; [RDI]:r; RAX:r; RCX:rw; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repne:required/1; rex_w:required/1,,GP; PF; AC
 C3,RET,NP,RSP:rw; RIP:w,,,SS; GP; PF; AC; NPX; SSXXX; SS; GP; PF; AC
 C2 iw,RET,I,imm16:mer; RSP:rw; RIP:w,,,SS; GP; PF; AC; NPX; SSXXX; SS; GP; PF; AC
 VEX.LZ.F2.0F3A.W0 F0 /r ib,RORX,RMI,r32:mew; r/m32:mer; imm8:mer,pref67:operand/1,BMI2,UDX; SSX; GP; PF; AC
@@ -1971,10 +1971,10 @@ VEX.NDS.LZ.F2.0F38.W1 F7 /r,SHRX,RMV,r64:mew; r/m64:mer; r64:mer,pref67:operand/
 1B /r,SBB,RM,r16:merw; r/m16:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
 1B /r,SBB,RM,r32:merw; r/m32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
 1B /r,SBB,RM,r64:merw; r/m64:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:rw,rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
-AE,SCAS,NP,SIL:rw; DIL:rw; [DIL]:r; AL:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0,,GP; PF; AC
-AF,SCAS,NP,SI:rw; DI:rw; [DI]:r; AX:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0; pref66:required/1,,GP; PF; AC
-AF,SCAS,NP,ESI:rw; EDI:rw; [EDI]:r; EAX:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0; rex_w:optional/0,,GP; PF; AC
-AF,SCAS,NP,RSI:rw; RDI:rw; [RDI]:r; RAX:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0; rex_w:required/1,,GP; PF; AC
+AE,SCASB,NP,SIL:rw; DIL:rw; [DIL]:r; AL:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0,,GP; PF; AC
+AF,SCASW,NP,SI:rw; DI:rw; [DI]:r; AX:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0; pref66:required/1,,GP; PF; AC
+AF,SCASD,NP,ESI:rw; EDI:rw; [EDI]:r; EAX:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0; rex_w:optional/0,,GP; PF; AC
+AF,SCASQ,NP,RSI:rw; RDI:rw; [RDI]:r; RAX:r; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,repe:illegal/0; repne:illegal/0; rex_w:required/1,,GP; PF; AC
 0F 97 /?,SETA/SETNBE,M,r/m8:mew; CF:r; ZF:r,pref67:operand/1,,
 0F 93 /?,SETAE/SETNB/SETNC,M,r/m8:mew; CF:r,pref67:operand/1,,
 0F 92 /?,SETB/SETC/SETNAE,M,r/m8:mew; CF:r,pref67:operand/1,,
@@ -2046,10 +2046,10 @@ F9,STC,NP,CF:w,,,
 FD,STD,NP,DF:w,,,
 0F AE /3,STMXCSR,M,m32:mew; MM:w; FZ:w; RC:w; PM:w; UM:w; OM:w; ZM:w; DM:w; IM:w; DAZ:w; PE:w; UE:w; OE:w; ZE:w; DE:w; IE:w,pref67:operand/1,SSE,UD
 VEX.LZ.0F.WIG AE /3,VSTMXCSR,M,m32:mew; MM:w; FZ:w; RC:w; PM:w; UM:w; OM:w; ZM:w; DM:w; IM:w; DAZ:w; PE:w; UE:w; OE:w; ZE:w; DE:w; IE:w,pref67:operand/1,AVX,UD
-AA,STOS,NA,SIL:rw; DIL:rw; [DIL]:w; AL:r,repe:illegal/0,,
-AB,STOS,NA,SI:rw; DI:rw; [DI]:w; AX:r,repe:illegal/0; pref66:required/1,,
-AB,STOS,NA,ESI:rw; EDI:rw; [EDI]:w; EAX:r,repe:illegal/0; rex_w:optional/0,,
-AB,STOS,NA,RSI:rw; RDI:rw; [RDI]:w; RAX:r,repe:illegal/0; rex_w:required/1,,
+AA,STOSB,NA,SIL:rw; DIL:rw; [DIL]:w; AL:r,repe:illegal/0,,
+AB,STOSW,NA,SI:rw; DI:rw; [DI]:w; AX:r,repe:illegal/0; pref66:required/1,,
+AB,STOSD,NA,ESI:rw; EDI:rw; [EDI]:w; EAX:r,repe:illegal/0; rex_w:optional/0,,
+AB,STOSQ,NA,RSI:rw; RDI:rw; [RDI]:w; RAX:r,repe:illegal/0; rex_w:required/1,,
 2C ib,SUB,I,AL:mrw; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,,,SSX; GPX; PF; AC
 2D iw,SUB,I,AX:mrw; imm16:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref66:required/1,,SSX; GPX; PF; AC
 2D id,SUB,I,EAX:mrw; imm32:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,rex_w:optional/0,,SSX; GPX; PF; AC

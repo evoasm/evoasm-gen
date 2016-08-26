@@ -10,7 +10,7 @@ module Evoasm
 
           attr_reader :name, :parameter_name, :type, :size1, :size2, :read, :written,
                       :undefined, :cwritten, :read_bits, :written_bits, :cwritten_bits,
-                      :undefined_bits, :reg, :imm, :reg_type, :accessed_bits, :reg_size,
+                      :undefined_bits, :register, :imm, :register_type, :accessed_bits, :register_size,
                       :mem_size, :imm_size
 
           IMM_OP_REGEXP = /^(imm|rel)(\d+)?$/
@@ -113,11 +113,11 @@ module Evoasm
           alias undefined? undefined
 
           def size
-            @reg_size || @imm_size || @mem_size
+            @register_size || @imm_size || @mem_size
           end
 
           def size1
-            @reg_size || @imm_size
+            @register_size || @imm_size
           end
 
           def size2
@@ -162,7 +162,7 @@ module Evoasm
                 end
               initialize_reg $~[:reg], reg_size, mem_size
             when REG_OP_REGEXP
-              @type = :reg
+              @type = :register
               initialize_reg $~[:reg], $~[:reg_size].to_i
             when MEM_OP_REGEXP
               @type = :mem
@@ -178,7 +178,7 @@ module Evoasm
               raise "unexpected operand '#{name}'"
             end
 
-            if type == :rm || type == :reg
+            if type == :rm || type == :register
               @parameter_name = :"reg#{counters.reg_counter}"
               counters.reg_counter += 1
             end
@@ -187,7 +187,7 @@ module Evoasm
           ALLOWED_REG_SIZES = [8, 16, 32, 64].freeze
 
           def initialize_reg(reg, reg_size, mem_size = nil)
-            @reg_type, @reg_size, @mem_size =
+            @register_type, @register_size, @mem_size =
               case reg
               when 'r'
                 raise "invalid reg size #{reg_size}" unless ALLOWED_REG_SIZES.include?(reg_size)
@@ -211,7 +211,7 @@ module Evoasm
               @imm = $1
             else
               reg_name = name.gsub(/\[|\]/, '')
-              @type = name =~ /^\[/ ? :mem : :reg
+              @type = name =~ /^\[/ ? :mem : :register
 
               #FIXME: find a way to handle
               # this: memory expressions involving
@@ -223,16 +223,16 @@ module Evoasm
               sym_reg = reg_name.to_sym
 
               if RFLAGS.include?(sym_reg)
-                @reg = sym_reg
-                @reg_type = :rflags
-                @reg_size = 1
+                @register = sym_reg
+                @register_type = :rflags
+                @register_size = 1
               elsif MXCSR.include?(sym_reg)
-                @reg = sym_reg
-                @reg_type = :mxcsr
-                @reg_size = 32
+                @register = sym_reg
+                @register_type = :mxcsr
+                @register_size = 32
               else
-                @reg_type = :gp
-                @reg =
+                @register_type = :gp
+                @register =
                   case reg_name
                   when 'RAX', 'EAX', 'AX', 'AL'
                     :A
@@ -251,16 +251,16 @@ module Evoasm
                   when 'RDI', 'EDI', 'DI', 'DIL'
                     :DI
                   when 'RIP'
-                    @reg_type = :ip
+                    @register_type = :ip
                     :IP
                   when 'XMM0'
-                    @reg_type = :xmm
+                    @register_type = :xmm
                     :XMM0
                   else
                     raise ArgumentError, "unexpected register '#{reg_name}'"
                   end
 
-                @reg_size =
+                @register_size =
                   case reg_name
                   when 'RAX', 'RCX', 'RDX', 'RBX', 'RSP', 'RBP', 'RSI', 'RDI', 'RIP'
                     64

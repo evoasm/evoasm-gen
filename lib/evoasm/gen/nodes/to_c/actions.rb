@@ -18,7 +18,7 @@ module Evoasm
       end
 
       def error_data_field_to_c(field_name)
-        "#{state_machine_ctx_var_name arch_indep: true}->error_data.#{field_name}"
+        "ctx->error_data.#{field_name}"
       end
 
       def translate_comment(state)
@@ -26,13 +26,14 @@ module Evoasm
       end
 
       def_to_c ErrorAction do |io|
-        reg_c_val =
-          if reg
-            reg.to_c
+        register_c =
+          if register
+            register.to_c
           else
             '(uint8_t) -1'
           end
-        param_c_val =
+
+        parameter_c =
           if param
             param.to_c
           else
@@ -40,13 +41,11 @@ module Evoasm
           end
 
         io.puts 'evoasm_arch_error_data_t error_data = {'
-        io.puts "  .reg = #{reg_c_val},"
-        io.puts "  .param = #{param_c_val},"
-        #io.puts "  .arch = #{state_machine_ctx_var_name arch_indep: true}"
+        io.puts "  .reg = #{register_c},"
+        io.puts "  .param = #{parameter_c},"
         io.puts '};'
 
         io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ARCH, #{code.to_c}, &error_data, #{msg.to_c});}
-        #io.puts call_to_c 'arch_ctx_reset', [state_machine_ctx_var_name(true)], eol: ';'
         io.puts 'retval = false;'
       end
 
@@ -56,7 +55,7 @@ module Evoasm
             ''
           else
             args_c = args.map do |arg|
-              "(#{unit.inst_param_val_c_type}) #{arg.to_c}"
+              "(#{unit.c_parameter_value_type_name}) #{arg.to_c}"
             end.join(', ').prepend(', ')
           end
 
@@ -68,10 +67,10 @@ module Evoasm
         def access_call_to_c(name, op, acc = 'acc', params = [], eol: false)
           unit.c_function_call("#{name}_access",
                                [
-                           "(#{bitmap_c_type} *) &#{acc}",
-                           "(#{regs.c_type_name}) #{expr_to_c(op)}",
-                           *params
-                         ],
+                                 "(#{unit.c_bitmap_type_name} *) &#{acc}",
+                                 "(#{regs.c_type_name}) #{expr_to_c(op)}",
+                                 *params
+                               ],
                                base_arch_ctx_prefix,
                                eol: eol)
         end

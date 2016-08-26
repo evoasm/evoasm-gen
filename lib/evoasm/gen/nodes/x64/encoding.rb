@@ -50,7 +50,7 @@ module Evoasm
               case rm_reg_type
                 # RM can only encode register
                 # e.g. vmaskmovdqu_xmm_xmm"
-              when :reg
+              when :register
                 log :trace, 'setting rex_b from modrm_rm'
                 rex_b_rm_reg[]
                 # RM is allowed to encode both
@@ -97,7 +97,7 @@ module Evoasm
               end
 
               case rm_reg_type
-              when :reg
+              when :register
                 rex_x_free[]
               when :rm
                 to_if :set?, :reg_index, &rex_x_index
@@ -133,7 +133,7 @@ module Evoasm
           # or bitfield values
 
           def base_or_index?
-            encodes_modrm? && rm_reg_type != :reg
+            encodes_modrm? && rm_reg_type != :register
           end
 
           def rex_byte_reg?(reg_param)
@@ -304,7 +304,7 @@ module Evoasm
           end
 
           def direct_only?
-            rm_type == :reg
+            rm_type == :register
           end
 
           def indirect_only?

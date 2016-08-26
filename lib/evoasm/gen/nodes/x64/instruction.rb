@@ -103,7 +103,7 @@ module Evoasm
             when :reg0, :reg1, :reg2, :reg3
               reg_op = encoded_operands.find { |operand| operand.parameter_name == parameter_name }
 
-              case reg_op.reg_type
+              case reg_op.register_type
               when :xmm
                 xmm_registers_domain
               when :zmm
@@ -111,7 +111,7 @@ module Evoasm
               when :gp
                 gp_registers_domain
               else
-                values = register_constants Gen::X64::REGISTERS.fetch(reg_op.reg_type)
+                values = register_constants Gen::X64::REGISTERS.fetch(reg_op.register_type)
                 unit.find_or_create_node EnumerationDomain, values
               end
             else
@@ -267,8 +267,8 @@ module Evoasm
           def load_flags
             flags = []
             operands.each do |op|
-              flags << op.reg_type
-              flags << :sp if op.reg == :SP
+              flags << op.register_type
+              flags << :sp if op.register == :SP
               flags << :mem if op.type == :mem
             end
             flags.uniq!
@@ -281,10 +281,10 @@ module Evoasm
             operands.each_with_object({}) do |op, hash|
               params_or_regs = Array(op.send(type))
 
-              next unless (op.type == :reg || op.type == :rm) &&
+              next unless (op.type == :register || op.type == :rm) &&
                 !params_or_regs.empty?
 
-              next unless reg_types.include? op.reg_type
+              next unless reg_types.include? op.register_type
 
               params_or_regs.each do |param_or_reg|
                 hash[param_or_reg] = op.access

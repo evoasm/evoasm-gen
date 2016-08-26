@@ -6,8 +6,9 @@ module Evoasm
     module X64Unit
       include Nodes
 
-      STATIC_PARAMETERS = %i(reg0 reg1 reg2 reg3 imm)
-      PARAMETER_ALIASES = {imm0: :imm, imm1: :disp, moffs: :imm0, rel: :imm0}
+      STATIC_PARAMETERS = %i(reg0 reg1 reg2 reg3 imm).freeze
+      PARAMETER_ALIASES = {imm0: :imm, imm1: :disp, moffs: :imm0, rel: :imm0}.freeze
+      SEARCH_PARAMETERS = %i(reg0 reg1 reg2 reg3 imm).freeze
 
       attr_reader :bit_masks
       attr_reader :exceptions
@@ -27,6 +28,10 @@ module Evoasm
         load_enums
       end
 
+      def search_parameter_names
+        SEARCH_PARAMETERS
+      end
+
       def load_enums
         @features = Enumeration.new self, :feature, prefix: architecture
         @instruction_flags = Enumeration.new self, :inst_flag, prefix: architecture, flags: true
@@ -39,11 +44,19 @@ module Evoasm
         @displacement_sizes = Enumeration.new self, :disp_size, %i(16 32), prefix: architecture
         @parameter_names = Enumeration.new self, :inst_param_id, STATIC_PARAMETERS, prefix: architecture
 
+        @undefinedable_parameters = {}
+
         @instructions.each do |instruction|
           @features.add_all instruction.features
           @instruction_flags.add_all instruction.flags
           @exceptions.add_all instruction.exceptions
-          @parameter_names.add_all instruction.parameters.map(&:name)
+
+          parameters = instruction.parameters
+          @parameter_names.add_all parameters.map(&:name)
+
+          parameters.each do |parameter|
+            @undefinedable_parameters[parameter.name] ||= parameter.undefinedable?
+          end
         end
 
         PARAMETER_ALIASES.each do |alias_key, key|

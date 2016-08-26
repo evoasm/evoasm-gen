@@ -49,9 +49,31 @@ module Evoasm
       end
 
       class Operation
+
+
         def to_c
           return send :"#{name.to_s.gsub /\?$/, '_p'}_to_c" if helper?
 
+          c_op, arity = c_operator
+          args_c = args.map(&:to_c)
+
+          if arity == 1
+            "(#{c_op}#{args_c.first})"
+          else
+            "(#{args_c.join " #{c_op} "})"
+          end
+        end
+
+        private
+
+        def check_arity!(arity)
+          if arity && arity != args.size
+            raise "wrong number of operands for"\
+                  " '#{name}' (#{args.inspect} for #{arity})"
+          end
+        end
+
+        def c_operator
           c_op, arity =
             case name
             when :and
@@ -80,22 +102,7 @@ module Evoasm
 
           check_arity! arity
 
-          args_c = args.map(&:to_c)
-
-          if arity == 1
-            "(#{c_op}#{args_c.first})"
-          else
-            "(#{args_c.join " #{c_op} "})"
-          end
-        end
-
-        private
-
-        def check_arity!(arity)
-          if arity && arity != args.size
-            raise "wrong number of operands for"\
-                  " '#{name}' (#{args.inspect} for #{arity})"
-          end
+          [c_op, arity]
         end
 
         def reg_code_to_c
@@ -225,23 +232,28 @@ module Evoasm
           io.write c_function_name
           io.write '('
           io.write "#{StateMachineCTranslator.c_context_type unit} *ctx,"
-          io.write "unsigned order"
+          io.write 'unsigned order'
           io.write ')'
           io.block do
             io.puts 'int i;'
-            io.block "for(i = 0; i < #{writes.size}; i++)" do
-              io.block "switch(#{permutation_table.c_variable_name}[order][i])" do
-                writes.each_with_index do |write, index|
-                  condition, write_action = write
-                  io.block "case #{index}:" do
-                    condition.if_to_c(unit, io) do
-                      write_action.to_c unit, io
-                    end
-                    io.puts 'break;'
+          end
+        end
+
+        private
+
+        def c_loop(io)
+          io.block "for(i = 0; i < #{writes.size}; i++)" do
+            io.block "switch(#{permutation_table.c_variable_name}[order][i])" do
+              writes.each_with_index do |write, index|
+                condition, write_action = write
+                io.block "case #{index}:" do
+                  condition.if_to_c(unit, io) do
+                    write_action.to_c unit, io
                   end
+                  io.puts 'break;'
                 end
-                io.puts 'default: evoasm_assert_not_reached();'
               end
+              io.puts 'default: evoasm_assert_not_reached();'
             end
           end
         end

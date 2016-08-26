@@ -341,8 +341,8 @@ module Evoasm
 
           def access_implicit_operands
             instruction.operands.each do |operand|
-              if operand.implicit? && operand.type == :reg
-                access operand.reg, operand.access
+              if operand.implicit? && operand.type == :register
+                access operand.register, operand.access
               end
             end
           end

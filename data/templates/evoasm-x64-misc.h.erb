@@ -7,7 +7,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-<%= unit.inst_params_type_decl_to_c %>
+<%= unit.c_instruction_parameters_type_declaration search: false %>
+<%= unit.c_instruction_parameters_type_declaration search: true %>
 
 static inline evoasm_x64_reg_type_t
 evoasm_x64_reg_type(evoasm_x64_reg_id_t reg) {
@@ -24,5 +25,5 @@ evoasm_x64_reg_type(evoasm_x64_reg_id_t reg) {
 evoasm_success_t
 evoasm_x64_ctx_load_cpuid(evoasm_x64_ctx_t *x64_ctx);
 
-#define _EVOASM_X64_INSTS_VAR_NAME <%= unit.insts_var_name %>
+#define _EVOASM_X64_INSTS_VAR_NAME <%= unit.c_instructions_variable_name %>
 

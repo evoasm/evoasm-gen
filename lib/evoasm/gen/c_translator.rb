@@ -7,8 +7,6 @@ module Evoasm
   module Gen
 
     class CTranslator
-      include NameUtil
-
       attr_reader :unit
 
       OUTPUT_FORMATS = %i(c h ruby_ffi)

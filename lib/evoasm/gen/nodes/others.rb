@@ -26,6 +26,11 @@ module Evoasm
             raise ArgumentError, 'operation arguments must be kind of node'
           end
           simplify!
+
+
+          if name == :set?
+            args.first.undefinedable = true
+          end
         end
 
         def simplify!
@@ -118,10 +123,15 @@ module Evoasm
       RegisterConstant = def_node Constant
       ParameterVariable = def_node Symbol do
         attr_accessor :domain
+        attr_accessor :undefinedable
+        alias_method :undefinedable?, :undefinedable
       end
       LocalVariable = def_node Symbol
       SharedVariable = def_node Symbol
-      Parameter = def_node Node, :name, :domain
+      Parameter = def_node Node, :name, :domain do
+        attr_accessor :undefinedable
+        alias_method :undefinedable?, :undefinedable
+      end
     end
   end
 end

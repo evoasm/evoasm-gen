@@ -38,8 +38,8 @@ module Evoasm
           @map[symbol] = value
         end
 
-        def add_all(elems)
-          elems.each do |symbol|
+        def add_all(symbols)
+          symbols.each do |symbol|
             add symbol
           end
         end

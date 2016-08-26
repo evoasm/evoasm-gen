@@ -46,7 +46,7 @@ module Evoasm
           def write_function_prolog(translate_acc)
             local_variables = state_machine.root_state.local_variables
             unless local_variables.empty?
-              io.puts "#{unit.inst_param_val_c_type} #{local_variables.join ', '};"
+              io.puts "#{unit.c_parameter_value_type_name} #{local_variables.join ', '};"
               local_variables.each do |param|
                 io.puts "(void) #{param};"
               end
@@ -55,7 +55,7 @@ module Evoasm
             io.puts 'bool retval = true;'
 
             if translate_acc
-              io.puts "#{acc_c_type} acc;"
+              io.puts "#{unit.symbol_to_c :bitmap128, type: true} acc;"
               translate_acc_ary_copy
             end
           end
