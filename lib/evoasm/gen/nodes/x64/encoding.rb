@@ -4,7 +4,7 @@ module Evoasm
   module Gen
     module Nodes
       module X64
-        module REXUtil
+       module REXUtil
           include StateDSL
 
           PARAMETERS = %i(rex_r rex_x rex_b
@@ -15,6 +15,22 @@ module Evoasm
             [:div, [:reg_code, reg], 8]
           end
 
+          def rex_b_rm_reg
+            set :_rex_b, rex_bit(rm_reg_param)
+            to rex_locals_set
+          end
+
+          def rex_b_reg_reg
+            set :_rex_b, rex_bit(reg_param)
+            to rex_locals_set
+          end
+
+          def rex_b_base_reg
+            log :trace, 'setting rex_b from base'
+            set :_rex_b, rex_bit(:reg_base)
+            to rex_locals_set
+          end
+
           static_state def rex_b
             log :trace, 'setting rex_b... modrm_rm='
 
@@ -22,25 +38,9 @@ module Evoasm
             # set :_rex_b, :rex_b
             # to rex_locals_set
 
-            rex_b_rm_reg = proc do
-              set :_rex_b, rex_bit(rm_reg_param)
-              to rex_locals_set
-            end
-
-            rex_b_reg_reg = proc do
-              set :_rex_b, rex_bit(reg_param)
-              to rex_locals_set
-            end
-
-            rex_b_base_reg = proc do
-              log :trace, 'setting rex_b from base'
-              set :_rex_b, rex_bit(:reg_base)
-              to rex_locals_set
-            end
-
             if !encodes_modrm?
               if reg_param
-                rex_b_reg_reg[]
+                rex_b_reg_reg
               else
                 # currently only taken for NP and VEX
                 set :_rex_b, :rex_b
@@ -52,73 +52,74 @@ module Evoasm
                 # e.g. vmaskmovdqu_xmm_xmm"
               when :register
                 log :trace, 'setting rex_b from modrm_rm'
-                rex_b_rm_reg[]
+                rex_b_rm_reg
                 # RM is allowed to encode both
               when :rm
-                to_if :set?, :reg_base, &rex_b_base_reg
-                else_to(&rex_b_rm_reg)
+                to_if :set?, :reg_base, &method(:rex_b_base_reg)
+                else_to(&method(:rex_b_rm_reg))
                 # RM is allowed to only encode memory operand
               when :mem
-                rex_b_base_reg[]
+                rex_b_base_reg
               when :vsib
-                rex_b_base_reg[]
+                rex_b_base_reg
               else
                 fail "unknown rm reg type '#{rm_reg_type}'"
               end
             end
           end
 
+          def set_rex_r_free
+            set :_rex_r, :rex_r
+          end
+
+          def rex_x_free
+            set :_rex_x, :rex_x
+            to rex_b
+          end
+
+          def rex_x_index
+            set :_rex_x, rex_bit(:reg_index)
+            log :trace, 'rex_b... A'
+            to rex_b
+          end
+
           static_state def rex_rx
+
                          # MI and other encodings
                          # do not use the MODRM.reg field
                          # so the corresponding REX bit
                          # is ignored
 
-            set_rex_r_free = proc do
-              set :_rex_r, :rex_r
-            end
-
-            rex_x_free = proc do
-              set :_rex_x, :rex_x
-              to rex_b
-            end
-
-            rex_x_index = proc do
-              set :_rex_x, rex_bit(:reg_index)
-              log :trace, 'rex_b... A'
-              to rex_b
-            end
-
             if encodes_modrm?
               if reg_param
                 set :_rex_r, rex_bit(reg_param)
               else
-                set_rex_r_free[]
+                set_rex_r_free
               end
 
               case rm_reg_type
               when :register
-                rex_x_free[]
+                rex_x_free
               when :rm
-                to_if :set?, :reg_index, &rex_x_index
-                else_to(&rex_x_free)
+                to_if :set?, :reg_index, &method(:rex_x_index)
+                else_to(&method(:rex_x_free))
               when :mem
-                rex_x_index[]
+                rex_x_index
               when :vsib
-                rex_x_index[]
+                rex_x_index
               else
                 raise "unknown reg type '#{rm_reg_type}'"
               end
             else
-              set_rex_r_free[]
-              rex_x_free[]
+              set_rex_r_free
+              rex_x_free
             end
           end
         end
 
         class REX < StateMachine
-          attrs :rex_w, :reg_param, :rm_reg_param, :force,
-                :rm_reg_type, :encodes_modrm, :byte_regs
+          node_attrs :rex_w, :reg_param, :rm_reg_param, :force,
+                     :rm_reg_type, :encodes_modrm, :byte_regs
 
           include REXUtil
           include StateDSL
@@ -224,9 +225,9 @@ module Evoasm
         end
 
         class ModRMSIB < StateMachine
-          attrs :reg_param, :rm_reg_param, :rm_type,
-                :modrm_reg_bits, :rm_reg_access,
-                :reg_access, :byte_regs
+          node_attrs :reg_param, :rm_reg_param, :rm_type,
+                     :modrm_reg_bits, :rm_reg_access,
+                     :reg_access, :byte_regs
 
           include StateDSL
           include EncodeUtil
@@ -374,14 +375,14 @@ module Evoasm
           static_state def index_only
             log :trace, 'index only'
 
-            cond =
+            condition =
               if vsib?
                 true
               else
                 index_encodable?
               end
 
-            to_if cond do
+            to_if condition do
               set :_reg_index, :reg_index
               write_modrm mod_bits: 0b00, rm_bits: 0b100 do
                 write_sib nil, nil, 0b101
@@ -390,7 +391,7 @@ module Evoasm
               end
             end
             # NOTE: keep comparison with true!
-            if cond != true
+            if condition != true
               else_to do
                 error :not_encodable, 'index not encodable (0b0100)', param: :reg_index
               end
@@ -398,7 +399,7 @@ module Evoasm
           end
 
           static_state def base_only_w_sib
-            # need index to encode as 0b100 (RSP, ESP, SP)
+                         # need index to encode as 0b100 (RSP, ESP, SP)
             set :_reg_index, :SP
             to scale_index_base_
           end
@@ -507,8 +508,8 @@ module Evoasm
         end
 
         class VEX < StateMachine
-          attrs :rex_w, :reg_param, :rm_reg_param, :vex_m,
-                :vex_v, :vex_l, :vex_p, :encodes_modrm, :rm_reg_type
+          node_attrs :rex_w, :reg_param, :rm_reg_param, :vex_m,
+                     :vex_v, :vex_l, :vex_p, :encodes_modrm, :rm_reg_type
 
           include REXUtil
           include StateDSL

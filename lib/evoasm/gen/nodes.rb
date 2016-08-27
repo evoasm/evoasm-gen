@@ -3,8 +3,10 @@ module Evoasm
     module Nodes
       class Node
         attr_reader :unit
+        attr_accessor :parent
 
         class << self
+
           def own_attributes
             []
           end
@@ -17,7 +19,12 @@ module Evoasm
             end
           end
 
-          def attrs(*attrs)
+          def node_attrs(*attrs)
+
+            define_singleton_method :own_attributes do
+              attrs.freeze
+            end
+
             return if attrs.empty?
 
             attrs.each do |attr|
@@ -36,11 +43,13 @@ module Evoasm
               private writer_name
             end
 
-            define_singleton_method :own_attributes do
-              attrs.freeze
+            superclass_attrs = superclass.attributes
+
+            duplicate_attributes = superclass_attrs & attrs
+            if !duplicate_attributes.empty?
+              raise ArgumentError, "duplicate attributes #{duplicate_attributes}"
             end
 
-            superclass_attrs = superclass.attributes
             all_attrs = superclass_attrs + attrs
 
             parameter_list = (%w(unit) + all_attrs).map do |attr|
@@ -64,13 +73,11 @@ module Evoasm
               end
 
               def eql?(other)
-                super(other) && #{attrs.map { |attr| "#{attr_instance_variable_name attr} == other.#{attr_reader_name attr}" }.join(' && ')}
+                return true if equal? other
+                return false unless other.is_a? self.class
+                @parent.equal?(other.parent) && #{attrs.map { |attr| "#{attr_instance_variable_name attr} == other.#{attr_reader_name attr}" }.join(' && ')}
               end
               alias == eql?
-
-              private
-              def after_initialize
-              end
             END
           end
 
@@ -104,6 +111,7 @@ module Evoasm
         def eql?(other)
           other.is_a?(self.class)
         end
+        alias == eql?
 
         def inspect
           attr_str = self.class.attributes.map do |attr|
@@ -130,6 +138,9 @@ module Evoasm
         end
 
         private
+
+        def after_initialize
+        end
 
         def hash_match?(hash_or_enumerator)
           hash_or_enumerator.all? do |attr, value|
@@ -167,7 +178,7 @@ module Evoasm
         end
 
         Class.new superclass do
-          self.attrs *attrs
+          node_attrs(*attrs)
           class_eval(&block) if block
         end
       end

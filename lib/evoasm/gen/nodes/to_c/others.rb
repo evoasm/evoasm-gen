@@ -231,11 +231,12 @@ module Evoasm
           io.puts 'static void'
           io.write c_function_name
           io.write '('
-          io.write "#{StateMachineCTranslator.c_context_type unit} *ctx,"
+          io.write "#{unit.c_context_type} *ctx,"
           io.write 'unsigned order'
           io.write ')'
           io.block do
             io.puts 'int i;'
+            c_loop io
           end
         end
 
@@ -247,8 +248,8 @@ module Evoasm
               writes.each_with_index do |write, index|
                 condition, write_action = write
                 io.block "case #{index}:" do
-                  condition.if_to_c(unit, io) do
-                    write_action.to_c unit, io
+                  condition.if_to_c(io) do
+                    write_action.to_c io
                   end
                   io.puts 'break;'
                 end

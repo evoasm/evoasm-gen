@@ -20,7 +20,6 @@ module Evoasm
 
       def initialize(architecture, table)
         @architecture = architecture
-        @nodes = []
         @parameter_names = []
         @undefinedable_paramters = {}
 
@@ -116,12 +115,8 @@ module Evoasm
         "#{symbol_to_c function_name, prefix}(#{args.join ','})"
       end
 
-      def nodes_of_kind(node_class)
-        @nodes.select { |node| node.is_a? node_class }
-      end
-
-      def nodes_of_kind_to_c(node_class)
-        nodes_to_c nodes_of_kind node_class
+      def nodes_of_class_to_c(node_class)
+        nodes_to_c nodes_of_class node_class
       end
 
       def nodes_to_c(nodes)
@@ -133,19 +128,19 @@ module Evoasm
       end
 
       def permutation_tables_to_c
-        nodes_of_kind_to_c Nodes::PermutationTable
+        nodes_of_class_to_c Nodes::PermutationTable
       end
 
       def unordered_writes_to_c
-        nodes_of_kind_to_c Nodes::UnorderedWrites
+        nodes_of_class_to_c Nodes::UnorderedWrites
       end
 
       def state_machines_to_c
-        nodes_of_kind_to_c Nodes::StateMachine
+        nodes_to_c helper_state_machine_nodes
       end
 
       def domains_to_c
-        nodes_of_kind_to_c Nodes::Domain
+        nodes_of_class_to_c Nodes::Domain
       end
 
       def parameters_to_c
@@ -200,8 +195,11 @@ module Evoasm
         end
       end
 
-      def instructions_to_c
+      def instruction_state_machines_to_c
         nodes_to_c @instructions.map(&:state_machine)
+      end
+
+      def instructions_to_c
         nodes_to_c @instructions
       end
 
@@ -271,8 +269,8 @@ module Evoasm
 
           fields.sort_by do |name, bitsize|
             [bitsize, name]
-          end.each do |param, size|
-            io.puts "uint64_t #{param} : #{size};"
+          end.each do |name, size|
+            io.puts "uint64_t #{name} : #{size};"
           end
 
           p fields.inject(0) { |acc, (n, s)| acc + s }./(64.0)
@@ -310,7 +308,7 @@ module Evoasm
 
         @instructions.each do |instruction|
           variable_name = c_instruction_mnemonic_variable_name instruction
-          io.puts "static const char #{variable_name}[]"\
+          io.puts "static const char #{variable_name}[] = "\
                   "\"#{instruction.mnemonic}\";"
         end
 

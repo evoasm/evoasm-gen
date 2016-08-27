@@ -5,21 +5,20 @@ require 'evoasm/gen/core_ext/array'
 require 'evoasm/gen/core_ext/integer'
 require 'evoasm/gen/x64'
 require 'evoasm/gen/nodes/x64/instruction_state_machine'
+require 'evoasm/gen/nodes/x64/operand'
 
 module Evoasm
   module Gen
     module Nodes
       module X64
         class Instruction < Nodes::Instruction
-          require 'evoasm/gen/nodes/x64/operand'
 
-          attrs :mnemonic, :opcode,
-                :operands,
-                :encoding, :features,
-                :prefixes, :name, :index,
-                :flags, :exceptions
-
-          attr_reader :state_machine
+          node_attrs :mnemonic, :opcode,
+                     :operands,
+                     :encoding, :features,
+                     :prefixes, :name, :index,
+                     :flags, :exceptions, :state_machine,
+                     :state_machine_direct_only
 
           COL_OPCODE = 0
           COL_MNEM = 1
@@ -30,6 +29,8 @@ module Evoasm
           COL_EXCEPTIONS = 6
 
           OPERAND_TYPES = %i(reg rm vsib mem imm).freeze
+
+          public_class_method :new
 
           def initialize(unit, index, row)
             super(unit)
@@ -47,7 +48,11 @@ module Evoasm
             load_flags
 
             @name = name
-            @state_machine = InstructionStateMachine.new unit, self
+            @state_machine = InstructionStateMachine.new unit, false
+            @state_machine_direct_only = InstructionStateMachine.new unit, true
+
+            @state_machine.parent = self
+            @state_machine_direct_only.parent = self
           end
 
           # NOTE: enum domains need to be sorted
@@ -112,7 +117,7 @@ module Evoasm
                 gp_registers_domain
               else
                 values = register_constants Gen::X64::REGISTERS.fetch(reg_op.register_type)
-                unit.find_or_create_node EnumerationDomain, values
+                unit.node EnumerationDomain, values
               end
             else
               raise "missing domain for parameter '#{parameter_name}'"
@@ -182,26 +187,26 @@ module Evoasm
           end
 
           def type_domain(type)
-            unit.find_or_create_node TypeDomain, type
+            unit.node TypeDomain, type
           end
 
           def range_domain(min, max)
-            unit.find_or_create_node RangeDomain,
-                                     min,
-                                     max
+            unit.node RangeDomain,
+                      min,
+                      max
           end
 
           def array_domain(values)
             values = values.map { |value| IntegerLiteral.new unit, value }
-            unit.find_or_create_node EnumerationDomain, values
+            unit.node EnumerationDomain, values
           end
 
           def gp_registers_domain
-            unit.find_or_create_node EnumerationDomain, register_constants(GP_REGISTERS)
+            unit.node EnumerationDomain, register_constants(GP_REGISTERS)
           end
 
           def xmm_registers_domain(zmm: false)
-            unit.find_or_create_node EnumerationDomain, register_constants(xmm_regs(zmm: zmm))
+            unit.node EnumerationDomain, register_constants(xmm_regs(zmm: zmm))
           end
 
           def register_constants(register_names)

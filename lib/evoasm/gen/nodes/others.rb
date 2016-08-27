@@ -68,7 +68,11 @@ module Evoasm
         end
       end
 
-      Else = def_node Expression
+      Else = def_node Expression do
+        def self.instance(unit)
+          @instance ||= Else.new(unit)
+        end
+      end
 
       PermutationTable = def_node Node, :width do
         def table
@@ -84,15 +88,15 @@ module Evoasm
         attr_reader :permutation_table
 
         def domain
-          @domain ||= unit.find_or_create_node RangeDomain,
-                                               0, @permutation_table.height - 1
+          @domain ||= unit.node RangeDomain,
+                                0, @permutation_table.height - 1
         end
 
         private
 
         def after_initialize
           raise 'unordered write with single write' if writes.size == 1
-          @permutation_table = unit.find_or_create_node PermutationTable, writes.size
+          @permutation_table = unit.node PermutationTable, writes.size
         end
       end
 
@@ -121,16 +125,14 @@ module Evoasm
       Constant = def_node Symbol
       ErrorCode = def_node Constant
       RegisterConstant = def_node Constant
-      ParameterVariable = def_node Symbol do
-        attr_accessor :domain
-        attr_accessor :undefinedable
-        alias_method :undefinedable?, :undefinedable
+      ParameterVariable = def_node Symbol, :domain, :undefinedable? do
+        # need to modify these after creation
+        attr_writer :undefinedable
+        attr_writer :domain
       end
       LocalVariable = def_node Symbol
       SharedVariable = def_node Symbol
-      Parameter = def_node Node, :name, :domain do
-        attr_accessor :undefinedable
-        alias_method :undefinedable?, :undefinedable
+      Parameter = def_node Node, :name, :domain, :undefinedable? do
       end
     end
   end

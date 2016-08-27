@@ -33,9 +33,10 @@ module Evoasm
 
         private
         def add_parameter_variable(parameter_variables, new_parameter_variable)
-          index = parameter_variables.index new_parameter_variable
+          index = parameter_variables.index { |variable| variable.name == new_parameter_variable.name}
           if index
-            parameter_variables[index].undefinedable ||= new_parameter_variable.undefinedable?
+            parameter_variables[index].undefinedable =
+              parameter_variables[index].undefinedable? || new_parameter_variable.undefinedable?
           else
             parameter_variables << new_parameter_variable
           end

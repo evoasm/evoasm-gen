@@ -5,7 +5,8 @@ module Evoasm
     module Nodes
       module X64
         class InstructionStateMachine < Nodes::InstructionStateMachine
-          attr_reader :instruction
+
+          node_attrs :direct_only?
 
           params :imm0, :lock?, :legacy_prefix_order, :rel,
                  :imm1, :moffs, :addr_size, :reg0, :reg1, :reg2, :reg3,
@@ -33,25 +34,25 @@ module Evoasm
           LEGACY_PREFIX_CONDITIONS = {
             pref67: [:eq, :addr_size, :ADDR_SIZE32]
           }.freeze
-          MAND_PREF_BYTES = %w(66 F2 F3 F0).freeze
 
-          def initialize(unit, instruction)
-            super(unit)
-            @instruction = instruction
+          MANDATORY_PREF_BYTES = %w(66 F2 F3 F0).freeze
+
+          def instruction
+            parent
           end
 
           def write_byte_str(byte_str)
             write Integer(byte_str, 16), 8
           end
 
-          def mand_pref_byte?(byte)
-            MAND_PREF_BYTES.include? byte
+          def mandatory_prefix_byte?(byte)
+            MANDATORY_PREF_BYTES.include? byte
           end
 
-          def encode_mand_pref(opcode_index, &block)
+          def encode_mandatory_prefix(opcode_index, &block)
             opcode = instruction.opcode
 
-            while mand_pref_byte? opcode[opcode_index]
+            while mandatory_prefix_byte? opcode[opcode_index]
               write_byte_str opcode[opcode_index]
               opcode_index += 1
             end
@@ -159,14 +160,14 @@ module Evoasm
             rm_type = rm_op.type
             byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-            modrm_sib = unit.find_or_create_node ModRMSIB,
-                                                 reg_param: reg_param,
-                                                 rm_reg_param: rm_reg_param,
-                                                 rm_type: rm_type,
-                                                 modrm_reg_bits: modrm_reg_bits,
-                                                 rm_reg_access: rm_reg_access,
-                                                 reg_access: reg_access,
-                                                 byte_regs: byte_regs
+            modrm_sib = unit.node ModRMSIB,
+                                  reg_param: reg_param,
+                                  rm_reg_param: rm_reg_param,
+                                  rm_type: rm_type,
+                                  modrm_reg_bits: modrm_reg_bits,
+                                  rm_reg_access: rm_reg_access,
+                                  reg_access: reg_access,
+                                  byte_regs: byte_regs
 
 
             call modrm_sib
@@ -246,16 +247,16 @@ module Evoasm
                 # [:if, [:eq, [:operand_size], 128], 0b0, 0b1]
               end
 
-            vex = unit.find_or_create_node VEX,
-                                           rex_w: rex_w,
-                                           reg_param: reg_op&.parameter_name,
-                                           rm_reg_param: rm_op&.parameter_name,
-                                           rm_reg_type: rm_op&.type,
-                                           vex_m: vex_m,
-                                           vex_v: vex_v,
-                                           vex_l: vex_l,
-                                           vex_p: vex_p,
-                                           encodes_modrm: instruction.encodes_modrm?
+            vex = unit.node VEX,
+                            rex_w: rex_w,
+                            reg_param: reg_op&.parameter_name,
+                            rm_reg_param: rm_op&.parameter_name,
+                            rm_reg_type: rm_op&.type,
+                            vex_m: vex_m,
+                            vex_v: vex_v,
+                            vex_l: vex_l,
+                            vex_p: vex_p,
+                            encodes_modrm: instruction.encodes_modrm?
 
             call vex
             block[opcode_index]
@@ -290,20 +291,20 @@ module Evoasm
             reg_op, rm_op, _ = instruction.register_operands
             byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
-            rex = unit.find_or_create_node REX,
-                                           force: force_rex,
-                                           rex_w: rex_w,
-                                           reg_param: reg_op&.parameter_name,
-                                           rm_reg_param: rm_op&.parameter_name,
-                                           rm_reg_type: rm_op&.type,
-                                           encodes_modrm: instruction.encodes_modrm?,
-                                           byte_regs: byte_regs
+            rex = unit.node REX,
+                            force: force_rex,
+                            rex_w: rex_w,
+                            reg_param: reg_op&.parameter_name,
+                            rm_reg_param: rm_op&.parameter_name,
+                            rm_reg_type: rm_op&.type,
+                            encodes_modrm: instruction.encodes_modrm?,
+                            byte_regs: byte_regs
 
             call rex
             block[opcode_index]
           end
 
-          def imm_param_name(index)
+          def imm_parameter_name(index)
             case instruction.encoding
             when 'FD', 'TD'
               :moffs
@@ -326,7 +327,7 @@ module Evoasm
 
               case byte
               when /^(?:i|c)(?:b|w|d|o|q)$/
-                write imm_param_name(imm_counter), imm_code_size(byte)
+                write imm_parameter_name(imm_counter), imm_code_size(byte)
                 imm_counter += 1
               when '/is4'
                 write [:shl, [:reg_code, :reg3], 4], 8
@@ -354,7 +355,7 @@ module Evoasm
             access_implicit_operands
 
             encode_legacy_prefixes do
-              encode_mand_pref(0) do |opcode_index|
+              encode_mandatory_prefix(0) do |opcode_index|
                 encode_rex_or_vex(opcode_index) do |opcode_index|
                   encode_opcode(opcode_index) do |opcode_index|
                     encode_modrm_sib(opcode_index) do |opcode_index|

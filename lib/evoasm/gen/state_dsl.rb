@@ -67,7 +67,7 @@ module Evoasm
         end
 
         parameter = expression(param_name)
-        unordered_writes = UnorderedWrites.new(unit, writes)
+        unordered_writes = unit.node UnorderedWrites, writes
 
         parameter.domain = unordered_writes.domain
 
@@ -106,7 +106,7 @@ module Evoasm
 
       def error(code = nil, msg = nil, reg: nil, param: nil)
         add_new_action :error, ErrorCode.new(unit, code), StringLiteral.new(unit, msg),
-                       RegisterConstant.new(unit, reg), ParameterVariable.new(unit, param)
+                       RegisterConstant.new(unit, reg), ParameterVariable.new(unit, param, nil, false)
         return!
       end
 
@@ -142,8 +142,6 @@ module Evoasm
           child = condition.pop
         end
 
-        condition = condition.first if condition.size == 1
-
         @__state__.add_child child, expression(condition), default_attrs(attrs)
         child
       end
@@ -171,6 +169,8 @@ module Evoasm
       def expression(arg)
         case arg
         when Array
+          return expression(arg.first) if arg.size == 1
+
           op_name = arg.first
           op_args = expressions(arg[1..-1])
 
@@ -190,9 +190,9 @@ module Evoasm
           elsif expr_s[0] == '@'
             SharedVariable.new unit, arg[1..-1]
           elsif parameter_name? arg
-            ParameterVariable.new unit, arg
+            unit.node ParameterVariable, arg, nil, false
           elsif arg == :else
-            Else.new unit
+            Else.instance unit
           else
             raise "unknown symbol '#{arg}'"
           end

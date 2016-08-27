@@ -1,43 +1,44 @@
 module Evoasm
   module Gen
     class Unit
-      def find_or_create_node(class_, *array, **hash)
-        @nodes ||= []
+      def node(node_class, *array, **hash)
+        @nodes ||= Hash.new { |h, k| h[k] = []}
 
         attrs = array.empty? ? hash : array
 
-        node = @nodes.find do |node|
-          node.is_a?(class_) && node.match?(attrs)
+        node = @nodes[node_class].find do |node|
+          node.match?(attrs)
         end
 
         return node if node
 
         if attrs.is_a? Hash
-          create_node class_, hash_to_attr_args(class_, attrs)
+          add_node node_class, hash_to_attr_args(node_class, attrs)
         else
-          create_node class_, attrs
+          add_node node_class, attrs
          end
+      end
+
+      def nodes_of_class(node_class)
+        @nodes[node_class]
       end
 
       private
 
-      def hash_to_attr_args(class_, hash)
+      def hash_to_attr_args(node_class, hash)
         attrs = []
-        class_.attributes.each do |attr|
+        node_class.attributes.each do |attr|
           attrs.push hash.delete attr
         end
         raise ArgumentError, "invalid attributes #{hash.keys}" unless hash.empty?
         attrs
       end
 
-      def create_node(class_, attrs)
-        node = class_.new self, *attrs
-        @nodes << node
+      def add_node(node_class, attrs)
+        node = node_class.new self, *attrs
+        @nodes[node_class] << node
         node
       end
-
     end
-
-
   end
 end

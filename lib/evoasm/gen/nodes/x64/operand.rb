@@ -46,18 +46,24 @@ module Evoasm
                 # i.e. all upper bits of RFLAGS are unused
                 RFLAGS.each do |reg_name|
                   next if IGNORED_RFLAGS.include? reg_name.to_sym
-                  operands << new(unit, instruction, reg_name.to_s, flags, counters)
+                  operand = new(unit, reg_name.to_s, flags, counters)
+                  operand.parent = instruction
+
+                  operands << operand
                 end
               else
-                operands << new(unit, instruction, operand_name, flags, counters)
+                operand = new(unit, operand_name, flags, counters)
+                operand.parent = instruction
+
+                operands << operand
               end
             end
 
             operands
           end
 
-          def initialize(unit, instruction, name, flags, counters)
-            super(unit, instruction)
+          def initialize(unit, name, flags, counters)
+            super(unit)
 
             @name = name
             @written = flags.include? 'w'
