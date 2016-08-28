@@ -69,7 +69,11 @@ module Evoasm
         parameter = expression(param_name)
         unordered_writes = unit.node UnorderedWrites, writes
 
-        parameter.domain = unordered_writes.domain
+        # parameter can be a literal in basic mode
+        if parameter.respond_to? :domain
+          parameter.domain = unordered_writes.domain
+        end
+
 
         add_new_action :unordered_writes,
                        parameter,

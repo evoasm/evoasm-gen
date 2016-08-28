@@ -18,7 +18,7 @@ module Evoasm
                      :encoding, :features,
                      :prefixes, :name, :index,
                      :flags, :exceptions, :state_machine,
-                     :state_machine_direct_only
+                     :basic_state_machine
 
           COL_OPCODE = 0
           COL_MNEM = 1
@@ -29,6 +29,7 @@ module Evoasm
           COL_EXCEPTIONS = 6
 
           OPERAND_TYPES = %i(reg rm vsib mem imm).freeze
+          BASIC_OPERAND_TYPES = %i(reg rm imm)
 
           public_class_method :new
 
@@ -48,11 +49,21 @@ module Evoasm
             load_flags
 
             @name = name
-            @state_machine = InstructionStateMachine.new unit, false
-            @state_machine_direct_only = InstructionStateMachine.new unit, true
 
+            @state_machine = InstructionStateMachine.new unit, false
             @state_machine.parent = self
-            @state_machine_direct_only.parent = self
+
+            if basic?
+              @basic_state_machine = InstructionStateMachine.new unit, true
+              @basic_state_machine.parent = self
+            end
+          end
+
+          def basic?
+            return @basic unless @basic.nil?
+            @basic ||= operands.all? do |operand|
+              BASIC_OPERAND_TYPES.include? operand.type
+            end
           end
 
           # NOTE: enum domains need to be sorted
@@ -286,7 +297,7 @@ module Evoasm
             operands.each_with_object({}) do |op, hash|
               params_or_regs = Array(op.send(type))
 
-              next unless (op.type == :register || op.type == :rm) &&
+              next unless (op.type == :reg || op.type == :rm) &&
                 !params_or_regs.empty?
 
               next unless reg_types.include? op.register_type

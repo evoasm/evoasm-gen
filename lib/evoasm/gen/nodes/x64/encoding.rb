@@ -4,7 +4,7 @@ module Evoasm
   module Gen
     module Nodes
       module X64
-       module REXUtil
+        module REXUtil
           include StateDSL
 
           PARAMETERS = %i(rex_r rex_x rex_b
@@ -31,6 +31,14 @@ module Evoasm
             to rex_locals_set
           end
 
+          def rex_w_free_value
+            if basic?
+              0b0
+            else
+              :rex_w
+            end
+          end
+
           static_state def rex_b
             log :trace, 'setting rex_b... modrm_rm='
 
@@ -43,20 +51,29 @@ module Evoasm
                 rex_b_reg_reg
               else
                 # currently only taken for NP and VEX
-                set :_rex_b, :rex_b
+                if basic?
+                  # rex_b is not basic
+                  set :_rex_b, 0b0
+                else
+                  set :_rex_b, :rex_b
+                end
                 to rex_locals_set
               end
             else
               case rm_reg_type
                 # RM can only encode register
                 # e.g. vmaskmovdqu_xmm_xmm"
-              when :register
+              when :reg
                 log :trace, 'setting rex_b from modrm_rm'
                 rex_b_rm_reg
                 # RM is allowed to encode both
               when :rm
-                to_if :set?, :reg_base, &method(:rex_b_base_reg)
-                else_to(&method(:rex_b_rm_reg))
+                if basic?
+                  rex_b_rm_reg
+                else
+                  to_if :set?, :reg_base, &method(:rex_b_base_reg)
+                  else_to(&method(:rex_b_rm_reg))
+                end
                 # RM is allowed to only encode memory operand
               when :mem
                 rex_b_base_reg
@@ -69,11 +86,19 @@ module Evoasm
           end
 
           def set_rex_r_free
-            set :_rex_r, :rex_r
+            if basic?
+              set :_rex_r, 0b0
+            else
+              set :_rex_r, :rex_r
+            end
           end
 
           def rex_x_free
-            set :_rex_x, :rex_x
+            if basic?
+              set :_rex_x, 0b0
+            else
+              set :_rex_x, :rex_x
+            end
             to rex_b
           end
 
@@ -98,14 +123,20 @@ module Evoasm
               end
 
               case rm_reg_type
-              when :register
+              when :reg
                 rex_x_free
               when :rm
-                to_if :set?, :reg_index, &method(:rex_x_index)
-                else_to(&method(:rex_x_free))
+                if basic?
+                  rex_x_free
+                else
+                  to_if :set?, :reg_index, &method(:rex_x_index)
+                  else_to(&method(:rex_x_free))
+                end
               when :mem
+                raise 'cannot encode mem operand in basic mode' if basic?
                 rex_x_index
               when :vsib
+                raise 'cannot encode vsib operand in basic mode' if basic?
                 rex_x_index
               else
                 raise "unknown reg type '#{rm_reg_type}'"
@@ -119,14 +150,13 @@ module Evoasm
 
         class REX < StateMachine
           node_attrs :rex_w, :reg_param, :rm_reg_param, :force,
-                     :rm_reg_type, :encodes_modrm, :byte_regs
+                     :rm_reg_type, :encodes_modrm?, :byte_regs, :basic?
 
           include REXUtil
           include StateDSL
 
           params *REXUtil::PARAMETERS, :reg0
 
-          alias_method :encodes_modrm?, :encodes_modrm
           # reg_param
           # and rm_reg_param
           # are REGISTERS
@@ -134,7 +164,8 @@ module Evoasm
           # or bitfield values
 
           def base_or_index?
-            encodes_modrm? && rm_reg_type != :register
+            raise 'cannot encode base/index in basic mode' if basic?
+            encodes_modrm? && rm_reg_type != :reg
           end
 
           def rex_byte_reg?(reg_param)
@@ -146,8 +177,10 @@ module Evoasm
             cond << [:neq, rex_bit(reg_param), 0] if reg_param
             cond << [:and, [:set?, rm_reg_param], [:neq, rex_bit(rm_reg_param), 0]] if rm_reg_param
 
-            cond << [:and, [:set?, :reg_base], [:neq, rex_bit(:reg_base), 0]] if base_or_index?
-            cond << [:and, [:set?, :reg_index], [:neq, rex_bit(:reg_index), 0]] if base_or_index?
+            unless basic?
+              cond << [:and, [:set?, :reg_base], [:neq, rex_bit(:reg_base), 0]] if base_or_index?
+              cond << [:and, [:set?, :reg_index], [:neq, rex_bit(:reg_index), 0]] if base_or_index?
+            end
 
             cond << rex_byte_reg?(reg_param) if reg_param && byte_regs
             cond << rex_byte_reg?(rm_reg_param) if rm_reg_param && byte_regs
@@ -162,7 +195,15 @@ module Evoasm
             else
               # rex?: output REX even if not force
               # need_rex?: REX is required (use of ext. reg.)
-              to_if :or, [:true?, :force_rex?], need_rex? do
+
+              encode_rex_cond =
+                if basic?
+                  need_rex?
+                else
+                  [:or, [:true?, :force_rex?], need_rex?]
+                end
+
+              to_if encode_rex_cond do
                 set :@encode_rex, true
                 to rex_rx
               end
@@ -184,7 +225,7 @@ module Evoasm
             # assume rex_w is set if the
             # attr rex_w is nil
             # unset default 0 is ok
-            rex_w ||= :rex_w
+            rex_w ||= rex_w_free_value
 
             write [0b0100, rex_w, :_rex_r, :_rex_x, :_rex_b], [4, 1, 1, 1, 1]
             log :trace, 'writing rex % % % %', rex_w, :_rex_r, :_rex_x, :_rex_b
@@ -227,7 +268,7 @@ module Evoasm
         class ModRMSIB < StateMachine
           node_attrs :reg_param, :rm_reg_param, :rm_type,
                      :modrm_reg_bits, :rm_reg_access,
-                     :reg_access, :byte_regs
+                     :reg_access, :byte_regs, :basic?
 
           include StateDSL
           include EncodeUtil
@@ -266,7 +307,12 @@ module Evoasm
               end
             else
               # ModRM.reg is free, use a parameter
-              set :_reg_bits, :modrm_reg
+              # or zero in basic mode
+              if basic?
+                set :_reg_bits, 0b00
+              else
+                set :_reg_bits, :modrm_reg
+              end
               write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
             end
           end
@@ -305,7 +351,7 @@ module Evoasm
           end
 
           def direct_only?
-            rm_type == :register
+            rm_type == :reg
           end
 
           def indirect_only?
@@ -466,12 +512,13 @@ module Evoasm
             end
           end
 
-          def direct
-            state do
-              access rm_reg_param, rm_reg_access if rm_reg_param
-              write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param, byte_regs: byte_regs do
-                return!
-              end
+          static_state def direct
+            access rm_reg_param, rm_reg_access if rm_reg_param
+
+            raise "mem operand for direct encoding" if rm_type == :mem
+
+            write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param, byte_regs: byte_regs do
+              return!
             end
           end
 
@@ -490,7 +537,7 @@ module Evoasm
 
             access reg_param, reg_access if reg_param
 
-            if direct_only?
+            if direct_only? || basic?
               to direct
             else
               to_if indirect?, indirect
@@ -509,7 +556,8 @@ module Evoasm
 
         class VEX < StateMachine
           node_attrs :rex_w, :reg_param, :rm_reg_param, :vex_m,
-                     :vex_v, :vex_l, :vex_p, :encodes_modrm, :rm_reg_type
+                     :vex_v, :vex_l, :vex_p, :encodes_modrm?,
+                     :rm_reg_type, :basic?
 
           include REXUtil
           include StateDSL
@@ -517,15 +565,13 @@ module Evoasm
           params *REXUtil::PARAMETERS, :force_long_vex?, :reg2,
                  :vex_l, :vex_v
 
-          alias_method :encodes_modrm?, :encodes_modrm
-
           static_state def two_byte_vex
             log :trace, 'writing vex'
             write 0b11000101, 8
             write [
                     [:neg, :_rex_r],
-                    [:neg, vex_v || :vex_v],
-                    (vex_l || :vex_l),
+                    [:neg, vex_v || vex_v_free_value],
+                    (vex_l || vex_l_free_value),
                     vex_p
                   ], [1, 4, 1, 2]
             return!
@@ -538,11 +584,27 @@ module Evoasm
                    [:neg, :_rex_x],
                    [:neg, :_rex_b],
                    vex_m], [1, 1, 1, 5]
-            write [rex_w || :rex_w,
-                   [:neg, vex_v || :vex_v],
-                   vex_l || :vex_l,
+            write [rex_w || rex_w_free_value,
+                   [:neg, vex_v || vex_v_free_value],
+                   vex_l || vex_l_free_value,
                    vex_p], [1, 4, 1, 2]
             return!
+          end
+
+          def vex_v_free_value
+            if basic?
+              0b0000
+            else
+              :vex_v
+            end
+          end
+
+          def vex_l_free_value
+            if basic?
+              0b0000
+            else
+              :vex_l
+            end
           end
 
           def zero_rex?
@@ -553,7 +615,9 @@ module Evoasm
                 [:eq, :_rex_b, 0b0]
               ]
 
-            cond << [:eq, :rex_w, 0b0] unless rex_w == 0x0
+            if !basic? && rex_w.nil?
+              cond << [:eq, :rex_w, 0b0]
+            end
 
             cond
           end
@@ -562,7 +626,13 @@ module Evoasm
                          # assume rex_w and vex_l set
                          # default unset 0 is ok for both
             if vex_m == 0x01 && rex_w != 0x1
-              to_if :and, zero_rex?, [:false?, :force_long_vex?], two_byte_vex
+              two_byte_vex_cond =
+                if basic?
+                  zero_rex?
+                else
+                  [:and, zero_rex?, [:false?, :force_long_vex?]]
+                end
+              to_if two_byte_vex_cond, two_byte_vex
               else_to three_byte_vex
             else
               to three_byte_vex

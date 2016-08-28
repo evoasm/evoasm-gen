@@ -27,11 +27,6 @@ module Evoasm
         load table
       end
 
-      def register_parameter(parameter_name, undefinedable)
-        @parameter_names.add parameter_name
-        @undefinable_parameters[parameter_name] ||= undefinedable
-      end
-
       def c_context_type
         "evoasm_#{architecture}_inst_enc_ctx"
       end
@@ -239,28 +234,19 @@ module Evoasm
         Math.log2(max_parameters_per_instructions + 1).ceil.to_i
       end
 
-      def undefinedable_parameter?(parameter_name)
-        @undefinedable_parameters[parameter_name]
-      end
-
-      def c_instruction_parameters_type_declaration(search: false)
+      def c_instruction_parameters_type_declaration(basic: false)
         io = StringIO.new
         io.puts 'typedef struct {'
         io.indent do
-          parameters =
-            if search
-              search_parameter_names
-            else
-              parameter_names.symbols.select do |key|
-                !parameter_names.alias? key
-              end
-            end
+          parameters = parameter_names(basic: basic).symbols.select do |key|
+            !parameter_names.alias? key
+          end
 
           fields = []
           parameters.each do |parameter_name|
             field_name = parameter_field_name parameter_name
 
-            fields << [field_name, c_parameter_bitsize(parameter_name, search: search)]
+            fields << [field_name, c_parameter_bitsize(parameter_name, basic: basic)]
 
             if undefinedable_parameter? parameter_name
               fields << ["#{field_name}_set", 1]
@@ -320,7 +306,7 @@ module Evoasm
         param.to_s.sub(/\?$/, '')
       end
 
-      def c_parameter_bitsize(parameter_name, search: false)
+      def c_parameter_bitsize(parameter_name, basic: false)
         case parameter_name
         when :rex_b, :rex_r, :rex_x, :rex_w,
           :vex_l, :force_rex?, :lock?, :force_sib?,
@@ -340,7 +326,7 @@ module Evoasm
         when :reg_base, :reg_index, :reg0, :reg1, :reg2, :reg3, :reg4
           @register_names.bitsize
         when :imm
-          search ? 32 : 64
+          basic ? 32 : 64
         when :moffs, :rel
           64
         when :disp

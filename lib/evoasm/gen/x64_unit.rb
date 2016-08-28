@@ -19,7 +19,14 @@ module Evoasm
       attr_reader :register_names
       attr_reader :displacement_sizes
       attr_reader :address_sizes
-      attr_reader :parameter_names
+
+      def parameter_names(basic: false)
+        if basic
+          @basic_parameter_names
+        else
+          @parameter_names
+        end
+      end
 
       private
 
@@ -43,20 +50,18 @@ module Evoasm
         @address_sizes = Enumeration.new self, :addr_size, %i(64 32), prefix: architecture
         @displacement_sizes = Enumeration.new self, :disp_size, %i(16 32), prefix: architecture
         @parameter_names = Enumeration.new self, :inst_param_id, STATIC_PARAMETERS, prefix: architecture
+        @basic_parameter_names = Enumeration.new self, :inst_param_id, STATIC_PARAMETERS, prefix: architecture
 
         @undefinedable_parameters = {}
+        @basic_undefinedable_parameters = {}
 
         @instructions.each do |instruction|
           @features.add_all instruction.features
           @instruction_flags.add_all instruction.flags
           @exceptions.add_all instruction.exceptions
 
-          parameters = instruction.parameters
-          @parameter_names.add_all parameters.map(&:name)
-
-          parameters.each do |parameter|
-            @undefinedable_parameters[parameter.name] ||= parameter.undefinedable?
-          end
+          register_parameters(instruction, basic: false)
+          register_parameters(instruction, basic: true) if instruction.basic?
         end
 
         PARAMETER_ALIASES.each do |alias_key, key|
@@ -84,6 +89,28 @@ module Evoasm
           group.each_with_index do |inst, index|
             inst.name << "_#{index}"
           end
+        end
+      end
+
+      def undefinedable_parameter?(parameter_name, basic: false)
+        undefinedable_parameters(basic)[parameter_name]
+      end
+
+      private
+
+      def undefinedable_parameters(basic)
+        if basic
+          @basic_undefinedable_parameters
+        else
+          @undefinedable_parameters
+        end
+      end
+
+      def register_parameters(instruction, basic:)
+        parameters = instruction.parameters basic: basic
+        parameter_names(basic: basic).add_all parameters.map(&:name)
+        parameters.each do |parameter|
+          undefinedable_parameters(basic: basic)[parameter.name] ||= parameter.undefinedable?
         end
       end
     end

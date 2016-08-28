@@ -86,7 +86,7 @@ module Evoasm
             io.puts '{'
             io.indent do
               case type
-              when :register, :rm
+              when :reg, :rm
                 if register
                   io.puts unit.register_name_to_c(register), eol: ','
                 else

@@ -101,6 +101,10 @@ module Evoasm
             end
           end
 
+          def can_encode_register?
+            type == :rm || type == :reg
+          end
+
           def encoded?
             @encoded
           end
@@ -168,7 +172,7 @@ module Evoasm
                 end
               initialize_reg $~[:reg], reg_size, mem_size
             when REG_OP_REGEXP
-              @type = :register
+              @type = :reg
               initialize_reg $~[:reg], $~[:reg_size].to_i
             when MEM_OP_REGEXP
               @type = :mem
@@ -184,7 +188,7 @@ module Evoasm
               raise "unexpected operand '#{name}'"
             end
 
-            if type == :rm || type == :register
+            if type == :rm || type == :reg
               @parameter_name = :"reg#{counters.reg_counter}"
               counters.reg_counter += 1
             end
@@ -217,7 +221,7 @@ module Evoasm
               @imm = $1
             else
               reg_name = name.gsub(/\[|\]/, '')
-              @type = name =~ /^\[/ ? :mem : :register
+              @type = name =~ /^\[/ ? :mem : :reg
 
               #FIXME: find a way to handle
               # this: memory expressions involving

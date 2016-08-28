@@ -6,7 +6,7 @@ module Evoasm
       module X64
         class InstructionStateMachine < Nodes::InstructionStateMachine
 
-          node_attrs :direct_only?
+          node_attrs :basic?
 
           params :imm0, :lock?, :legacy_prefix_order, :rel,
                  :imm1, :moffs, :addr_size, :reg0, :reg1, :reg2, :reg3,
@@ -66,6 +66,10 @@ module Evoasm
 
             LEGACY_PREFIX_BYTES.each do |prefix, byte|
               next unless prefixes.key? prefix
+
+              # skip non-basic parameter
+              next if basic? && prefix == :pref67
+
               needed, = prefixes.fetch prefix
 
               condition =
@@ -73,7 +77,11 @@ module Evoasm
                 when :required
                   [true]
                 when :optional
-                  [:"#{prefix}?"]
+                  if basic?
+                    [false]
+                  else
+                    [:"#{prefix}?"]
+                  end
                 when :operand
                   LEGACY_PREFIX_CONDITIONS.fetch prefix
                 else
@@ -84,7 +92,11 @@ module Evoasm
             end
 
             if writes.size > 1
-              unordered_writes(:legacy_prefix_order, writes)
+              if basic?
+                unordered_writes(0, writes)
+              else
+                unordered_writes(:legacy_prefix_order, writes)
+              end
               block[]
             elsif writes.empty?
               block[]
@@ -167,8 +179,8 @@ module Evoasm
                                   modrm_reg_bits: modrm_reg_bits,
                                   rm_reg_access: rm_reg_access,
                                   reg_access: reg_access,
-                                  byte_regs: byte_regs
-
+                                  byte_regs: byte_regs,
+                                  basic?: basic?
 
             call modrm_sib
             block[opcode_index]
@@ -214,9 +226,11 @@ module Evoasm
 
             rex_w =
               if vex.include? 'W1'
-                0b01
+                0b1
               elsif vex.include? 'W0'
-                0b00
+                0b0
+              else
+                nil
               end
 
             reg_op, rm_op, vex_op = instruction.register_operands
@@ -256,7 +270,8 @@ module Evoasm
                             vex_v: vex_v,
                             vex_l: vex_l,
                             vex_p: vex_p,
-                            encodes_modrm: instruction.encodes_modrm?
+                            encodes_modrm?: instruction.encodes_modrm?,
+                            basic?: basic?
 
             call vex
             block[opcode_index]
@@ -297,8 +312,9 @@ module Evoasm
                             reg_param: reg_op&.parameter_name,
                             rm_reg_param: rm_op&.parameter_name,
                             rm_reg_type: rm_op&.type,
-                            encodes_modrm: instruction.encodes_modrm?,
-                            byte_regs: byte_regs
+                            encodes_modrm?: instruction.encodes_modrm?,
+                            byte_regs: byte_regs,
+                            basic?: basic?
 
             call rex
             block[opcode_index]
@@ -342,7 +358,7 @@ module Evoasm
 
           def access_implicit_operands
             instruction.operands.each do |operand|
-              if operand.implicit? && operand.type == :register
+              if operand.implicit? && operand.type == :reg
                 access operand.register, operand.access
               end
             end
