@@ -92,7 +92,7 @@ module Evoasm
         end
       end
 
-      def undefinedable_parameter?(parameter_name, basic: false)
+      def undefinedable_parameter?(parameter_name, basic:)
         undefinedable_parameters(basic)[parameter_name]
       end
 
@@ -110,7 +110,7 @@ module Evoasm
         parameters = instruction.parameters basic: basic
         parameter_names(basic: basic).add_all parameters.map(&:name)
         parameters.each do |parameter|
-          undefinedable_parameters(basic: basic)[parameter.name] ||= parameter.undefinedable?
+          undefinedable_parameters(basic)[parameter.name] ||= parameter.undefinedable?
         end
       end
     end

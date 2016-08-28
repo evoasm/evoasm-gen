@@ -40,12 +40,12 @@ module Evoasm
             '(uint8_t) -1'
           end
 
-        io.puts 'evoasm_arch_error_data_t error_data = {'
+        io.puts 'evoasm_enc_error_data_t error_data = {'
         io.puts "  .reg = #{register_c},"
         io.puts "  .param = #{parameter_c},"
         io.puts '};'
 
-        io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ARCH, #{code.to_c}, &error_data, #{msg.to_c});}
+        io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ENC, #{code.to_c}, &error_data, #{msg.to_c});}
         io.puts 'retval = false;'
       end
 

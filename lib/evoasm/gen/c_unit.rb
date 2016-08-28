@@ -28,7 +28,7 @@ module Evoasm
       end
 
       def c_context_type
-        "evoasm_#{architecture}_inst_enc_ctx"
+        "evoasm_#{architecture}_enc_ctx_t"
       end
 
       def namespace
@@ -198,8 +198,17 @@ module Evoasm
         nodes_to_c @instructions
       end
 
-      def parameter_set_function(io = StringIO.new)
-        io.puts 'void evoasm_x64_inst_params_set(evoasm_x64_inst_params_t *params, '\
+      def c_parameter_set_function_name(basic)
+        if basic
+          'evoasm_x64_basic_params_set'
+        else
+          'evoasm_x64_params_set'
+        end
+      end
+
+      def c_parameter_set_function(basic:)
+        io = StringIO.new
+        io.puts "void #{c_parameter_set_function_name basic}(#{c_parameters_type_name basic} *params, "\
                 'evoasm_x64_inst_param_id_t param, evoasm_inst_param_val_t param_val) {'
         io.indent do
           io.puts 'switch(param) {'
@@ -211,7 +220,7 @@ module Evoasm
 
               io.puts "case #{parameter_names.symbol_to_c parameter_name}:"
               io.puts "  params->#{field_name} = param_val;"
-              if undefinedable_parameter? parameter_name
+              if undefinedable_parameter? parameter_name, basic: basic
                 io.puts "  params->#{field_name}_set = true;"
               end
               io.puts '  break;'
@@ -234,7 +243,15 @@ module Evoasm
         Math.log2(max_parameters_per_instructions + 1).ceil.to_i
       end
 
-      def c_instruction_parameters_type_declaration(basic: false)
+      def c_parameters_type_name(basic)
+        if basic
+          'evoasm_x64_basic_params_t'
+        else
+          'evoasm_x64_params_t'
+        end
+      end
+
+      def c_parameters_type_declaration(basic:)
         io = StringIO.new
         io.puts 'typedef struct {'
         io.indent do
@@ -246,9 +263,9 @@ module Evoasm
           parameters.each do |parameter_name|
             field_name = parameter_field_name parameter_name
 
-            fields << [field_name, c_parameter_bitsize(parameter_name, basic: basic)]
+            fields << [field_name, c_parameter_bitsize(parameter_name, basic)]
 
-            if undefinedable_parameter? parameter_name
+            if undefinedable_parameter? parameter_name, basic: basic
               fields << ["#{field_name}_set", 1]
             end
           end
@@ -262,7 +279,7 @@ module Evoasm
           p fields.inject(0) { |acc, (n, s)| acc + s }./(64.0)
         end
 
-        io.puts '} evoasm_x64_inst_params_t;'
+        io.puts "} #{c_parameters_type_name basic};"
         io.string
       end
 
@@ -306,7 +323,7 @@ module Evoasm
         param.to_s.sub(/\?$/, '')
       end
 
-      def c_parameter_bitsize(parameter_name, basic: false)
+      def c_parameter_bitsize(parameter_name, basic)
         case parameter_name
         when :rex_b, :rex_r, :rex_x, :rex_w,
           :vex_l, :force_rex?, :lock?, :force_sib?,

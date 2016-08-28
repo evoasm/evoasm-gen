@@ -166,8 +166,12 @@ module Evoasm
                 raise "unexpected modrm reg specifier '#{$1}'"
               end
 
-            rm_reg_access = rm_op&.access
-            reg_access = reg_op&.access
+            # Currently ignored, set to nil
+            # to reduce number of different generated function
+            #rm_reg_access = rm_op&.access
+            #reg_access = reg_op&.access
+            rm_reg_access = nil
+            reg_access = nil
 
             rm_type = rm_op.type
             byte_regs = reg_op&.size == 8 || rm_op&.size == 8
