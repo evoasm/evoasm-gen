@@ -48,7 +48,7 @@ module Evoasm
 
             load_flags
 
-            @name = name
+            @name = build_name
 
             @state_machine = InstructionStateMachine.new unit, false
             @state_machine.parent = self
@@ -135,14 +135,19 @@ module Evoasm
             end
           end
 
-          def name
+          def build_name(index = nil)
             ops_str = operands.select(&:mnemonic?).map do |op|
               op.name.gsub('/m', 'm').downcase
             end.join('_')
 
             name = mnemonic.downcase.tr('/', '_')
+            name << index.to_s if index
             name << "_#{ops_str}" unless ops_str.empty?
             name
+          end
+
+          def resolve_name_conflict!(index)
+            @name = build_name(index)
           end
 
           def encodes_vex?

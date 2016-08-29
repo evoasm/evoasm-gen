@@ -423,8 +423,8 @@ VEX.NDS.128.66.0F3A.WIG 41 /r ib,VDPPD,RVMI,xmm:mew; xmm:mer; xmm/m128:mer; imm8
 66 0F 3A 40 /r ib,DPPS,RMI,xmm:merw[0..127]; xmm/m128:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,SSE4_1,UD; GPS; AC; PFS; XFS
 VEX.NDS.128.66.0F3A.WIG 40 /r ib,VDPPS,RVMI,xmm:mew; xmm:mer; xmm/m128:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,AVX,UD; GPS; AC; PFS; XFS
 VEX.NDS.256.66.0F3A.WIG 40 /r ib,VDPPS,RVMI,ymm:mew; ymm:mer; ymm/m256:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,AVX,UD; GPS; AC; PFS; XFS
-C8 iw ib,ENTER,II,imm16:mer; imm8:mer; RSP:rw; RBP:rw,,,SSXX; PF; AC
-C8 iw ib,ENTER,II,imm16:mer; imm8:mer; SP:rw; BP:rw,pref66:required/1,,SSXX; PF; AC
+C8 iw ib,ENTERQ,II,imm16:mer; imm8:mer; RSP:rw; RBP:rw,,,SSXX; PF; AC
+C8 iw ib,ENTERW,II,imm16:mer; imm8:mer; SP:rw; BP:rw,pref66:required/1,,SSXX; PF; AC
 66 0F 3A 17 /r ib,EXTRACTPS,MRI,r/m32:mew; xmm:mer; imm8:mer,pref67:operand/1,SSE4_1,UD; GPS
 VEX.128.66.0F3A.WIG 17 /r ib,VEXTRACTPS,MRI,r/m32:mew; xmm:mer; imm8:mer,pref67:operand/1,AVX,UD; GPS
 EVEX.128.66.0F3A.WIG 17 /r ib,VEXTRACTPS,T1S,r/m32:mew; xmm:mer; imm8:mer,,AVX512F,UD; GPS
@@ -822,10 +822,10 @@ EVEX.128.F3.0F.W1 7E /r,VMOVQ,T1S-RM,xmm:mew; xmm/m64:mer,pref67:operand/1,AVX51
 VEX.128.66.0F.WIG D6 /r,VMOVQ,MR,xmm/m64:mew; xmm:mer,pref67:operand/1,AVX,UD; GPS
 EVEX.128.66.0F.W1 D6 /r,VMOVQ,T1S-MR,xmm/m64:mew; xmm:mer,pref67:operand/1,AVX512F,UD; GPS
 F3 0F D6 /r,MOVQ2DQ,RM,xmm:mew; mm:mer,pref67:operand/1,,
-A4,MOVS,NP,SIL:rw; [SIL]:r; DIL:rw; [DIL]:rw,repe:illegal/0,,
-A5,MOVS,NP,SI:rw; [SI]:r; DI:rw; [DI]:rw,repe:illegal/0; pref66:required/1,,
-A5,MOVS,NP,ESI:rw; [ESI]:r; EDI:rw; [EDI]:rw,repe:illegal/0; rex_w:optional/0,,
-A5,MOVS,NP,RSI:rw; [RSI]:r; RDI:rw; [RDI]:rw,repe:illegal/0; rex_w:required/1,,
+A4,MOVSB,NP,SIL:rw; [SIL]:r; DIL:rw; [DIL]:rw,repe:illegal/0,,
+A5,MOVSW,NP,SI:rw; [SI]:r; DI:rw; [DI]:rw,repe:illegal/0; pref66:required/1,,
+A5,MOVSD,NP,ESI:rw; [ESI]:r; EDI:rw; [EDI]:rw,repe:illegal/0; rex_w:optional/0,,
+A5,MOVSQ,NP,RSI:rw; [RSI]:r; RDI:rw; [RDI]:rw,repe:illegal/0; rex_w:required/1,,
 F2 0F 10 /r,MOVSD,RM,xmm:merw[0..63]; xmm/m64:mer,pref67:operand/1,SSE2,UD; GPS
 F2 0F 11 /r,MOVSD,MR,xmm/m64:mew[0..63]; xmm:mer,pref67:operand/1,SSE2,UD; GPS
 VEX.NDS.LIG.F2.0F.WIG 10 /r,VMOVSD,RVM,xmm:mew; xmm:mer; xmm:mer,pref67:operand/1,AVX,UD; GPS

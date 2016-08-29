@@ -15,13 +15,13 @@
 
 <%= unit.register_types.to_c  %>
 
-<%= unit.register_names.to_c %>
+<%= unit.register_ids.to_c %>
 
 <%= unit.displacement_sizes.to_c %>
 
 <%= unit.address_sizes.to_c %>
 
-<%= unit.parameter_names.to_c %>
+<%= unit.parameter_ids.to_c %>
 
 <%= unit.operand_types.to_c %>
 
@@ -29,11 +29,7 @@
 #define <%= unit.bit_mask_to_c 0..63 %> (<%= unit.bit_mask_to_c 0..31 %> | <%= unit.bit_mask_to_c 32..63 %>)
 #define <%= unit.bit_mask_to_c 0..127 %> (<%= unit.bit_mask_to_c 0..63 %> | <%= unit.bit_mask_to_c 64..127 %>)
 
-typedef enum {
-<% unit.instructions.each do |instruction| %>
-  <%= instruction.c_constant_name %> = <%= instruction.index %>,
-<% end %>
-  EVOASM_X64_N_INSTS = <%= unit.instructions.size %>,
-} evoasm_x64_inst_id_t;
+
+<%= unit.instruction_ids.to_c %>
 
 #define EVOASM_X64_PARAM_IDX_BITSIZE <%= unit.parameter_index_bitsize %>

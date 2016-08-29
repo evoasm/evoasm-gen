@@ -6,18 +6,12 @@ module Evoasm
 <%= unit.instruction_flags.to_ruby_ffi %>
 <%= unit.exceptions.to_ruby_ffi %>
 <%= unit.register_types.to_ruby_ffi  %>
-<%= unit.register_names.to_ruby_ffi %>
-<%= unit.parameter_names.to_ruby_ffi %>
+<%= unit.register_ids.to_ruby_ffi %>
+<%= unit.parameter_ids.to_ruby_ffi %>
 <%= unit.operand_types.to_ruby_ffi %>
 <%= unit.displacement_sizes.to_ruby_ffi %>
 <%= unit.address_sizes.to_ruby_ffi %>
-
-    enum :x64_inst_id, [
-<% unit.instructions.each do |instruction| %>
-      :<%= instruction.ruby_ffi_name %>, <%= instruction.index %>,
-<% end %>
-      :n_insts
-    ]
+<%= unit.instruction_ids.to_ruby_ffi %>
 
     enum :x64_operand_size, [
       :'1',

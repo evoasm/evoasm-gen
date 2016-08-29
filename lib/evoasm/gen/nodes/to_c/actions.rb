@@ -10,7 +10,7 @@ module Evoasm
           value_c = values.first.to_c
           size_c = sizes.first.to_c false
         end
-        io.puts "evoasm_inst_enc_ctx_write#{size_c}(ctx, #{value_c});"
+        io.puts "evoasm_buf_ref_write#{size_c}(&ctx->buf_ref, #{value_c});"
       end
 
       def_to_c SetAction do |io|
@@ -55,11 +55,11 @@ module Evoasm
             ''
           else
             args_c = args.map do |arg|
-              "(#{unit.c_parameter_value_type_name}) #{arg.to_c}"
+              "(int64_t) #{arg.to_c}"
             end.join(', ').prepend(', ')
           end
 
-        msg_c = msg.gsub('%', '%" EVOASM_INST_PARAM_VAL_FORMAT "')
+        msg_c = msg.gsub('%', '%" PRId64 "')
         io.puts %[evoasm_#{level}("#{msg_c}" #{args_c});]
       end
 
@@ -71,7 +71,7 @@ module Evoasm
                                  "(#{regs.c_type_name}) #{expr_to_c(op)}",
                                  *params
                                ],
-                               base_arch_ctx_prefix,
+                               base_enc_ctx_prefix,
                                eol: eol)
         end
 

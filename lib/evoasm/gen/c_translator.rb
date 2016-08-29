@@ -16,9 +16,9 @@ module Evoasm
         when :x64
           case file_type
           when :c
-            %w(evoasm-x64-insts.c evoasm-x64-misc.c)
+            %w(evoasm-x64-insts.c evoasm-x64-misc.c evoasm-x64-params.c)
           when :h
-            %w(evoasm-x64-insts.h evoasm-x64-enums.h evoasm-x64-misc.h)
+            %w(evoasm-x64-insts.h evoasm-x64-enums.h evoasm-x64-misc.h evoasm-x64-params.h)
           when :ruby_ffi
             %w(x64_enums.rb)
           else

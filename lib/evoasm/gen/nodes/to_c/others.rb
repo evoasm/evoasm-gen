@@ -140,11 +140,11 @@ module Evoasm
         end
 
         def c_type_name
-          unit.symbol_to_c :inst_param, type: true
+          unit.symbol_to_c :param, type: true
         end
 
         def c_constant_name
-          unit.parameter_names.symbol_to_c name
+          unit.parameter_ids.symbol_to_c name
         end
       end
 

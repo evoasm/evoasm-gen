@@ -20,8 +20,6 @@ module Evoasm
 
       def initialize(architecture, table)
         @architecture = architecture
-        @parameter_names = []
-        @undefinedable_paramters = {}
 
         extend Gen.const_get(:"#{architecture.to_s.camelcase}Unit")
         load table
@@ -99,11 +97,7 @@ module Evoasm
       end
 
       def c_parameter_value_type_name
-        symbol_to_c :inst_param_val, type: true
-      end
-
-      def c_bitmap_type_name
-        symbol_to_c :bitmap, type: true
+        'int64_t'
       end
 
       def c_function_call(function_name, args, prefix = nil)
@@ -198,33 +192,49 @@ module Evoasm
         nodes_to_c @instructions
       end
 
-      def c_parameter_set_function_name(basic)
+      def c_parameter_set_unset_function_name(basic, unset)
         if basic
-          'evoasm_x64_basic_params_set'
+          "evoasm_x64_basic_params_#{unset ? 'un' : ''}set"
         else
-          'evoasm_x64_params_set'
+          "evoasm_x64_params_#{unset ? 'un' : ''}set"
         end
       end
 
-      def c_parameter_set_function(basic:)
+      def c_parameter_set_unset_function_prototype(basic:, unset:)
+        prototype = "void #{c_parameter_set_unset_function_name basic, unset}(#{c_parameters_type_name basic} *params, " \
+                    "evoasm_x64_param_id_t param"
+        prototype <<
+          if unset
+            ')'
+          else
+            ', int64_t param_val)'
+          end
+
+        prototype
+      end
+
+      def c_parameter_set_unset_function(basic:, unset:)
         io = StringIO.new
-        io.puts "void #{c_parameter_set_function_name basic}(#{c_parameters_type_name basic} *params, "\
-                'evoasm_x64_inst_param_id_t param, evoasm_inst_param_val_t param_val) {'
+        io.puts "#{c_parameter_set_unset_function_prototype basic: basic, unset: unset} {"
         io.indent do
           io.puts 'switch(param) {'
           io.indent do
-            @parameter_names.each do |parameter_name, _|
-              next if @parameter_names.alias? parameter_name
+            parameter_ids = parameter_ids(basic: basic)
+            parameter_ids.each do |parameter_name, _|
+              next if parameter_ids.alias? parameter_name
 
               field_name = parameter_field_name parameter_name
 
-              io.puts "case #{parameter_names.symbol_to_c parameter_name}:"
-              io.puts "  params->#{field_name} = param_val;"
+              io.puts "case #{parameter_ids.symbol_to_c parameter_name}:"
+              io.puts "  params->#{field_name} = #{unset ? '0' : 'param_val'};"
               if undefinedable_parameter? parameter_name, basic: basic
-                io.puts "  params->#{field_name}_set = true;"
+                io.puts "  params->#{field_name}_set = #{unset ? 'false' : 'true'};"
               end
               io.puts '  break;'
             end
+            io.puts 'default:'
+            io.puts '  evoasm_assert_not_reached();'
+
           end
           io.puts '}'
         end
@@ -255,8 +265,8 @@ module Evoasm
         io = StringIO.new
         io.puts 'typedef struct {'
         io.indent do
-          parameters = parameter_names(basic: basic).symbols.select do |key|
-            !parameter_names.alias? key
+          parameters = parameter_ids(basic: basic).symbols.select do |key|
+            !parameter_ids.alias? key
           end
 
           fields = []
@@ -341,7 +351,7 @@ module Evoasm
         when :vex_v
           4
         when :reg_base, :reg_index, :reg0, :reg1, :reg2, :reg3, :reg4
-          @register_names.bitsize
+          @register_ids.bitsize
         when :imm
           basic ? 32 : 64
         when :moffs, :rel

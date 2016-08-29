@@ -31,6 +31,7 @@ module Evoasm
           raise ArgumentError, "can only add symbols or strings not '#{symbol.class}'"\
           unless valid_symbol?(symbol)
           return if @map.key? symbol
+          return if @aliases.key? symbol
 
           value = @counter
           @counter += 1

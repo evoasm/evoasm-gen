@@ -16,15 +16,16 @@ module Evoasm
       attr_reader :operand_types
       attr_reader :features
       attr_reader :instruction_flags
-      attr_reader :register_names
+      attr_reader :register_ids
       attr_reader :displacement_sizes
       attr_reader :address_sizes
+      attr_reader :instruction_ids
 
-      def parameter_names(basic: false)
+      def parameter_ids(basic: false)
         if basic
-          @basic_parameter_names
+          @basic_parameter_ids
         else
-          @parameter_names
+          @parameter_ids
         end
       end
 
@@ -35,38 +36,37 @@ module Evoasm
         load_enums
       end
 
-      def search_parameter_names
-        SEARCH_PARAMETERS
-      end
-
       def load_enums
         @features = Enumeration.new self, :feature, prefix: architecture
         @instruction_flags = Enumeration.new self, :inst_flag, prefix: architecture, flags: true
         @exceptions = Enumeration.new self, :exception, prefix: architecture
         @register_types = Enumeration.new self, :reg_type, Gen::X64::REGISTERS.keys, prefix: architecture
         @operand_types = Enumeration.new self, :operand_type, Nodes::X64::Instruction::OPERAND_TYPES, prefix: architecture
-        @register_names = Enumeration.new self, :reg_id, Gen::X64::REGISTER_NAMES, prefix: architecture
+        @register_ids = Enumeration.new self, :reg_id, Gen::X64::REGISTER_NAMES, prefix: architecture
         @bit_masks = Enumeration.new self, :bit_mask, %i(rest 64_127 32_63 0_31), prefix: architecture, flags: true
         @address_sizes = Enumeration.new self, :addr_size, %i(64 32), prefix: architecture
         @displacement_sizes = Enumeration.new self, :disp_size, %i(16 32), prefix: architecture
-        @parameter_names = Enumeration.new self, :inst_param_id, STATIC_PARAMETERS, prefix: architecture
-        @basic_parameter_names = Enumeration.new self, :inst_param_id, STATIC_PARAMETERS, prefix: architecture
+        @parameter_ids = Enumeration.new self, :param_id, STATIC_PARAMETERS, prefix: architecture
+        @basic_parameter_ids = Enumeration.new self, :param_id, STATIC_PARAMETERS, prefix: architecture
+        @instruction_ids = Enumeration.new self, :inst_id, prefix: architecture
 
         @undefinedable_parameters = {}
         @basic_undefinedable_parameters = {}
+
+        PARAMETER_ALIASES.each do |alias_key, key|
+          @parameter_ids.alias alias_key, key
+        end
 
         @instructions.each do |instruction|
           @features.add_all instruction.features
           @instruction_flags.add_all instruction.flags
           @exceptions.add_all instruction.exceptions
+          @instruction_ids.add instruction.name
 
           register_parameters(instruction, basic: false)
           register_parameters(instruction, basic: true) if instruction.basic?
         end
 
-        PARAMETER_ALIASES.each do |alias_key, key|
-          @parameter_names.alias alias_key, key
-        end
       end
 
       def helper_state_machine_nodes
@@ -86,8 +86,8 @@ module Evoasm
         # make sure name is unique
         @instructions.group_by(&:name).each do |_name, group|
           next if group.size <= 1
-          group.each_with_index do |inst, index|
-            inst.name << "_#{index}"
+          group.each_with_index do |instruction, index|
+            instruction.resolve_name_conflict! index
           end
         end
       end
@@ -108,7 +108,7 @@ module Evoasm
 
       def register_parameters(instruction, basic:)
         parameters = instruction.parameters basic: basic
-        parameter_names(basic: basic).add_all parameters.map(&:name)
+        parameter_ids(basic: basic).add_all parameters.map(&:name)
         parameters.each do |parameter|
           undefinedable_parameters(basic)[parameter.name] ||= parameter.undefinedable?
         end
