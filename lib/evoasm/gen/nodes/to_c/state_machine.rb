@@ -46,9 +46,9 @@ module Evoasm
           def write_function_prolog(translate_acc)
             local_variables = state_machine.root_state.local_variables
             unless local_variables.empty?
-              io.puts "#{unit.c_parameter_value_type_name} #{local_variables.join ', '};"
-              local_variables.each do |param|
-                io.puts "(void) #{param};"
+              io.puts "#{unit.c_parameter_value_type_name} #{local_variables.map(&:name).join ', '};"
+              local_variables.each do |variable|
+                io.puts "(void) #{variable.name};"
               end
             end
 
@@ -183,7 +183,7 @@ module Evoasm
         end
 
         def c_function_name
-          attrs_str = self.class.attributes.map { |k, v| [k, v].join('_') }.flatten.join('__')
+          attrs_str = self.class.attributes.map { |k| [k.to_s.sub(/\?$/, '_p'), send(k)].join('_') }.flatten.join('__')
           unit.symbol_to_c "#{self.class.name.split('::').last}_#{attrs_str}", unit.architecture_prefix
         end
       end

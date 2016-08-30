@@ -11,9 +11,10 @@
 
 <%= unit.c_parameters_type_declaration basic: false %>
 <%= unit.c_parameters_type_declaration basic: true %>
-<%= unit.c_parameter_set_unset_function_prototype basic: false, unset: false %>;
-<%= unit.c_parameter_set_unset_function_prototype basic: true, unset: false %>;
-<%= unit.c_parameter_set_unset_function_prototype basic: false, unset: true %>;
-<%= unit.c_parameter_set_unset_function_prototype basic: true, unset: true %>;
 
-
+<%= unit.c_parameter_set_unset_get_function basic: false, type: :set %>
+<%= unit.c_parameter_set_unset_get_function basic: true, type: :set %>
+<%= unit.c_parameter_set_unset_get_function basic: false, type: :unset %>
+<%= unit.c_parameter_set_unset_get_function basic: true, type: :unset %>
+<%= unit.c_parameter_set_unset_get_function basic: false, type: :get %>
+<%= unit.c_parameter_set_unset_get_function basic: true, type: :get %>

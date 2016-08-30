@@ -7,7 +7,8 @@ module Evoasm
       include Nodes
 
       STATIC_PARAMETERS = %i(reg0 reg1 reg2 reg3 imm).freeze
-      PARAMETER_ALIASES = {imm0: :imm, imm1: :disp, moffs: :imm0, rel: :imm0}.freeze
+      PARAMETER_ALIASES = {imm0: :imm, imm1: :disp, moffs: :imm, rel: :imm}.freeze
+      BASIC_PARAMETER_ALIASES = {imm0: :imm, rel: :imm}.freeze
       SEARCH_PARAMETERS = %i(reg0 reg1 reg2 reg3 imm reg0_high_byte? reg1_high_byte?).freeze
 
       attr_reader :bit_masks
@@ -54,8 +55,13 @@ module Evoasm
         @basic_undefinedable_parameters = {}
 
         PARAMETER_ALIASES.each do |alias_key, key|
-          @parameter_ids.alias alias_key, key
+          @parameter_ids.define_alias alias_key, key
         end
+
+        BASIC_PARAMETER_ALIASES.each do |alias_key, key|
+          @basic_parameter_ids.define_alias alias_key, key
+        end
+
 
         @instructions.each do |instruction|
           @features.add_all instruction.features

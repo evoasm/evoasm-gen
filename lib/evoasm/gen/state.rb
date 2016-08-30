@@ -17,7 +17,7 @@ module Evoasm
         child_local_variables = children.map do |child, _, _|
           child.local_variables
         end
-        all_local_variables = (own_local_variables + child_local_variables)
+        all_local_variables = own_local_variables + child_local_variables
         all_local_variables.flatten!
         all_local_variables.uniq!
 

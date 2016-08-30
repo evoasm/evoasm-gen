@@ -32,7 +32,7 @@ module Evoasm
           }.freeze
 
           LEGACY_PREFIX_CONDITIONS = {
-            pref67: [:eq, :addr_size, :ADDR_SIZE32]
+            pref67: [:eq, :addr_size, :ADDR_SIZE_32]
           }.freeze
 
           MANDATORY_PREF_BYTES = %w(66 F2 F3 F0).freeze

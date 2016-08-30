@@ -69,7 +69,7 @@ module Evoasm
               end
 
               def hash
-                super ^ #{attrs.map { |attr| "#{attr_instance_variable_name attr}.hash" }.join(' ^ ')}
+                #{attrs.map { |attr| "#{attr_instance_variable_name attr}.hash" }.join(' ^ ')}
               end
 
               def eql?(other)

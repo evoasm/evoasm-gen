@@ -194,14 +194,14 @@ module Evoasm
 
       def c_parameter_set_unset_function_name(basic, unset)
         if basic
-          "evoasm_x64_basic_params_#{unset ? 'un' : ''}set"
+          "evoasm_x64_basic_params_#{unset ? 'un' : ''}set_"
         else
-          "evoasm_x64_params_#{unset ? 'un' : ''}set"
+          "evoasm_x64_params_#{unset ? 'un' : ''}set_"
         end
       end
 
       def c_parameter_set_unset_function_prototype(basic:, unset:)
-        prototype = "void #{c_parameter_set_unset_function_name basic, unset}(#{c_parameters_type_name basic} *params, " \
+        prototype = "static inline void #{c_parameter_set_unset_function_name basic, unset}(#{c_parameters_type_name basic} *params, " \
                     "evoasm_x64_param_id_t param"
         prototype <<
           if unset
@@ -213,25 +213,29 @@ module Evoasm
         prototype
       end
 
-      def c_parameter_set_unset_function(basic:, unset:)
+      def c_parameter_set_unset_function_case(io, parameter_id, basic, unset)
+        field_name = parameter_field_name parameter_id
+        bitmask = ((1 << c_parameter_bitsize(parameter_id, basic)) - 1)
+
+        io.puts "case #{parameter_ids.symbol_to_c parameter_id}:"
+        io.puts "  params->#{field_name} = #{unset ? '0' : "((unsigned) param_val) & 0x#{bitmask.to_s 16}"};"
+        if undefinedable_parameter? parameter_id, basic: basic
+          io.puts "  params->#{field_name}_set = #{unset ? 'false' : 'true'};"
+        end
+        io.puts '  break;'
+      end
+
+      def c_parameter_set_unset_get_function(basic:, unset:)
         io = StringIO.new
         io.puts "#{c_parameter_set_unset_function_prototype basic: basic, unset: unset} {"
         io.indent do
           io.puts 'switch(param) {'
           io.indent do
             parameter_ids = parameter_ids(basic: basic)
-            parameter_ids.each do |parameter_name, _|
-              next if parameter_ids.alias? parameter_name
-
-              field_name = parameter_field_name parameter_name
-
-              io.puts "case #{parameter_ids.symbol_to_c parameter_name}:"
-              io.puts "  params->#{field_name} = #{unset ? '0' : 'param_val'};"
-              if undefinedable_parameter? parameter_name, basic: basic
-                io.puts "  params->#{field_name}_set = #{unset ? 'false' : 'true'};"
-              end
-              io.puts '  break;'
+            parameter_ids.each do |parameter_id, _|
+              c_parameter_set_unset_function_case(io, parameter_id, basic, unset)
             end
+
             io.puts 'default:'
             io.puts '  evoasm_assert_not_reached();'
 
@@ -265,10 +269,7 @@ module Evoasm
         io = StringIO.new
         io.puts 'typedef struct {'
         io.indent do
-          parameters = parameter_ids(basic: basic).symbols.select do |key|
-            !parameter_ids.alias? key
-          end
-
+          parameters = parameter_ids(basic: basic).symbols
           fields = []
           parameters.each do |parameter_name|
             field_name = parameter_field_name parameter_name

@@ -61,9 +61,19 @@ module Evoasm
 
           def basic?
             return @basic unless @basic.nil?
-            @basic ||= operands.all? do |operand|
+            basic_types = operands.all? do |operand|
               BASIC_OPERAND_TYPES.include? operand.type
             end
+
+            n_imm = operands.count do |operand|
+              operand.type == :imm
+            end
+
+            imm64 = operands.any? do |operand|
+              operand.type == :imm && operand.imm_size == 64
+            end
+
+            @basic = basic_types && n_imm <= 1 && !imm64
           end
 
           # NOTE: enum domains need to be sorted

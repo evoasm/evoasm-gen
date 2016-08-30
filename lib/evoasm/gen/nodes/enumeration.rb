@@ -28,10 +28,14 @@ module Evoasm
         end
 
         def add(symbol)
-          raise ArgumentError, "can only add symbols or strings not '#{symbol.class}'"\
           unless valid_symbol?(symbol)
+            raise ArgumentError, "can only add symbols or strings not '#{symbol.class}'"
+          end
+
           return if @map.key? symbol
           return if @aliases.key? symbol
+
+          raise @aliases.inspect if symbol == :imm0
 
           value = @counter
           @counter += 1
@@ -43,6 +47,15 @@ module Evoasm
           symbols.each do |symbol|
             add symbol
           end
+        end
+
+        def aliases(symbol)
+          aliases = []
+          @aliases.each do |alias_symbol, symbol_|
+            aliases << alias_symbol if symbol == symbol_
+          end
+
+          aliases
         end
 
         def each(&block)
@@ -71,8 +84,12 @@ module Evoasm
           @aliases.key? symbol
         end
 
-        def alias(alias_symbol, symbol)
+        def define_alias(alias_symbol, symbol)
           @aliases[alias_symbol] = symbol
+        end
+
+        def alias(symbol)
+          @aliases[symbol]
         end
 
         def bitsize(with_n = false)

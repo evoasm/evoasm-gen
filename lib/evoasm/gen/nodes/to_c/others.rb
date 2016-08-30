@@ -37,7 +37,7 @@ module Evoasm
 
       class Expression
         def if_to_c(io, &block)
-          condition_c = to_c.sub(/^\(|\)$/, '')
+          condition_c = to_c.gsub(/^\(|\)$/, '')
           io.block "if(#{condition_c})", &block
         end
       end

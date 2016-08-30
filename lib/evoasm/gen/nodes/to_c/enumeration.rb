@@ -19,6 +19,7 @@ module Evoasm
           io.puts ';'
 
           c_bitsize_defines io
+          c_bitmask_defines io
 
           io.string
         end
@@ -50,11 +51,18 @@ module Evoasm
         private
 
         def c_bitsize_defines(io)
-          io.puts "#define #{bitsize_to_c} #{bitsize}"
+          io.puts "#define #{bitsize_symbol_to_c} #{bitsize}"
           if flags?
             io.puts "#define #{all_symbol_to_c} #{all_value}"
           else
-            io.puts "#define #{bitsize_to_c true} #{bitsize true}"
+            io.puts "#define #{bitsize_symbol_to_c true} #{bitsize true}"
+          end
+        end
+
+        def c_bitmask_defines(io)
+          io.puts "#define #{bitmask_symbol_to_c} 0x#{((1 << bitsize) - 1).to_s 16}"
+          unless flags?
+            io.puts "#define #{bitmask_symbol_to_c true} 0x#{((1 << bitsize(true)) - 1).to_s 16}"
           end
         end
 
@@ -104,8 +112,12 @@ module Evoasm
           unit.symbol_to_c name, @prefix, type: true
         end
 
-        def bitsize_to_c(with_n = false)
+        def bitsize_symbol_to_c(with_n = false)
           unit.symbol_to_c "#{c_symbol_prefix}_bitsize#{with_n ? '_WITH_N' : ''}", @prefix, const: true
+        end
+
+        def bitmask_symbol_to_c(with_n = false)
+          unit.symbol_to_c "#{c_symbol_prefix}_bitmask#{with_n ? '_WITH_N' : ''}", @prefix, const: true
         end
 
         def ruby_ffi_type_name

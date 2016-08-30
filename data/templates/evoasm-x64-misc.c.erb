@@ -12,7 +12,8 @@ static const char *_evoasm_log_tag = "x64";
 
 evoasm_success_t
 evoasm_x64_features(uint64_t *features) {
-  evoasm_buf_t buf;
+  evoasm_buf_t buf_;
+  evoasm_buf_t *buf = &buf_;
   evoasm_x64_params_t params = {0};
   bool retval = true;
 
@@ -20,20 +21,20 @@ evoasm_x64_features(uint64_t *features) {
 
   evoasm_debug("Running CPUID...");
 
-  EVOASM_TRY(alloc_failed, evoasm_buf_init, &buf, EVOASM_BUF_TYPE_MMAP, 512);
-  EVOASM_TRY(enc_failed, evoasm_x64_func_prolog,  &buf, EVOASM_X64_ABI_SYSV);
+  EVOASM_TRY(alloc_failed, evoasm_buf_init, buf, EVOASM_BUF_TYPE_MMAP, 512);
+  EVOASM_TRY(enc_failed, evoasm_x64_func_prolog,  buf, EVOASM_X64_ABI_SYSV);
 
 <% remaining_flags = unit.features.symbols %>
 <% io = StringIO.new %>
 <% Evoasm::Gen::X64::CPUID.each_with_index do |((eax_val, ecx_val), out_regs), index0| %>
 
-  EVOASM_X64_PARAM_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_A);
-  EVOASM_X64_PARAM_SET(EVOASM_X64_PARAM_IMM0, <%= eax_val %>);
+  EVOASM_X64_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_A);
+  EVOASM_X64_SET(EVOASM_X64_PARAM_IMM0, <%= eax_val %>);
   EVOASM_X64_ENC(mov_r32_imm32);
 
   <% if ecx_val %>
-  EVOASM_X64_PARAM_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_C);
-  EVOASM_X64_PARAM_SET(EVOASM_X64_PARAM_IMM0, <%= ecx_val %>);
+  EVOASM_X64_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_C);
+  EVOASM_X64_SET(EVOASM_X64_PARAM_IMM0, <%= ecx_val %>);
   EVOASM_X64_ENC(mov_r32_imm32);
   <% end %>
 
@@ -44,21 +45,21 @@ evoasm_x64_features(uint64_t *features) {
   {
     int64_t addr_imm;
     addr_imm = (int64_t)(uintptr_t) &vals[<%= index0 %>][<%= index1 %>];
-    EVOASM_X64_PARAM_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_DI);
-    EVOASM_X64_PARAM_SET(EVOASM_X64_PARAM_IMM0, addr_imm);
+    EVOASM_X64_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_DI);
+    EVOASM_X64_SET(EVOASM_X64_PARAM_IMM0, addr_imm);
     EVOASM_X64_ENC(mov_r64_imm64);
 
-    EVOASM_X64_PARAM_SET(EVOASM_X64_PARAM_REG1, <%= unit.register_name_to_c reg %>);
-    EVOASM_X64_PARAM_SET(EVOASM_X64_PARAM_REG_BASE, EVOASM_X64_REG_DI);
+    EVOASM_X64_SET(EVOASM_X64_PARAM_REG1, <%= unit.register_name_to_c reg %>);
+    EVOASM_X64_SET(EVOASM_X64_PARAM_REG_BASE, EVOASM_X64_REG_DI);
     EVOASM_X64_ENC(mov_rm32_r32);
-    EVOASM_X64_PARAM_UNSET(EVOASM_X64_PARAM_ADDRESS_SIZE);
-    EVOASM_X64_PARAM_UNSET(EVOASM_X64_PARAM_REG_BASE);
+    EVOASM_X64_UNSET(EVOASM_X64_PARAM_ADDR_SIZE);
+    EVOASM_X64_UNSET(EVOASM_X64_PARAM_REG_BASE);
 
     <% flags.each_with_index do |flag, bit_index| %>
       <% if remaining_flags.delete(flag) %>
         <% io.indent 1 do %>
           <% io.puts "if(vals[#{index0}][#{index1}] & (1ull << #{bit_index})) {" %>
-          <% io.puts "  x64_enc_ctx->features |= (1ull << #{unit.feature_name_to_c flag});" %>
+          <% io.puts "  *features |= (1ull << #{unit.feature_name_to_c flag});" %>
           <% io.puts %{  evoasm_info("Found support for #{flag.upcase}");} %>
           <% io.puts "} else {" %>
           <% io.puts %{  evoasm_info("Missing support for #{flag.upcase}");} %>
@@ -70,17 +71,17 @@ evoasm_x64_features(uint64_t *features) {
   <% end%>
 <% end %>
 
-  EVOASM_TRY(enc_failed, evoasm_x64_func_epilog, x64_enc_ctx, &buf, EVOASM_X64_ABI_SYSV);
+  EVOASM_TRY(enc_failed, evoasm_x64_func_epilog, buf, EVOASM_X64_ABI_SYSV);
 
-  /*evoasm_buf_dump(&buf, stderr);*/
+  /*evoasm_buf_dump(buf, stderr);*/
 
-  EVOASM_TRY(enc_failed, evoasm_buf_protect, &buf, EVOASM_MPROT_RX);
-  evoasm_buf_exec(&buf);
+  EVOASM_TRY(enc_failed, evoasm_buf_protect, buf, EVOASM_MPROT_RX);
+  evoasm_buf_exec(buf);
 
 <%= io.string %>
 
 cleanup:
-  EVOASM_TRY(destroy_failed, evoasm_buf_destroy, &buf);
+  EVOASM_TRY(destroy_failed, evoasm_buf_destroy, buf);
   return retval;
 enc_failed:
   retval = false;

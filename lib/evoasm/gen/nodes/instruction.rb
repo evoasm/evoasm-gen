@@ -6,7 +6,7 @@ module Evoasm
       class Instruction < Node
         def parameters(basic: false)
           if basic
-            return nil if basic_state_machine.nil?
+            return nil unless basic?
             return @basic_parameters if @basic_parameters
           else
             return @parameters if @parameters
