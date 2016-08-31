@@ -49,8 +49,6 @@ module Evoasm
       end
 
       class Operation
-
-
         def to_c
           return send :"#{name.to_s.gsub /\?$/, '_p'}_to_c" if helper?
 
@@ -109,8 +107,8 @@ module Evoasm
           unit.c_function_call 'reg_code', args.map(&:to_c), unit.architecture_prefix
         end
 
-        def disp_size_to_c
-          unit.c_function_call 'disp_size', ['ctx->params.disp'], unit.architecture_prefix
+        def auto_disp_size_to_c
+          unit.c_function_call 'auto_disp_size', ['&ctx->params'], unit.architecture_prefix
         end
 
         def set_p_to_c
@@ -201,7 +199,7 @@ module Evoasm
         end
 
         def c_type_name
-          'evoasm_type_domain_t'
+          "evoasm_#{type}_domain_t"
         end
 
         def c_variable_name

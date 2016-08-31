@@ -331,11 +331,11 @@ module Evoasm
           end
 
           def matching_disp_size?
-            [:or, [:unset?, :disp_size], [:eq, :disp_size, [:disp_size]]]
+            [:or, [:unset?, :disp_size], [:eq, :disp_size, [:auto_disp_size]]]
           end
 
           def disp_fits?(size)
-            [:ltq, [:disp_size], size]
+            [:ltq, [:auto_disp_size], size]
           end
 
           def disp?(size)

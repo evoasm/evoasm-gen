@@ -80,9 +80,7 @@ module Evoasm
       end
 
       def helper_state_machine_nodes
-        nodes_of_class(Nodes::X64::VEX) +
-          nodes_of_class(Nodes::X64::REX) +
-          nodes_of_class(Nodes::X64::ModRMSIB)
+        nodes_of_class Nodes::X64::VEX, Nodes::X64::REX, Nodes::X64::ModRMSIB
       end
 
       def load_instructions(table)

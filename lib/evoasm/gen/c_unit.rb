@@ -111,8 +111,8 @@ module Evoasm
         "#{symbol_to_c function_name, prefix}(#{args.join ','})"
       end
 
-      def nodes_of_class_to_c(node_class)
-        nodes_to_c nodes_of_class node_class
+      def nodes_of_class_to_c(*node_classes)
+        nodes_to_c nodes_of_class(*node_classes)
       end
 
       def nodes_to_c(nodes)
@@ -136,7 +136,7 @@ module Evoasm
       end
 
       def domains_to_c
-        nodes_of_class_to_c Nodes::Domain
+        nodes_of_class_to_c Nodes::EnumerationDomain, Nodes::RangeDomain, Nodes::TypeDomain
       end
 
       def parameters_to_c
@@ -201,7 +201,7 @@ module Evoasm
 
       def instructions_to_c
         io = StringIO.new
-        io.puts "const #{c_instruction_type_name}[] #{c_instructions_variable_name} ="
+        io.puts "const #{c_instruction_type_name} #{c_instructions_variable_name}[] ="
         io.block do
           @instructions.each do |instruction|
             instruction.to_c(io)

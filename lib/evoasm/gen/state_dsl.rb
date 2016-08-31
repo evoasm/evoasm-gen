@@ -66,12 +66,12 @@ module Evoasm
         add_action new_write_action(value, size)
       end
 
-      def unordered_writes(param_name, writes)
+      def unordered_writes(parameter_name, writes)
         writes = writes.map do |condition, write_args|
           [expression(condition), new_write_action(*write_args)]
         end
 
-        parameter = expression(param_name)
+        parameter = expression(parameter_name)
         unordered_writes = unit.node UnorderedWrites, writes
 
         # parameter can be a literal in basic mode
@@ -202,6 +202,8 @@ module Evoasm
             unit.node ParameterVariable, arg, nil, false
           elsif arg == :else
             Else.instance unit
+          elsif Operation.helper_name?(arg)
+            Operation.new unit, arg, []
           else
             raise "unknown symbol '#{arg}'"
           end

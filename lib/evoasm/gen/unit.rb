@@ -19,8 +19,8 @@ module Evoasm
          end
       end
 
-      def nodes_of_class(node_class)
-        @nodes[node_class]
+      def nodes_of_class(*node_classes)
+        @nodes.values_at(*node_classes).flatten
       end
 
       private
