@@ -30,6 +30,10 @@ module Evoasm
         end
       end
 
+      def undefinedable_parameter?(parameter_name, basic:)
+        undefinedable_parameters(basic)[parameter_name]
+      end
+
       private
 
       def load(table)
@@ -78,7 +82,7 @@ module Evoasm
       def helper_state_machine_nodes
         nodes_of_class(Nodes::X64::VEX) +
           nodes_of_class(Nodes::X64::REX) +
-          nodes_of_class(Nodes::X64::VEX)
+          nodes_of_class(Nodes::X64::ModRMSIB)
       end
 
       def load_instructions(table)
@@ -97,12 +101,6 @@ module Evoasm
           end
         end
       end
-
-      def undefinedable_parameter?(parameter_name, basic:)
-        undefinedable_parameters(basic)[parameter_name]
-      end
-
-      private
 
       def undefinedable_parameters(basic)
         if basic

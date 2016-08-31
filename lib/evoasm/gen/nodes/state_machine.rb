@@ -64,7 +64,7 @@ module Evoasm
             collect_parameter_variables_ action, parameter_variables
           end
 
-          state.children.each do |child, condition, _|
+          state.transitions.each do |child, condition, _|
             collect_parameter_variables_ condition, parameter_variables if condition
             collect_parameter_variables child, parameter_variables
           end

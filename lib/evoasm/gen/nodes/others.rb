@@ -119,8 +119,18 @@ module Evoasm
           IntegerLiteral.new unit, value + 1
         end
       end
-      TrueLiteral = def_node Literal
-      FalseLiteral = def_node Literal
+      TrueLiteral = def_node Literal do
+        def self.instance(unit)
+          @instance ||= new(unit)
+        end
+        private_class_method :new
+      end
+      FalseLiteral = def_node Literal do
+        def self.instance(unit)
+          @instance ||= new(unit)
+        end
+        private_class_method :new
+      end
       Symbol = def_node Expression, :name
       Constant = def_node Symbol
       ErrorCode = def_node Constant

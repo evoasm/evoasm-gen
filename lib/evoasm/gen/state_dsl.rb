@@ -1,4 +1,4 @@
-require 'evoasm/gen/state'
+require 'evoasm/gen/nodes/state'
 require 'evoasm/gen/nodes/others'
 require 'evoasm/gen/nodes/actions'
 
@@ -20,7 +20,7 @@ module Evoasm
 
           define_method(name) do
             return instance_variable_get var_name if instance_variable_defined? var_name
-            state = State.new
+            state = Nodes::State.new unit
             call_with_state f.bind(self), state
 
             instance_variable_set var_name, state
@@ -115,22 +115,22 @@ module Evoasm
 
       def error(code = nil, msg = nil, reg: nil, param: nil)
         add_new_action :error, ErrorCode.new(unit, code), StringLiteral.new(unit, msg),
-                       RegisterConstant.new(unit, reg), ParameterVariable.new(unit, param, nil, false)
+                       reg && RegisterConstant.new(unit, reg), param && ParameterVariable.new(unit, param, nil, false)
         return!
       end
 
       def to(child = nil, **attrs, &block)
         if child.nil?
-          child = State.new
+          child = State.new unit
           call_with_state block, child
         end
 
-        @__state__.add_child child, TrueLiteral.new(unit), default_attrs(attrs)
+        @__state__.add_transition child, TrueLiteral.instance(unit), default_attrs(attrs)
         child
       end
 
       def lowest_priority
-        @__state__.children.map { |_, _, attrs| attrs[:priority] }.max || 0
+        @__state__.transitions.map { |_, _, attrs| attrs[:priority] }.max || 0
       end
 
       def default_attrs(attrs)
@@ -143,7 +143,7 @@ module Evoasm
 
       def to_if(*condition, **attrs, &block)
         if block
-          child = State.new
+          child = State.new unit
           call_with_state block, child
 
           condition.compact!
@@ -151,7 +151,7 @@ module Evoasm
           child = condition.pop
         end
 
-        @__state__.add_child child, expression(condition), default_attrs(attrs)
+        @__state__.add_transition child, expression(condition), default_attrs(attrs)
         child
       end
 
@@ -239,7 +239,7 @@ module Evoasm
         if literal_class < ValueLiteral
           literal_class.new unit, value
         else
-          literal_class.new unit
+          literal_class.instance unit
         end
       end
 

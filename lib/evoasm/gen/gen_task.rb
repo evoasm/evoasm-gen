@@ -1,4 +1,3 @@
-require 'evoasm/gen/state'
 require 'evoasm/gen/c_translator'
 require 'rake/tasklib'
 

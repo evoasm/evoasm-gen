@@ -10,7 +10,7 @@ module Evoasm
           value_c = values.first.to_c
           size_c = sizes.first.to_c false
         end
-        io.puts "evoasm_buf_ref_write#{size_c}(&ctx->buf_ref, #{value_c});"
+        io.puts "evoasm_buf_ref_write#{size_c}(&ctx->buf_ref, (int#{size_c}_t) #{value_c});"
       end
 
       def_to_c SetAction do |io|
@@ -34,8 +34,8 @@ module Evoasm
           end
 
         parameter_c =
-          if param
-            param.to_c
+          if parameter
+            unit.parameter_ids.symbol_to_c parameter.name
           else
             '(uint8_t) -1'
           end
@@ -45,7 +45,7 @@ module Evoasm
         io.puts "  .param = #{parameter_c},"
         io.puts '};'
 
-        io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ENC, #{code.to_c}, &error_data, #{msg.to_c});}
+        io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ENC, #{code.to_c}, &error_data, #{message.to_c});}
         io.puts 'retval = false;'
       end
 

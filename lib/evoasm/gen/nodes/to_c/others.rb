@@ -121,12 +121,13 @@ module Evoasm
         end
 
         def log2_to_c
-          "evoasm_log2(#{args.first})"
+          "evoasm_log2(#{args.first.to_c})"
         end
       end
 
       def_to_c ParameterVariable do
-        "ctx->params.#{name.to_s.gsub '?', ''}"
+        aliasee = unit.parameter_ids.aliasee(name) || name
+        "ctx->params.#{aliasee.to_s.gsub '?', ''}"
       end
 
       class Parameter
@@ -272,12 +273,12 @@ module Evoasm
         unit.constant_name_to_c name, [unit.architecture, 'reg']
       end
 
-      def_to_c SharedVariable do
-        "ctx->shared.#{name}"
+      def_to_c ErrorCode do
+        unit.constant_name_to_c name, 'error_code'
       end
 
-      def_to_c ErrorCode do
-        unit.symbol_to_c name, const: true
+      def_to_c SharedVariable do
+        "ctx->shared_vars.#{name}"
       end
 
       class PermutationTable

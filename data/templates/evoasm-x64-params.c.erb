@@ -8,18 +8,4 @@
 
 #include "evoasm-x64.h"
 
-void evoasm_x64_params_set(evoasm_x64_params_t *params, evoasm_x64_param_id_t param, int64_t param_val) {
-  evoasm_x64_params_set_(params, param, param_val);
-}
-
-void evoasm_x64_params_unset(evoasm_x64_params_t *params, evoasm_x64_param_id_t param) {
-  evoasm_x64_params_unset_(params, param, param_val);
-}
-
-void evoasm_x64_basic_params_set(evoasm_x64_basic_params_t *params, evoasm_x64_param_id_t param, int64_t param_val) {
-  evoasm_x64_basic_params_set_(params, param, param_val);
-}
-
-void evoasm_x64_basic_params_unset(evoasm_x64_basic_params_t *params, evoasm_x64_param_id_t param) {
-  evoasm_x64_basic_params_unset_(params, param, param_val);
-}
+<%= unit.parameters_type_to_c header: false %>

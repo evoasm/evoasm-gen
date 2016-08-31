@@ -88,7 +88,7 @@ module Evoasm
           @aliases[alias_symbol] = symbol
         end
 
-        def alias(symbol)
+        def aliasee(symbol)
           @aliases[symbol]
         end
 

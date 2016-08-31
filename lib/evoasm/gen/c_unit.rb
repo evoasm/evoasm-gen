@@ -7,6 +7,7 @@ require 'evoasm/gen/nodes/x64/instruction'
 require 'evoasm/gen/nodes/to_c/instruction'
 require 'evoasm/gen/nodes/to_c/state_machine'
 require 'evoasm/gen/nodes/to_c/enumeration'
+require 'evoasm/gen/nodes/to_c/parameters_type'
 require 'evoasm/gen/x64'
 require 'evoasm/gen/x64_unit'
 require 'evoasm/gen/unit'
@@ -17,12 +18,18 @@ module Evoasm
     class CUnit < Unit
       attr_reader :architecture
       attr_reader :instructions
+      attr_reader :parameters_type
 
       def initialize(architecture, table)
         @architecture = architecture
+        @parameters_type = Nodes::ParametersType.new self
 
         extend Gen.const_get(:"#{architecture.to_s.camelcase}Unit")
         load table
+      end
+
+      def parameters_type_to_c(header:)
+        @parameters_type.to_c header: header
       end
 
       def c_context_type
@@ -188,62 +195,19 @@ module Evoasm
         nodes_to_c @instructions.map(&:state_machine)
       end
 
+      def c_instruction_type_name
+        "evoasm_#{architecture}_inst_t"
+      end
+
       def instructions_to_c
-        nodes_to_c @instructions
-      end
-
-      def c_parameter_set_unset_function_name(basic, unset)
-        if basic
-          "evoasm_x64_basic_params_#{unset ? 'un' : ''}set_"
-        else
-          "evoasm_x64_params_#{unset ? 'un' : ''}set_"
-        end
-      end
-
-      def c_parameter_set_unset_function_prototype(basic:, unset:)
-        prototype = "static inline void #{c_parameter_set_unset_function_name basic, unset}(#{c_parameters_type_name basic} *params, " \
-                    "evoasm_x64_param_id_t param"
-        prototype <<
-          if unset
-            ')'
-          else
-            ', int64_t param_val)'
-          end
-
-        prototype
-      end
-
-      def c_parameter_set_unset_function_case(io, parameter_id, basic, unset)
-        field_name = parameter_field_name parameter_id
-        bitmask = ((1 << c_parameter_bitsize(parameter_id, basic)) - 1)
-
-        io.puts "case #{parameter_ids.symbol_to_c parameter_id}:"
-        io.puts "  params->#{field_name} = #{unset ? '0' : "((unsigned) param_val) & 0x#{bitmask.to_s 16}"};"
-        if undefinedable_parameter? parameter_id, basic: basic
-          io.puts "  params->#{field_name}_set = #{unset ? 'false' : 'true'};"
-        end
-        io.puts '  break;'
-      end
-
-      def c_parameter_set_unset_get_function(basic:, unset:)
         io = StringIO.new
-        io.puts "#{c_parameter_set_unset_function_prototype basic: basic, unset: unset} {"
-        io.indent do
-          io.puts 'switch(param) {'
-          io.indent do
-            parameter_ids = parameter_ids(basic: basic)
-            parameter_ids.each do |parameter_id, _|
-              c_parameter_set_unset_function_case(io, parameter_id, basic, unset)
-            end
-
-            io.puts 'default:'
-            io.puts '  evoasm_assert_not_reached();'
-
+        io.puts "const #{c_instruction_type_name}[] #{c_instructions_variable_name} ="
+        io.block do
+          @instructions.each do |instruction|
+            instruction.to_c(io)
+            io.write ','
           end
-          io.puts '}'
         end
-
-        io.puts '}'
         io.string
       end
 
@@ -255,43 +219,6 @@ module Evoasm
 
       def parameter_index_bitsize
         Math.log2(max_parameters_per_instructions + 1).ceil.to_i
-      end
-
-      def c_parameters_type_name(basic)
-        if basic
-          'evoasm_x64_basic_params_t'
-        else
-          'evoasm_x64_params_t'
-        end
-      end
-
-      def c_parameters_type_declaration(basic:)
-        io = StringIO.new
-        io.puts 'typedef struct {'
-        io.indent do
-          parameters = parameter_ids(basic: basic).symbols
-          fields = []
-          parameters.each do |parameter_name|
-            field_name = parameter_field_name parameter_name
-
-            fields << [field_name, c_parameter_bitsize(parameter_name, basic)]
-
-            if undefinedable_parameter? parameter_name, basic: basic
-              fields << ["#{field_name}_set", 1]
-            end
-          end
-
-          fields.sort_by do |name, bitsize|
-            [bitsize, name]
-          end.each do |name, size|
-            io.puts "uint64_t #{name} : #{size};"
-          end
-
-          p fields.inject(0) { |acc, (n, s)| acc + s }./(64.0)
-        end
-
-        io.puts "} #{c_parameters_type_name basic};"
-        io.string
       end
 
       def bit_mask_to_c(mask)
@@ -317,6 +244,14 @@ module Evoasm
         "operands_#{instruction.name}"
       end
 
+      def c_parameters_type_name(basic)
+        if basic
+          'evoasm_x64_basic_params_t'
+        else
+          'evoasm_x64_params_t'
+        end
+      end
+
       def mnemonics_to_c
         io = StringIO.new
 
@@ -330,41 +265,6 @@ module Evoasm
       end
 
       private
-      def parameter_field_name(param)
-        param.to_s.sub(/\?$/, '')
-      end
-
-      def c_parameter_bitsize(parameter_name, basic)
-        case parameter_name
-        when :rex_b, :rex_r, :rex_x, :rex_w,
-          :vex_l, :force_rex?, :lock?, :force_sib?,
-          :force_disp32?, :force_long_vex?, :reg0_high_byte?,
-          :reg1_high_byte?
-          1
-        when :addr_size
-          @address_sizes.bitsize
-        when :disp_size
-          @displacement_sizes.bitsize
-        when :scale
-          2
-        when :modrm_reg
-          3
-        when :vex_v
-          4
-        when :reg_base, :reg_index, :reg0, :reg1, :reg2, :reg3, :reg4
-          @register_ids.bitsize
-        when :imm
-          basic ? 32 : 64
-        when :moffs, :rel
-          64
-        when :disp
-          32
-        when :legacy_prefix_order
-          3
-        else
-          raise "missing C type for param #{parameter_name}"
-        end
-      end
     end
   end
 end

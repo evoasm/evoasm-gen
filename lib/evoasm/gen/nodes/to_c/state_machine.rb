@@ -123,8 +123,8 @@ module Evoasm
             "L#{id || id_map[state]}"
           end
 
-          def translate_goto_transition(child)
-            io.puts "goto #{state_label child};"
+          def translate_goto_transition(transition)
+            io.puts "goto #{state_label transition};"
           end
 
           def translate_transition(state, condition, untranslated_states, &block)
@@ -143,9 +143,9 @@ module Evoasm
           end
 
           def translate_transitions(state, untranslated_states, &block)
-            children = state.ordered_children
+            transitions = state.ordered_transitions
 
-            children.each do |child, condition|
+            transitions.each do |child, condition|
               translate_transition child, condition, untranslated_states, &block
             end
 
