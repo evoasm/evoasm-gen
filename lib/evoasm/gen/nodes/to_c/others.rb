@@ -114,8 +114,7 @@ module Evoasm
         def set_p_to_c
           parameter = args.first
 
-          raise unless parameter.is_a?(ParameterVariable)
-          "ctx->params.#{parameter.name}_set"
+          parameter.undefined_check_to_c
         end
 
         def log2_to_c
@@ -123,9 +122,28 @@ module Evoasm
         end
       end
 
-      def_to_c ParameterVariable do
-        aliasee = unit.parameter_ids.aliasee(name) || name
-        "ctx->params.#{aliasee.to_s.gsub '?', ''}"
+      class ParameterVariable
+        def c_parameter_variable(undefined_check = false)
+          aliasee = unit.parameter_ids.aliasee(name) || name
+          aliasee = aliasee.to_s.gsub('?', '')
+
+          field_name =
+            if basic?
+              'basic_params'
+            else
+              'params'
+            end
+
+          "ctx->#{field_name}.#{aliasee}#{undefined_check ? '_set' : ''}"
+        end
+
+        def undefined_check_to_c
+          c_parameter_variable true
+        end
+
+        def to_c
+          c_parameter_variable
+        end
       end
 
       class Parameter
@@ -212,14 +230,21 @@ module Evoasm
           "unordered_write_#{object_id}"
         end
 
-        def call_to_c(io, param)
+        def call_to_c(io, parameter)
           if writes.size == 1
             condition, write_action = writes.first
             condition.if_to_c(io) do
               write_action.to_c(io)
             end
           else
-            "if(!#{c_function_name}(ctx, ctx->params.#{param.name})){goto error;}"
+            order_c =
+              if parameter
+                parameter.to_c
+              else
+                '0'
+              end
+
+            io.puts "#{c_function_name}(ctx, #{order_c});"
           end
         end
 

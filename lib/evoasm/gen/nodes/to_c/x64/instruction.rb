@@ -25,6 +25,12 @@ module Evoasm
               io.puts "#{features_bitmap}ull", eol: ','
 
               parameters_to_c io
+              io.puts '(evoasm_x64_inst_enc_func_t)' + state_machine.c_function_name, eol: ','
+              if basic?
+                io.puts '(evoasm_x64_inst_enc_func_t)' + basic_state_machine.c_function_name, eol: ','
+              else
+                io.puts 'NULL', eol: ','
+              end
               operands_to_c io
 
               io.puts "(char *) #{unit.c_instruction_mnemonic_variable_name(self)}"
@@ -40,7 +46,6 @@ module Evoasm
             else
               io.puts "(#{parameters.first.c_type_name} *)" + unit.c_instruction_parameters_variable_name(self), eol: ','
             end
-            io.puts '(evoasm_x64_inst_enc_func_t)' + state_machine.c_function_name, eol: ','
           end
 
           def operands_to_c(io)

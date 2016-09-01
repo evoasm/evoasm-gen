@@ -185,6 +185,7 @@ module Evoasm
         io.indent do
           operands.each do |operand|
             operand.to_c io
+            io.write ','
           end
           io.puts '};'
           io.puts
@@ -192,7 +193,11 @@ module Evoasm
       end
 
       def instruction_state_machines_to_c
-        nodes_to_c @instructions.map(&:state_machine)
+        nodes = @instructions.each_with_object([]) do |instruction, nodes|
+          nodes << instruction.state_machine
+          nodes << instruction.basic_state_machine if instruction.basic?
+        end
+        nodes_to_c nodes
       end
 
       def c_instruction_type_name
@@ -201,13 +206,15 @@ module Evoasm
 
       def instructions_to_c
         io = StringIO.new
-        io.puts "const #{c_instruction_type_name} #{c_instructions_variable_name}[] ="
+        io.puts "static const #{c_instruction_type_name} #{c_static_instructions_variable_name}[] ="
         io.block do
           @instructions.each do |instruction|
             instruction.to_c(io)
             io.write ','
           end
         end
+        io.write ';'
+        io.puts "const #{c_instruction_type_name} *#{c_instructions_variable_name} = #{c_static_instructions_variable_name};"
         io.string
       end
 

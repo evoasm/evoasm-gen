@@ -88,7 +88,7 @@ module Evoasm
         end
       end
 
-      UnorderedWrites = def_node Node, :writes do
+      UnorderedWrites = def_node Node, :writes, :basic? do
         attr_reader :permutation_table
 
         def domain
@@ -139,7 +139,7 @@ module Evoasm
       Constant = def_node Symbol
       ErrorCode = def_node Constant
       RegisterConstant = def_node Constant
-      ParameterVariable = def_node Symbol, :domain, :undefinedable? do
+      ParameterVariable = def_node Symbol, :domain, :undefinedable?, :basic? do
         # need to modify these after creation
         attr_writer :undefinedable
         attr_writer :domain

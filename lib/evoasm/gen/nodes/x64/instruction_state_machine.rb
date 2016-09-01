@@ -93,7 +93,7 @@ module Evoasm
 
             if writes.size > 1
               if basic?
-                unordered_writes(0, writes)
+                unordered_writes(nil, writes)
               else
                 unordered_writes(:legacy_prefix_order, writes)
               end

@@ -183,8 +183,12 @@ module Evoasm
         end
 
         def c_function_name
-          attrs_str = self.class.attributes.map { |k| [k.to_s.sub(/\?$/, '_p'), send(k)].join('_') }.flatten.join('__')
-          unit.symbol_to_c "#{self.class.name.split('::').last}_#{attrs_str}", unit.architecture_prefix
+          attrs_str = self.class.attributes
+                        .map { |k| [k.to_s.sub(/\?$/, '_p'), send(k)].join('_') }
+                        .flatten.join('__')
+
+          class_name = self.class.name.split('::').last
+          unit.symbol_to_c "#{class_name}_#{attrs_str}", unit.architecture_prefix
         end
       end
     end

@@ -71,8 +71,8 @@ module Evoasm
           [expression(condition), new_write_action(*write_args)]
         end
 
-        parameter = expression(parameter_name)
-        unordered_writes = unit.node UnorderedWrites, writes
+        parameter = parameter_name && expression(parameter_name)
+        unordered_writes = unit.node UnorderedWrites, writes, basic?
 
         # parameter can be a literal in basic mode
         if parameter.respond_to? :domain
@@ -115,7 +115,7 @@ module Evoasm
 
       def error(code = nil, msg = nil, reg: nil, param: nil)
         add_new_action :error, ErrorCode.new(unit, code), StringLiteral.new(unit, msg),
-                       reg && RegisterConstant.new(unit, reg), param && ParameterVariable.new(unit, param, nil, false)
+                       reg && RegisterConstant.new(unit, reg), param && ParameterVariable.new(unit, param, nil, false, basic?)
         return!
       end
 
@@ -199,7 +199,7 @@ module Evoasm
           elsif expr_s[0] == '@'
             SharedVariable.new unit, arg[1..-1]
           elsif parameter_name? arg
-            unit.node ParameterVariable, arg, nil, false
+            unit.node ParameterVariable, arg, nil, false, basic?
           elsif arg == :else
             Else.instance unit
           elsif Operation.helper_name?(arg)
