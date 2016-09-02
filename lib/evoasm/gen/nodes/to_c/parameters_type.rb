@@ -212,7 +212,7 @@ module Evoasm
             when :get
               io.puts "  return (#{return_type}) params->#{field_name};"
             when :set
-              io.puts "  params->#{field_name} = ((unsigned) param_val) & 0x#{bitmask.to_s 16};"
+              io.puts "  params->#{field_name} = ((uint64_t) param_val) & 0x#{bitmask.to_s 16};"
               if undefinedable
                 io.puts "  params->#{field_name}_set = true;"
               end
