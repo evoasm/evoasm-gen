@@ -9,8 +9,6 @@
 
 #pragma once
 
+#include "evoasm-x64-params.h"
 
-<% unit.instructions.each do |instruction| %>
-<%= instruction.state_machine.c_prototype %>;
-<% end %>
-
+<%= unit.parameters_type_to_c header: true %>

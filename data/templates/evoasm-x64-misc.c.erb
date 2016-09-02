@@ -11,61 +11,55 @@
 static const char *_evoasm_log_tag = "x64";
 
 evoasm_success_t
-evoasm_x64_ctx_load_cpuid(evoasm_x64_ctx_t *x64_ctx) {
-  evoasm_buf_t buf;
+evoasm_x64_features(uint64_t *features) {
+  evoasm_buf_t buf_;
+  evoasm_buf_t *buf = &buf_;
   evoasm_x64_params_t params = {0};
   bool retval = true;
 
   uint32_t vals[<%= Evoasm::Gen::X64::CPUID.size %>][<%= Evoasm::Gen::X64::CPUID.max_by{|k, v| v.size}.size %>] = {0};
-  evoasm_arch_ctx_t *arch_ctx = (evoasm_arch_ctx_t *) x64_ctx;
 
   evoasm_debug("Running CPUID...");
 
-  EVOASM_TRY(alloc_failed, evoasm_buf_init, &buf, EVOASM_BUF_TYPE_MMAP, 512);
+  EVOASM_TRY(alloc_failed, evoasm_buf_init, buf, EVOASM_BUF_TYPE_MMAP, 512);
+  EVOASM_TRY(enc_failed, evoasm_x64_func_prolog,  buf, EVOASM_X64_ABI_SYSV);
 
-  EVOASM_TRY(enc_failed, evoasm_x64_func_prolog, x64_ctx, &buf, EVOASM_X64_ABI_SYSV);
-
-<% remaining_flags = features.symbols %>
-<% io = StrIO.new %>
+<% remaining_flags = unit.features.symbols %>
+<% io = StringIO.new %>
 <% Evoasm::Gen::X64::CPUID.each_with_index do |((eax_val, ecx_val), out_regs), index0| %>
 
-  EVOASM_X64_SET(EVOASM_X64_INST_PARAM_REG0, EVOASM_X64_REG_A);
-  EVOASM_X64_SET(EVOASM_X64_INST_PARAM_IMM0, <%= eax_val %>);
+  EVOASM_X64_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_A);
+  EVOASM_X64_SET(EVOASM_X64_PARAM_IMM0, <%= eax_val %>);
   EVOASM_X64_ENC(mov_r32_imm32);
-  evoasm_arch_ctx_save(arch_ctx, &buf);
 
   <% if ecx_val %>
-  EVOASM_X64_SET(EVOASM_X64_INST_PARAM_REG0, EVOASM_X64_REG_C);
-  EVOASM_X64_SET(EVOASM_X64_INST_PARAM_IMM0, <%= ecx_val %>);
+  EVOASM_X64_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_C);
+  EVOASM_X64_SET(EVOASM_X64_PARAM_IMM0, <%= ecx_val %>);
   EVOASM_X64_ENC(mov_r32_imm32);
-  evoasm_arch_ctx_save(arch_ctx, &buf);
   <% end %>
 
   EVOASM_X64_ENC(cpuid);
-  evoasm_arch_ctx_save(arch_ctx, &buf);
 
   <% out_regs.each.with_index do |(reg, flags), index1| %>
 
   {
-    evoasm_inst_param_val_t addr_imm;
-    addr_imm = (evoasm_inst_param_val_t)(uintptr_t) &vals[<%= index0 %>][<%= index1 %>];
-    EVOASM_X64_SET(EVOASM_X64_INST_PARAM_REG0, EVOASM_X64_REG_DI);
-    EVOASM_X64_SET(EVOASM_X64_INST_PARAM_IMM0, addr_imm);
+    int64_t addr_imm;
+    addr_imm = (int64_t)(uintptr_t) &vals[<%= index0 %>][<%= index1 %>];
+    EVOASM_X64_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_DI);
+    EVOASM_X64_SET(EVOASM_X64_PARAM_IMM0, addr_imm);
     EVOASM_X64_ENC(mov_r64_imm64);
-    evoasm_arch_ctx_save(arch_ctx, &buf);
 
-    EVOASM_X64_SET(EVOASM_X64_INST_PARAM_REG1, <%= reg_name_to_c reg %>);
-    EVOASM_X64_SET(EVOASM_X64_INST_PARAM_REG_BASE, EVOASM_X64_REG_DI);
+    EVOASM_X64_SET(EVOASM_X64_PARAM_REG1, <%= unit.register_name_to_c reg %>);
+    EVOASM_X64_SET(EVOASM_X64_PARAM_REG_BASE, EVOASM_X64_REG_DI);
     EVOASM_X64_ENC(mov_rm32_r32);
-    evoasm_arch_ctx_save(arch_ctx, &buf);
-    EVOASM_X64_UNSET(EVOASM_X64_INST_PARAM_ADDRESS_SIZE);
-    EVOASM_X64_UNSET(EVOASM_X64_INST_PARAM_REG_BASE);
+    EVOASM_X64_UNSET(EVOASM_X64_PARAM_ADDR_SIZE);
+    EVOASM_X64_UNSET(EVOASM_X64_PARAM_REG_BASE);
 
     <% flags.each_with_index do |flag, bit_index| %>
       <% if remaining_flags.delete(flag) %>
         <% io.indent 1 do %>
           <% io.puts "if(vals[#{index0}][#{index1}] & (1ull << #{bit_index})) {" %>
-          <% io.puts "  x64_ctx->features |= (1ull << #{feature_name_to_c flag});" %>
+          <% io.puts "  *features |= (1ull << #{unit.feature_name_to_c flag});" %>
           <% io.puts %{  evoasm_info("Found support for #{flag.upcase}");} %>
           <% io.puts "} else {" %>
           <% io.puts %{  evoasm_info("Missing support for #{flag.upcase}");} %>
@@ -77,17 +71,17 @@ evoasm_x64_ctx_load_cpuid(evoasm_x64_ctx_t *x64_ctx) {
   <% end%>
 <% end %>
 
-  EVOASM_TRY(enc_failed, evoasm_x64_func_epilog, x64_ctx, &buf, EVOASM_X64_ABI_SYSV);
+  EVOASM_TRY(enc_failed, evoasm_x64_func_epilog, buf, EVOASM_X64_ABI_SYSV);
 
-  /*evoasm_buf_dump(&buf, stderr);*/
+  /*evoasm_buf_dump(buf, stderr);*/
 
-  EVOASM_TRY(enc_failed, evoasm_buf_protect, &buf, EVOASM_MPROT_RX);
-  evoasm_buf_exec(&buf);
+  EVOASM_TRY(enc_failed, evoasm_buf_protect, buf, EVOASM_MPROT_RX);
+  evoasm_buf_exec(buf);
 
 <%= io.string %>
 
 cleanup:
-  EVOASM_TRY(destroy_failed, evoasm_buf_destroy, &buf);
+  EVOASM_TRY(destroy_failed, evoasm_buf_destroy, buf);
   return retval;
 enc_failed:
   retval = false;
@@ -98,4 +92,3 @@ alloc_failed:
   return false;
 }
 
-<%= inst_params_set_func %>

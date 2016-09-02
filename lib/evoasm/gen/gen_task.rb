@@ -1,5 +1,4 @@
-require 'evoasm/gen/state'
-require 'evoasm/gen/translator'
+require 'evoasm/gen/c_translator'
 require 'rake/tasklib'
 
 module Evoasm
@@ -34,31 +33,32 @@ module Evoasm
 
       def define
         namespace 'evoasm:gen' do
-          archs.each do |arch|
-            prereqs = [ARCH_TABLES[arch]]
+          archs.each do |architecture|
+            prereqs = [ARCH_TABLES[architecture]]
 
-            Translator::OUTPUT_FORMATS.each do |format|
-              prereqs.concat Translator.template_paths(arch, format)
+            CTranslator::OUTPUT_FORMATS.each do |format|
+              prereqs.concat CTranslator.template_paths(architecture, format)
             end
 
             # pick any single file type, all are generated
             # at the same time
-            target_path = gen_path(Translator.target_filenames(arch, :c))
+            target_path = gen_path(CTranslator.target_filenames(architecture, :c))
 
             file target_path => prereqs do
               puts 'Translating'
-              insts = load_insts arch
-              translator = Translator.new(arch, insts)
+              table = load_table architecture
+              unit = CUnit.new architecture, table
+              translator = CTranslator.new unit
               translator.translate! do |filename, content, file_type|
                 next unless file_types.include? file_type
                 File.write gen_path(filename), content
               end
             end
 
-            task "translate:#{arch}" => target_path
+            task "translate:#{architecture}" => target_path
           end
 
-          task 'translate' => archs.map { |arch| "translate:#{arch}" }
+          task 'translate' => archs.map { |architecture| "translate:#{architecture}" }
         end
 
         task name => 'gen:translate'
@@ -68,13 +68,11 @@ module Evoasm
         File.join @output_dir, filename
       end
 
-      def load_insts(arch)
-        send :"load_#{arch}_insts"
+      def load_table(architecture)
+        send :"load_#{architecture}_table"
       end
 
-      def load_x64_insts
-        require 'evoasm/gen/x64/instruction'
-
+      def load_x64_table
         rows = []
         File.open X64_TABLE_FILENAME do |file|
           file.each_line.with_index do |line, line_idx|
@@ -86,7 +84,7 @@ module Evoasm
           end
         end
 
-        Gen::X64::Instruction.load_all(rows)
+        rows
       end
     end
   end
