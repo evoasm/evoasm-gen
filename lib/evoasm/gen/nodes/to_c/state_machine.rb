@@ -61,13 +61,13 @@ module Evoasm
           end
 
           def write_function_epilog(acc)
-            io.indent 0 do
+            io.indent absolute: 0 do
               io.puts "exit:"
             end
             translate_acc_ary_copy true if acc
             io.puts "return retval;"
 
-            io.indent 0 do
+            io.indent absolute: 0 do
               io.puts "error:"
             end
 
@@ -110,7 +110,7 @@ module Evoasm
           end
 
           def translate_label(state)
-            io.indent 0 do
+            io.indent absolute: 0 do
               io.puts "#{state_label state}:;"
             end
           end
@@ -169,7 +169,7 @@ module Evoasm
           translator = StateMachineCTranslator.new unit, self
           translator.translate!
 
-          io.block c_prototype, 0 do
+          io.block c_prototype, absolute_indent: 0 do
             io.puts translator.string
           end
         end

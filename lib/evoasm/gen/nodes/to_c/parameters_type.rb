@@ -49,8 +49,11 @@ module Evoasm
               4
             when :reg_base, :reg_index, :reg0, :reg1, :reg2, :reg3, :reg4
               @unit.register_ids.bitsize
-            when :imm
+            when :imm, :imm0
               basic ? 32 : 64
+            when :imm1
+              # Only used for enter
+              8
             when :moffs, :rel
               64
             when :disp
@@ -65,6 +68,16 @@ module Evoasm
 
         class CParametersTypeDeclaration
           include CParametersTypeUtils
+
+
+          UNIONS = [
+            %w(imm imm0 moffs rel),
+            %w(imm1 disp)
+          ].freeze
+
+          BASIC_UNIONS = [
+            %w(imm imm0)
+          ].freeze
 
           def initialize(unit, basic:)
             @unit = unit
@@ -88,8 +101,25 @@ module Evoasm
 
               fields.sort_by do |name, bitsize|
                 [bitsize, name]
-              end.each do |name, size|
-                io.puts "uint64_t #{name} : #{size};"
+              end.group_by do |name, _|
+                (@basic ? BASIC_UNIONS : UNIONS).index {|union| union.include? name} || name
+              end.each_value do |union|
+                if union.size > 1
+                  io.puts 'union {'
+                  indent = true
+                else
+                  indent = false
+                end
+
+                io.indent(relative: indent ? 1 : 0) do
+                  union.each do |name, bitsize|
+                    io.puts "uint64_t #{name} : #{bitsize};"
+                  end
+                end
+
+                if union.size > 1
+                  io.puts '};'
+                end
               end
 
               p fields.inject(0) { |acc, (n, s)| acc + s }./(64.0)

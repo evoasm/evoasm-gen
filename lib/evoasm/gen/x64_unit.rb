@@ -58,13 +58,13 @@ module Evoasm
         @undefinedable_parameters = {}
         @basic_undefinedable_parameters = {}
 
-        PARAMETER_ALIASES.each do |alias_key, key|
-          @parameter_ids.define_alias alias_key, key
-        end
+        #PARAMETER_ALIASES.each do |alias_key, key|
+        #  @parameter_ids.define_alias alias_key, key
+        #end
 
-        BASIC_PARAMETER_ALIASES.each do |alias_key, key|
-          @basic_parameter_ids.define_alias alias_key, key
-        end
+        #BASIC_PARAMETER_ALIASES.each do |alias_key, key|
+        #  @basic_parameter_ids.define_alias alias_key, key
+        #end
 
 
         @instructions.each do |instruction|

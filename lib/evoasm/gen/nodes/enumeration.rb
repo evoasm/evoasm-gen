@@ -35,8 +35,6 @@ module Evoasm
           return if @map.key? symbol
           return if @aliases.key? symbol
 
-          raise @aliases.inspect if symbol == :imm0
-
           value = @counter
           @counter += 1
 

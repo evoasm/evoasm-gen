@@ -37,7 +37,7 @@ module Evoasm
         end
 
         def to_ruby_ffi(io = StringIO.new)
-          io.indent(2) do
+          io.indent(absolute: 2) do
             io.puts "enum :#{ruby_ffi_type_name}, ["
             io.indent do
               ruby_ffi_enum_body io
