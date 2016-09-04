@@ -7,7 +7,8 @@ module Evoasm
 <%= unit.exceptions.to_ruby_ffi %>
 <%= unit.register_types.to_ruby_ffi  %>
 <%= unit.register_ids.to_ruby_ffi %>
-<%= unit.parameter_ids.to_ruby_ffi %>
+<%= unit.parameter_ids(basic: false).to_ruby_ffi %>
+<%= unit.parameter_ids(basic: true).to_ruby_ffi %>
 <%= unit.operand_types.to_ruby_ffi %>
 <%= unit.displacement_sizes.to_ruby_ffi %>
 <%= unit.address_sizes.to_ruby_ffi %>

@@ -49,13 +49,11 @@ module Evoasm
               4
             when :reg_base, :reg_index, :reg0, :reg1, :reg2, :reg3, :reg4
               @unit.register_ids.bitsize
-            when :imm, :imm0
+            when :imm, :imm0,:moffs, :rel
               basic ? 32 : 64
             when :imm1
               # Only used for enter
               8
-            when :moffs, :rel
-              64
             when :disp
               32
             when :legacy_prefix_order
@@ -76,7 +74,7 @@ module Evoasm
           ].freeze
 
           BASIC_UNIONS = [
-            %w(imm imm0)
+            %w(imm imm0 rel)
           ].freeze
 
           def initialize(unit, basic:)
@@ -105,7 +103,7 @@ module Evoasm
                 (@basic ? BASIC_UNIONS : UNIONS).index {|union| union.include? name} || name
               end.each_value do |union|
                 if union.size > 1
-                  io.puts 'union {'
+                  io.puts 'evoasm_pack(union {'
                   indent = true
                 else
                   indent = false
@@ -118,7 +116,7 @@ module Evoasm
                 end
 
                 if union.size > 1
-                  io.puts '};'
+                  io.puts '});'
                 end
               end
 
@@ -237,7 +235,7 @@ module Evoasm
             bitmask = ((1 << parameter_bitsize(parameter_id, @basic)) - 1)
             undefinedable = @unit.undefinedable_parameter? parameter_id, basic: @basic
 
-            io.puts "case #{@unit.parameter_ids.symbol_to_c parameter_id}:"
+            io.puts "case #{@unit.parameter_ids(basic: @basic).symbol_to_c parameter_id}:"
             case @type
             when :get
               io.puts "  return (#{return_type}) params->#{field_name};"

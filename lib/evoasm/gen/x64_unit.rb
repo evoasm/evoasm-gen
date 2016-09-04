@@ -52,7 +52,7 @@ module Evoasm
         @address_sizes = Enumeration.new self, :addr_size, %i(64 32), prefix: architecture
         @displacement_sizes = Enumeration.new self, :disp_size, %i(16 32), prefix: architecture
         @parameter_ids = Enumeration.new self, :param_id, STATIC_PARAMETERS, prefix: architecture
-        @basic_parameter_ids = Enumeration.new self, :param_id, STATIC_PARAMETERS, prefix: architecture
+        @basic_parameter_ids = Enumeration.new self, :basic_param_id, STATIC_PARAMETERS, prefix: architecture
         @instruction_ids = Enumeration.new self, :inst_id, prefix: architecture
 
         @undefinedable_parameters = {}

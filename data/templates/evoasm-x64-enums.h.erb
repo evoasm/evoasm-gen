@@ -23,7 +23,8 @@
 
 <%= unit.address_sizes.to_c %>
 
-<%= unit.parameter_ids.to_c %>
+<%= unit.parameter_ids(basic: false).to_c %>
+<%= unit.parameter_ids(basic: true).to_c %>
 
 <%= unit.operand_types.to_c %>
 
