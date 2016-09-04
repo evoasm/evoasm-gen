@@ -131,7 +131,7 @@ module Evoasm
           end
 
           def size2
-            @imm_size
+            @mem_size
           end
 
           def access
