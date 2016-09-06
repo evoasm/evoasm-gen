@@ -569,9 +569,9 @@ VEX.128.F2.0F.WIG F0 /r,VLDDQU,RM,xmm:mew; m128:mer,pref67:operand/1,AVX,UD; GPS
 VEX.256.F2.0F.WIG F0 /r,VLDDQU,RM,ymm:mew; m256:mer,pref67:operand/1,AVX,UD; GPS
 0F AE /2,LDMXCSR,M,m32:mer; MM:w; FZ:w; RC:w; PM:w; UM:w; OM:w; ZM:w; DM:w; IM:w; DAZ:w; PE:w; UE:w; OE:w; ZE:w; DE:w; IE:w,pref67:operand/1,SSE,UD
 VEX.LZ.0F.WIG AE /2,VLDMXCSR,M,m32:mer; MM:w; FZ:w; RC:w; PM:w; UM:w; OM:w; ZM:w; DM:w; IM:w; DAZ:w; PE:w; UE:w; OE:w; ZE:w; DE:w; IE:w,pref67:operand/1,AVX,UD
-8D /r,LEA,RM,r16:mew; m:mer,pref66:required/1; pref67:operand/1,,UD
-8D /r,LEA,RM,r32:mew; m:mer,rex_w:optional/0; pref67:operand/1,,UD
-8D /r,LEA,RM,r64:mew; m:mer,rex_w:required/1; pref67:operand/1,,UD
+8D /r,LEA,RM,r16:mew; m16:mer,pref66:required/1; pref67:operand/1,,UD
+8D /r,LEA,RM,r32:mew; m32:mer,rex_w:optional/0; pref67:operand/1,,UD
+8D /r,LEA,RM,r64:mew; m64:mer,rex_w:required/1; pref67:operand/1,,UD
 C9,LEAVE/LEAVEW,NP,SP:rw; BP:rw,pref66:required/1,,SSXX; PF; AC
 C9,LEAVE/LEAVEQ,NP,RSP:rw; RBP:rw,,,SSXX; PF; AC
 0F AE E8,LFENCE,NP,,,,
