@@ -21,6 +21,7 @@ module Evoasm
       attr_reader :displacement_sizes
       attr_reader :address_sizes
       attr_reader :instruction_ids
+      attr_reader :scales
 
       def parameter_ids(basic: false)
         if basic
@@ -50,7 +51,8 @@ module Evoasm
         @register_ids = Enumeration.new self, :reg_id, Gen::X64::REGISTER_NAMES, prefix: architecture
         @bit_masks = Enumeration.new self, :bit_mask, %i(rest 64_127 32_63 0_31), prefix: architecture, flags: true
         @address_sizes = Enumeration.new self, :addr_size, %i(64 32), prefix: architecture
-        @displacement_sizes = Enumeration.new self, :disp_size, %i(16 32), prefix: architecture
+        @displacement_sizes = Enumeration.new self, :disp_size, %i(8 32), prefix: architecture
+        @scales = Enumeration.new self, :scale, %i(1 2 4 8), prefix: architecture
         @parameter_ids = Enumeration.new self, :param_id, STATIC_PARAMETERS, prefix: architecture
         @basic_parameter_ids = Enumeration.new self, :basic_param_id, STATIC_PARAMETERS, prefix: architecture
         @instruction_ids = Enumeration.new self, :inst_id, prefix: architecture

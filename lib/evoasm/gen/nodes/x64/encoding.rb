@@ -125,16 +125,14 @@ module Evoasm
               case rm_reg_type
               when :reg
                 rex_x_free
-              when :rm
+              when :rm, :mem
                 if basic?
+                  raise 'cannot encode mem operand in basic mode' if rm_reg_type == :mem
                   rex_x_free
                 else
                   to_if :set?, :reg_index, &method(:rex_x_index)
                   else_to(&method(:rex_x_free))
                 end
-              when :mem
-                raise 'cannot encode mem operand in basic mode' if basic?
-                rex_x_index
               when :vsib
                 raise 'cannot encode vsib operand in basic mode' if basic?
                 rex_x_index
@@ -319,7 +317,7 @@ module Evoasm
 
           def write_sib(scale = nil, index = nil, base = nil)
             write [
-                    scale || [:log2, :scale],
+                    scale || :scale,
                     index || reg_bits(:_reg_index),
                     base || reg_bits(:reg_base)
                   ], [2, 3, 3]
@@ -330,20 +328,8 @@ module Evoasm
             [:eq, :disp, 0]
           end
 
-          def matching_disp_size?
-            [:or, [:unset?, :disp_size], [:eq, :disp_size, [:auto_disp_size]]]
-          end
-
-          def disp_fits?(size)
-            [:ltq, [:auto_disp_size], size]
-          end
-
-          def disp?(size)
-            [
-              :and,
-              disp_fits?(size),
-              matching_disp_size?
-            ]
+          def byte_disp?
+            [:ltq, [:auto_disp_size], :DISP_SIZE_8]
           end
 
           def vsib?
@@ -360,7 +346,6 @@ module Evoasm
 
           def modrm_sib_disp(rm_bits: nil, sib:, rm_reg_param: nil)
             to_if :and, zero_disp?,
-                  matching_disp_size?,
                   reg_code_not_in?(:reg_base, 5, 13) do
               write_modrm(mod_bits: 0b00, rm_bits: rm_bits, rm_reg_param: rm_reg_param) do
                 write_sib if sib
@@ -368,7 +353,7 @@ module Evoasm
               end
             end
             else_to do
-              to_if :and, disp_fits?(8), [:false?, :force_disp32?] do
+              to_if :and, byte_disp?, [:false?, :force_disp32?] do
                 write_modrm(mod_bits: 0b01, rm_bits: rm_bits, rm_reg_param: rm_reg_param) do
                   write_sib if sib
                   write :disp, 8

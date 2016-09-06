@@ -13,3 +13,5 @@
 #include "evoasm-util.h"
 
 <%= unit.parameters_type_to_c header: true %>
+
+_Static_assert(sizeof(evoasm_x64_basic_params_t) <= sizeof(uint64_t), "basic parameters should bit into 64 bits");

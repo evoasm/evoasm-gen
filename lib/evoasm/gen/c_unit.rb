@@ -58,6 +58,8 @@ module Evoasm
               'disp' + ruby_ffi_name
             elsif prefix && prefix.last =~ /addr/
               'addr_size' + ruby_ffi_name
+            elsif prefix && prefix.last =~ /scale/
+              'scale' + ruby_ffi_name
             else
               raise
             end

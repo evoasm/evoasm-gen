@@ -161,7 +161,7 @@ module Evoasm
           end
 
           def encodes_vex?
-            opcode[0] =~ /^VEX/
+            @encodes_vex ||= opcode[0] =~ /^VEX/
           end
 
           def exceptions_bitmap
@@ -177,7 +177,9 @@ module Evoasm
           end
 
           def rex_possible?
-            prefixes.key? :rex_w
+            return false if encodes_vex?
+            # FIXME: is there a better way ?
+            prefixes.key?(:rex_w) || encoding =~ /M|O|R|NP/
           end
 
           def encodes_modrm?
