@@ -150,7 +150,7 @@ module Evoasm
               op.name.gsub('/m', 'm').downcase
             end.join('_')
 
-            name = mnemonic.downcase.tr('/', '_')
+            name = @mnemonic.split('/').first.downcase
             name << index.to_s if index
             name << "_#{ops_str}" unless ops_str.empty?
             name

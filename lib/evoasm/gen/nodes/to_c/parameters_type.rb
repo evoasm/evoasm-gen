@@ -74,7 +74,7 @@ module Evoasm
           ].freeze
 
           BASIC_UNIONS = [
-            %w(imm imm0 rel)
+            %w(imm imm0 moffs rel)
           ].freeze
 
           def initialize(unit, basic:)
