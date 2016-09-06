@@ -423,8 +423,8 @@ VEX.NDS.128.66.0F3A.WIG 41 /r ib,VDPPD,RVMI,xmm:mew; xmm:mer; xmm/m128:mer; imm8
 66 0F 3A 40 /r ib,DPPS,RMI,xmm:merw[0..127]; xmm/m128:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,SSE4_1,UD; GPS; AC; PFS; XFS
 VEX.NDS.128.66.0F3A.WIG 40 /r ib,VDPPS,RVMI,xmm:mew; xmm:mer; xmm/m128:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,AVX,UD; GPS; AC; PFS; XFS
 VEX.NDS.256.66.0F3A.WIG 40 /r ib,VDPPS,RVMI,ymm:mew; ymm:mer; ymm/m256:mer; imm8:mer; PE:w; UE:w; OE:w; DE:w; IE:w,pref67:operand/1,AVX,UD; GPS; AC; PFS; XFS
-C8 iw ib,ENTERQ,II,imm16:mer; imm8:mer; RSP:rw; RBP:rw,,,SSXX; PF; AC
-C8 iw ib,ENTERW,II,imm16:mer; imm8:mer; SP:rw; BP:rw,pref66:required/1,,SSXX; PF; AC
+C8 iw ib,ENTER/ENTERQ,II,imm16:mer; imm8:mer; RSP:rw; RBP:rw,,,SSXX; PF; AC
+C8 iw ib,ENTER/ENTERW,II,imm16:mer; imm8:mer; SP:rw; BP:rw,pref66:required/1,,SSXX; PF; AC
 66 0F 3A 17 /r ib,EXTRACTPS,MRI,r/m32:mew; xmm:mer; imm8:mer,pref67:operand/1,SSE4_1,UD; GPS
 VEX.128.66.0F3A.WIG 17 /r ib,VEXTRACTPS,MRI,r/m32:mew; xmm:mer; imm8:mer,pref67:operand/1,AVX,UD; GPS
 EVEX.128.66.0F3A.WIG 17 /r ib,VEXTRACTPS,T1S,r/m32:mew; xmm:mer; imm8:mer,,AVX512F,UD; GPS
@@ -572,8 +572,8 @@ VEX.LZ.0F.WIG AE /2,VLDMXCSR,M,m32:mer; MM:w; FZ:w; RC:w; PM:w; UM:w; OM:w; ZM:w
 8D /r,LEA,RM,r16:mew; m:mer,pref66:required/1; pref67:operand/1,,UD
 8D /r,LEA,RM,r32:mew; m:mer,rex_w:optional/0; pref67:operand/1,,UD
 8D /r,LEA,RM,r64:mew; m:mer,rex_w:required/1; pref67:operand/1,,UD
-C9,LEAVEW,NP,SP:rw; BP:rw,pref66:required/1,,SSXX; PF; AC
-C9,LEAVEQ,NP,RSP:rw; RBP:rw,,,SSXX; PF; AC
+C9,LEAVE/LEAVEW,NP,SP:rw; BP:rw,pref66:required/1,,SSXX; PF; AC
+C9,LEAVE/LEAVEQ,NP,RSP:rw; RBP:rw,,,SSXX; PF; AC
 0F AE E8,LFENCE,NP,,,,
 AC,LODSB,NP,SIL:rw; [SIL]:r; m8:w; IF:w,repe:illegal/0,,
 AD,LODSW,NP,SI:rw; [SI]:r; m16:w; IF:w,repe:illegal/0; pref66:required/1,,
