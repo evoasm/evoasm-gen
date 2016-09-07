@@ -19,7 +19,7 @@ module Evoasm
 
           HEX_BYTE_REGEXP = /^[A-F0-9]{2}$/
 
-          LEGACY_PREFIX_BYTES = {
+          PREFIX_BYTES = {
             cs_bt: 0x2E,
             ss: 0x36,
             ds_bnt: 0x3E,
@@ -27,15 +27,20 @@ module Evoasm
             fs: 0x64,
             gs: 0x65,
             lock: 0xF0,
+            repne: 0xF2,
+            repe: 0xF3,
             pref66: 0x66,
-            pref67: 0x67
+            pref67: 0x67,
+            prefF3: 0xF3,
+            prefF2: 0xF2,
+            prefF0: 0xF0
           }.freeze
 
-          LEGACY_PREFIX_CONDITIONS = {
+          PREFIX_CONDITIONS = {
             pref67: [:eq, :addr_size, :ADDR_SIZE_32]
           }.freeze
 
-          MANDATORY_PREF_BYTES = %w(66 F2 F3 F0).freeze
+          MANDATORY_PREFIX_BYTES = %w(66 F2 F3 F0).freeze
 
           def instruction
             parent
@@ -46,7 +51,7 @@ module Evoasm
           end
 
           def mandatory_prefix_byte?(byte)
-            MANDATORY_PREF_BYTES.include? byte
+            MANDATORY_PREFIX_BYTES.include? byte
           end
 
           def encode_mandatory_prefix(opcode_index, &block)
@@ -60,11 +65,11 @@ module Evoasm
             block[opcode_index]
           end
 
-          def encode_legacy_prefixes(&block)
+          def encode_prefixes(&block)
             writes = []
             prefixes = instruction.prefixes
 
-            LEGACY_PREFIX_BYTES.each do |prefix, byte|
+            PREFIX_BYTES.each do |prefix, byte|
               next unless prefixes.key? prefix
 
               # skip non-basic parameter
@@ -72,41 +77,46 @@ module Evoasm
 
               needed, = prefixes.fetch prefix
 
+              next if needed == :illegal
+              next if basic? && needed == :optional
+
               condition =
                 case needed
                 when :required
                   [true]
                 when :optional
-                  if basic?
-                    [false]
-                  else
-                    [:"#{prefix}?"]
-                  end
+                  [:"#{prefix}?"]
                 when :operand
-                  LEGACY_PREFIX_CONDITIONS.fetch prefix
+                  PREFIX_CONDITIONS.fetch prefix
                 else
-                  raise
+                  raise "unknown prefix option '#{needed}'"
                 end
 
               writes << [condition, [byte, 8]]
             end
 
-            if writes.size > 1
-              if basic?
-                unordered_writes(nil, writes)
-              else
-                unordered_writes(:legacy_prefix_order, writes)
+            if basic?
+              writes.each do |condition, write|
+                if condition != [true]
+                  raise "conditional prefixes are not supported in basic mode #{condition.inspect}"
+                end
+                write(*write)
               end
-              block[]
-            elsif writes.empty?
               block[]
             else
-              condition, write = writes.first
-              to_if(*condition) do
-                write(*write)
+              if writes.size > 1
+                unordered_writes(:legacy_prefix_order, writes)
                 block[]
+              elsif writes.empty?
+                block[]
+              else
+                condition, write = writes.first
+                to_if(*condition) do
+                  write(*write)
+                  block[]
+                end
+                else_to &block
               end
-              else_to &block
             end
           end
 
@@ -374,14 +384,12 @@ module Evoasm
 
             access_implicit_operands
 
-            encode_legacy_prefixes do
-              encode_mandatory_prefix(0) do |opcode_index|
-                encode_rex_or_vex(opcode_index) do |opcode_index|
-                  encode_opcode(opcode_index) do |opcode_index|
-                    encode_modrm_sib(opcode_index) do |opcode_index|
-                      encode_imm_or_imm_reg(opcode_index) do |opcode_index|
-                        done
-                      end
+            encode_prefixes do
+              encode_rex_or_vex(0) do |opcode_index|
+                encode_opcode(opcode_index) do |opcode_index|
+                  encode_modrm_sib(opcode_index) do |opcode_index|
+                    encode_imm_or_imm_reg(opcode_index) do |opcode_index|
+                      done
                     end
                   end
                 end
