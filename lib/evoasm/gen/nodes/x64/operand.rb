@@ -16,7 +16,7 @@ module Evoasm
           IMM_OP_REGEXP = /^(imm|rel)(\d+)?$/
           MEM_OP_REGEXP = /^m(\d*)$/
           MOFFS_OP_REGEXP = /^moffs(\d+)$/
-          VSIB_OP_REGEXP = /^vm(\d+)(?:x|y)$/
+          VSIB_OP_REGEXP = /^vm(?:\d+)(x|y)(\d+)$/
           REG_OP_REGEXP = /^(?<reg>xmm|ymm|zmm|mm)$|^(?<reg>r)(?<reg_size>8|16|32|64)$/
           RM_OP_REGEXP = %r{^(?:(?<reg>xmm|ymm|zmm|mm)|(?<reg>r)(?<reg_size>8|16|32|64)?)/m(?<mem_size>\d+)$}
 
@@ -127,7 +127,7 @@ module Evoasm
           end
 
           def size1
-            @register_size || @imm_size
+            @register_size || @imm_size || @index_register_size
           end
 
           def size2
@@ -183,7 +183,16 @@ module Evoasm
               @parameter_name = :moffs
             when VSIB_OP_REGEXP
               @type = :vsib
-              @mem_size = $1.to_i
+              @mem_size = $2.to_i
+              @index_register_size =
+                case $1
+                when 'x'
+                  128
+                when 'y'
+                  256
+                when 'z'
+                  512
+                end
             else
               raise "unexpected operand '#{name}'"
             end
