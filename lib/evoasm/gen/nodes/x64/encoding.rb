@@ -173,9 +173,9 @@ module Evoasm
           def need_rex?
             cond = [:or]
             cond << [:neq, rex_bit(reg_param), 0] if reg_param
+            cond << [:and, [:set?, rm_reg_param], [:neq, rex_bit(rm_reg_param), 0]] if rm_reg_param
 
             unless basic?
-              cond << [:and, [:set?, rm_reg_param], [:neq, rex_bit(rm_reg_param), 0]] if rm_reg_param
               cond << [:and, [:set?, :reg_base], [:neq, rex_bit(:reg_base), 0]] if base_or_index?
               cond << [:and, [:set?, :reg_index], [:neq, rex_bit(:reg_index), 0]] if base_or_index?
             end
