@@ -148,7 +148,7 @@ module Evoasm
 
         class REX < StateMachine
           node_attrs :rex_w, :reg_param, :rm_reg_param, :force,
-                     :rm_reg_type, :encodes_modrm?, :byte_regs, :basic?
+                     :rm_reg_type, :encodes_modrm?, :byte_regs?, :basic?
 
           include REXUtil
           include StateDSL
@@ -180,8 +180,8 @@ module Evoasm
               cond << [:and, [:set?, :reg_index], [:neq, rex_bit(:reg_index), 0]] if base_or_index?
             end
 
-            cond << rex_byte_reg?(reg_param) if reg_param && byte_regs
-            cond << rex_byte_reg?(rm_reg_param) if rm_reg_param && byte_regs
+            cond << rex_byte_reg?(reg_param) if reg_param && byte_regs?
+            cond << rex_byte_reg?(rm_reg_param) if rm_reg_param && byte_regs?
 
             cond == [:or] ? false : cond
           end
@@ -266,7 +266,7 @@ module Evoasm
         class ModRMSIB < StateMachine
           node_attrs :reg_param, :rm_reg_param, :rm_type,
                      :modrm_reg_bits, :rm_reg_access,
-                     :reg_access, :byte_regs, :basic?
+                     :reg_access, :byte_regs?, :basic?
 
           include StateDSL
           include EncodeUtil
@@ -502,7 +502,7 @@ module Evoasm
 
             raise "mem operand for direct encoding" if rm_type == :mem
 
-            write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param, byte_regs: byte_regs do
+            write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param, byte_regs: byte_regs? do
               return!
             end
           end

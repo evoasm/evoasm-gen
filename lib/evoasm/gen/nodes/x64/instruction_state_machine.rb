@@ -193,7 +193,7 @@ module Evoasm
                                   modrm_reg_bits: modrm_reg_bits,
                                   rm_reg_access: rm_reg_access,
                                   reg_access: reg_access,
-                                  byte_regs: byte_regs,
+                                  byte_regs?: byte_regs,
                                   basic?: basic?
 
             call modrm_sib
@@ -327,7 +327,7 @@ module Evoasm
                             rm_reg_param: rm_op&.parameter_name,
                             rm_reg_type: rm_op&.type,
                             encodes_modrm?: instruction.encodes_modrm?,
-                            byte_regs: byte_regs,
+                            byte_regs?: byte_regs,
                             basic?: basic?
 
             call rex
