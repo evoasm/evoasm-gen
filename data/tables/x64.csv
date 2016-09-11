@@ -3033,13 +3033,13 @@ VEX.128.66.0F38.W0 0F /r,VTESTPD,RM,xmm:mer; xmm/m128:mer; AF:w; PF:rw; SF:rw; Z
 VEX.256.66.0F38.W0 0F /r,VTESTPD,RM,ymm:mer; ymm/m256:mer; AF:w; PF:rw; SF:rw; ZF:w; CF:w; OF:r,pref67:operand/1,AVX,UD; GP; AC; PFX
 VEX.256.0F.WIG 77,VZEROALL,NP,,,AVX,UD
 VEX.128.0F.WIG 77,VZEROUPPER,NP,,,AVX,UD
-C6 F8 ib,XABORT,I,imm8:mer,,RTM,
+C6 F8 ib,XABORT,I,imm8:mer; RIP:w,,RTM,
 0F C0 /r,XADD,MR,r/m8:merw; r8:merw; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; rex_w:operand/any; pref67:operand/1,,SSX; GPX; PF; AC
 0F C1 /r,XADD,MR,r/m16:merw; r16:merw; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; pref66:required/1; pref67:operand/1,,SSX; GPX; PF; AC
 0F C1 /r,XADD,MR,r/m32:merw; r32:merw; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; rex_w:optional/0; pref67:operand/1,,SSX; GPX; PF; AC
 0F C1 /r,XADD,MR,r/m64:merw; r64:merw; CF:w; PF:w; AF:w; SF:w; ZF:w; OF:w,lock:optional/1; rex_w:required/1; pref67:operand/1,,SSX; GPX; PF; AC
-C7 F8 cw,XBEGIN,D,rel16:mer,pref66:required/1,RTM,
-C7 F8 cd,XBEGIN,D,rel32:mer,rex_w:optional/0,RTM,
+C7 F8 cw,XBEGIN,D,rel16:mer; RIP:rw,pref66:required/1,RTM,
+C7 F8 cd,XBEGIN,D,rel32:mer; RIP:rw,rex_w:optional/0,RTM,
 90+rw,XCHG,O,AX:mrw; r16:merw,pref66:required/1,,SSX; GP; PF; AC
 90+rd,XCHG,O,EAX:mrw; r32:merw,rex_w:optional/0,,SSX; GP; PF; AC
 90+rd,XCHG,O,RAX:mrw; r64:merw,rex_w:required/1,,SSX; GP; PF; AC
