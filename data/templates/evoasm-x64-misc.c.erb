@@ -11,11 +11,12 @@
 static const char *_evoasm_log_tag = "x64";
 
 evoasm_success_t
-evoasm_x64_features(uint64_t *features) {
+evoasm_x64_features(uint64_t *features_) {
   evoasm_buf_t buf_;
   evoasm_buf_t *buf = &buf_;
   evoasm_x64_params_t params = {0};
   bool retval = true;
+  uint64_t features = 0;
 
   uint32_t vals[<%= Evoasm::Gen::X64::CPUID.size %>][<%= Evoasm::Gen::X64::CPUID.max_by{|k, v| v.size}.size %>] = {0};
 
@@ -59,7 +60,7 @@ evoasm_x64_features(uint64_t *features) {
       <% if remaining_flags.delete(flag) %>
         <% io.indent absolute: 1 do %>
           <% io.puts "if(vals[#{index0}][#{index1}] & (1ull << #{bit_index})) {" %>
-          <% io.puts "  *features |= (1ull << #{unit.feature_name_to_c flag});" %>
+          <% io.puts "  features |= (1ull << #{unit.feature_name_to_c flag});" %>
           <% io.puts %{  evoasm_info("Found support for #{flag.upcase}");} %>
           <% io.puts "} else {" %>
           <% io.puts %{  evoasm_info("Missing support for #{flag.upcase}");} %>
@@ -79,6 +80,8 @@ evoasm_x64_features(uint64_t *features) {
   evoasm_buf_exec(buf);
 
 <%= io.string %>
+
+  *features_ = features;
 
 cleanup:
   EVOASM_TRY(destroy_failed, evoasm_buf_destroy, buf);
