@@ -1851,7 +1851,6 @@ VEX.128.0F.WIG 53 /r,VRCPPS,RM,xmm:mew; xmm/m128:mer,pref67:operand/1,AVX,UD; GP
 VEX.256.0F.WIG 53 /r,VRCPPS,RM,ymm:mew; ymm/m256:mer,pref67:operand/1,AVX,UD; GP; AC; PFS
 0F 53 /r,RCPSS,RM,xmm:mew[0..31]; xmm/m32:mer,pref67:operand/1; prefF3:required/1,SSE,UD; GP
 VEX.NDS.LIG.F3.0F.WIG 53 /r,VRCPSS,RVM,xmm:mew; xmm:mer; xmm/m32:mer,pref67:operand/1,AVX,UD; GP
-0F C7 /7,RDPID,M,r64:mew,pref67:operand/1; prefF3:required/1,RDPID,
 0F C7 /6,RDRAND,M,r16:mew; CF:w; OF:w; SF:w; ZF:w; AF:w; PF:w,pref66:required/1; pref67:operand/1,RDRAND,UDCPUID
 0F C7 /6,RDRAND,M,r32:mew; CF:w; OF:w; SF:w; ZF:w; AF:w; PF:w,rex_w:optional/0; pref67:operand/1,RDRAND,UDCPUID
 0F C7 /6,RDRAND,M,r64:mew; CF:w; OF:w; SF:w; ZF:w; AF:w; PF:w,rex_w:required/1; pref67:operand/1,RDRAND,UDCPUID
