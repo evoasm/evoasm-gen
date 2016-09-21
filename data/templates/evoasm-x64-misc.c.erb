@@ -20,7 +20,7 @@ evoasm_x64_features(uint64_t *features_) {
 
   uint32_t vals[<%= Evoasm::Gen::X64::CPUID.size %>][<%= Evoasm::Gen::X64::CPUID.max_by{|k, v| v.size}.size %>] = {0};
 
-  evoasm_debug("Running CPUID...");
+  evoasm_log_debug("Running CPUID...");
 
   EVOASM_TRY(alloc_failed, evoasm_buf_init, buf, EVOASM_BUF_TYPE_MMAP, 512);
   EVOASM_TRY(enc_failed, evoasm_x64_func_prolog,  buf, EVOASM_X64_ABI_SYSV);
@@ -61,9 +61,9 @@ evoasm_x64_features(uint64_t *features_) {
         <% io.indent absolute: 1 do %>
           <% io.puts "if(vals[#{index0}][#{index1}] & (1ull << #{bit_index})) {" %>
           <% io.puts "  features |= (1ull << #{unit.feature_name_to_c flag});" %>
-          <% io.puts %{  evoasm_info("Found support for #{flag.upcase}");} %>
+          <% io.puts %{  evoasm_log_info("Found support for #{flag.upcase}");} %>
           <% io.puts "} else {" %>
-          <% io.puts %{  evoasm_info("Missing support for #{flag.upcase}");} %>
+          <% io.puts %{  evoasm_log_info("Missing support for #{flag.upcase}");} %>
           <% io.puts "}" %>
         <% end %>
       <% end %>

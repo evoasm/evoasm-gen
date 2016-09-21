@@ -45,7 +45,7 @@ module Evoasm
         io.puts "  .param = #{parameter_c},"
         io.puts '};'
 
-        io.puts %Q{evoasm_set_error(EVOASM_ERROR_TYPE_ENC, #{code.to_c}, &error_data, #{message.to_c});}
+        io.puts %Q{evoasm_error(EVOASM_ERROR_TYPE_ENC, #{code.to_c}, &error_data, #{message.to_c});}
         io.puts 'retval = false;'
       end
 
@@ -60,7 +60,7 @@ module Evoasm
           end
 
         msg_c = msg.gsub('%', '%" PRId64 "')
-        io.puts %[evoasm_#{level}("#{msg_c}" #{args_c});]
+        io.puts %[evoasm_log_#{level}("#{msg_c}" #{args_c});]
       end
 
       class AccessAction
