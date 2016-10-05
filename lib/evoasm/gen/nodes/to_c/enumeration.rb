@@ -28,8 +28,8 @@ module Evoasm
           unit.symbol_to_c "#{c_symbol_prefix}_all", @prefix, const: true
         end
 
-        def n_symbol_to_c
-          unit.symbol_to_c "n_#{c_symbol_prefix}s", @prefix, const: true
+        def none_symbol_to_c
+          unit.symbol_to_c "#{c_symbol_prefix}_none", @prefix, const: true
         end
 
         def symbol_to_c(symbol_name)
@@ -82,7 +82,7 @@ module Evoasm
             io.puts "#{symbol_to_c symbol} = #{symbol_to_c value},"
           end
 
-          io.puts n_symbol_to_c unless flags?
+          io.puts none_symbol_to_c unless flags?
 
         end
 
@@ -100,7 +100,7 @@ module Evoasm
             io.puts ":#{symbol_name}, #{symbol_value},", eol: "\n"
           end
 
-          io.puts ":#{n_symbol_to_ruby_ffi}" unless flags?
+          io.puts ":#{none_symbol_to_ruby_ffi}" unless flags?
         end
 
         def c_symbol_prefix
@@ -112,20 +112,20 @@ module Evoasm
           unit.symbol_to_c name, @prefix, type: true
         end
 
-        def bitsize_symbol_to_c(with_n = false)
-          unit.symbol_to_c "#{c_symbol_prefix}_bitsize#{with_n ? '_WITH_N' : ''}", @prefix, const: true
+        def bitsize_symbol_to_c(optional = false)
+          unit.symbol_to_c "#{c_symbol_prefix}_bitsize#{optional ? '_opt' : ''}", @prefix, const: true
         end
 
-        def bitmask_symbol_to_c(with_n = false)
-          unit.symbol_to_c "#{c_symbol_prefix}_bitmask#{with_n ? '_WITH_N' : ''}", @prefix, const: true
+        def bitmask_symbol_to_c(optional = false)
+          unit.symbol_to_c "#{c_symbol_prefix}_bitmask#{optional ? '_opt' : ''}", @prefix, const: true
         end
 
         def ruby_ffi_type_name
           "#{@prefix}_#{name}"
         end
 
-        def n_symbol_to_ruby_ffi
-          unit.symbol_to_ruby_ffi "n_#{c_symbol_prefix}s"
+        def none_symbol_to_ruby_ffi
+          unit.symbol_to_ruby_ffi 'none'
         end
 
         def symbol_to_ruby_ffi(symbol)

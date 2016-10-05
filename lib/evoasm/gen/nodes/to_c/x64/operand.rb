@@ -78,7 +78,7 @@ module Evoasm
             if register_type
               io.puts unit.register_type_to_c(register_type), eol: ','
             else
-              io.puts unit.register_types.n_symbol_to_c, eol: ','
+              io.puts unit.register_types.none_symbol_to_c, eol: ','
             end
           end
 
@@ -90,7 +90,7 @@ module Evoasm
                 if register
                   io.puts unit.register_name_to_c(register), eol: ','
                 else
-                  io.puts unit.register_ids.n_symbol_to_c, eol: ','
+                  io.puts unit.register_ids.none_symbol_to_c, eol: ','
                 end
               when :imm
                 if imm
