@@ -90,9 +90,7 @@ module Evoasm
 
               range_domain 0, 1
             when :addr_size
-              range_domain 32, 64
-            when :disp_size
-              array_domain [16, 32]
+              array_domain [:ADDR_SIZE_32, :ADDR_SIZE_64]
             when :scale
               array_domain [1, 2, 4, 8]
             when :modrm_reg
@@ -225,7 +223,16 @@ module Evoasm
           end
 
           def array_domain(values)
-            values = values.map { |value| IntegerLiteral.new unit, value }
+            values = values.map do |value|
+              case value
+              when Integer
+                IntegerLiteral.new unit, value
+              when ::Symbol
+                Constant.new unit, value
+              else
+                raise "unexpected value type #{value.class}"
+              end
+            end
             unit.node EnumerationDomain, values
           end
 

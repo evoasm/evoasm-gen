@@ -271,7 +271,7 @@ module Evoasm
           include StateDSL
           include EncodeUtil
 
-          params :reg_base, :reg_index, :scale, :disp, :disp_size,
+          params :reg_base, :reg_index, :scale, :disp,
                  :force_disp32?, :force_sib?, :reg0, :reg1, :reg2,
                  :reg0_high_byte?, :reg1_high_byte?, :modrm_reg
 
@@ -329,7 +329,11 @@ module Evoasm
           end
 
           def byte_disp?
-            [:ltq, [:auto_disp_size], :DISP_SIZE_8]
+            [
+              :and,
+             [:ltq, :disp, 127],
+             [:gtq, :disp, -128],
+            ]
           end
 
           def vsib?

@@ -6,7 +6,7 @@ module Evoasm
 
       def_to_c IntegerLiteral do |hex = true|
         if hex
-          '0x' + value.to_s(16)
+          "#{value < 0 ? '-' : ''}0x" + value.abs.to_s(16)
         else
           value.to_s
         end
@@ -84,6 +84,8 @@ module Evoasm
               ['<<', 2]
             when :ltq
               ['<=', 2]
+            when :gtq
+              ['>=', 2]
             when :div
               ['/', 2]
             when :add
@@ -105,10 +107,6 @@ module Evoasm
 
         def reg_code_to_c
           unit.c_function_call 'reg_code', args.map(&:to_c), unit.architecture_prefix
-        end
-
-        def auto_disp_size_to_c
-          unit.c_function_call 'auto_disp_size', ['&ctx->params'], unit.architecture_prefix
         end
 
         def set_p_to_c

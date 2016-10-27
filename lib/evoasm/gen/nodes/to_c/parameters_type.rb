@@ -30,6 +30,30 @@ module Evoasm
             parameter_name.to_s.sub(/\?$/, '')
           end
 
+          def signed_parameter?(parameter_name)
+            case parameter_name
+            when :disp, :rel, :imm0, :imm, :imm1, :moffs
+              true
+            else
+              false
+            end
+          end
+
+          def field_type(bitsize, signed)
+            int_type_size = 64
+
+            if [8, 16, 32].include?(bitsize)
+              int_type_size = bitsize
+            end
+
+            int_type = "int#{int_type_size}_t"
+            unless signed
+              int_type.prepend 'u'
+            end
+
+            int_type
+          end
+
           def parameter_bitsize(parameter_name, basic)
             case parameter_name
             when :rex_b, :rex_r, :rex_x, :rex_w,
@@ -39,8 +63,6 @@ module Evoasm
               1
             when :addr_size
               @unit.address_sizes.bitsize
-            when :disp_size
-              @unit.displacement_sizes.bitsize
             when :scale
               2
             when :modrm_reg
@@ -90,7 +112,7 @@ module Evoasm
               parameters.each do |parameter_name|
                 field_name = parameter_field_name parameter_name
 
-                fields << [field_name, parameter_bitsize(parameter_name, @basic)]
+                fields << [field_name, parameter_bitsize(parameter_name, @basic), signed_parameter?(parameter_name)]
 
                 if @unit.undefinedable_parameter? parameter_name, basic: @basic
                   fields << ["#{field_name}_set", 1]
@@ -110,8 +132,8 @@ module Evoasm
                 end
 
                 io.indent(relative: indent ? 1 : 0) do
-                  union.each do |name, bitsize|
-                    io.puts "uint64_t #{name} : #{bitsize};"
+                  union.each do |name, bitsize, signed|
+                    io.puts "#{field_type bitsize, signed} #{name} : #{bitsize};"
                   end
                 end
 
@@ -207,11 +229,10 @@ module Evoasm
           end
 
           def name(stub = @stub)
-            name = ''
-            name << '_' unless stub
-            name << 'evoasm_x64'
+            name = 'evoasm_x64'
             name << '_basic' if @basic
             name << "_params_#{@type}"
+            name << '_' unless stub
 
             name
           end
@@ -230,17 +251,19 @@ module Evoasm
             "#{function_modifiers}#{return_type} #{name stub}(#{parameter_list})"
           end
 
-          def switch_case(io, parameter_id)
-            field_name = parameter_field_name parameter_id
-            bitmask = ((1 << parameter_bitsize(parameter_id, @basic)) - 1)
-            undefinedable = @unit.undefinedable_parameter? parameter_id, basic: @basic
+          def switch_case(io, parameter_name)
+            field_name = parameter_field_name parameter_name
+            bitsize = parameter_bitsize(parameter_name, @basic)
+            signed = signed_parameter?(parameter_name)
+            bitmask = (1 << bitsize) - 1
+            undefinedable = @unit.undefinedable_parameter? parameter_name, basic: @basic
 
-            io.puts "case #{@unit.parameter_ids(basic: @basic).symbol_to_c parameter_id}:"
+            io.puts "case #{@unit.parameter_ids(basic: @basic).symbol_to_c parameter_name}:"
             case @type
             when :get
               io.puts "  return (#{return_type}) params->#{field_name};"
             when :set
-              io.puts "  params->#{field_name} = ((uint64_t) param_val) & 0x#{bitmask.to_s 16};"
+              io.puts "  params->#{field_name} = (#{field_type bitsize, signed}) (((uint64_t) param_val) & 0x#{bitmask.to_s 16});"
               if undefinedable
                 io.puts "  params->#{field_name}_set = true;"
               end

@@ -8,7 +8,7 @@ module Evoasm
       Expression = def_node Node
       Operation = def_node Expression, :name, :args do
 
-        HELPER_NAMES = %i(reg_code set? log2 auto_disp_size)
+        HELPER_NAMES = %i(reg_code set? log2)
 
         def self.helper_name?(name)
           HELPER_NAMES.include? name
