@@ -125,7 +125,7 @@ module Evoasm
                 (@basic ? BASIC_UNIONS : UNIONS).index {|union| union.include? name} || name
               end.each_value do |union|
                 if union.size > 1
-                  io.puts 'evoasm_pack(union {'
+                  io.puts 'evoasm_packed(union {'
                   indent = true
                 else
                   indent = false
