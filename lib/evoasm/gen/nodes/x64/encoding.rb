@@ -480,7 +480,7 @@ module Evoasm
               to_if no_base? do
                 to_if :set?, :reg_index, index_only
                 else_to do
-                  error :missing_param, param: :reg_index
+                  error :missing_param, "parameter missing", param: :reg_index
                 end
               end
               else_to scale_index_base
@@ -489,7 +489,7 @@ module Evoasm
                 to_if no_index? do
                   to_if :set?, :disp, disp_only
                   else_to do
-                    error :missing_param, param: :disp
+                    error :missing_param, "parameter missing", param: :disp
                   end
                 end
                 else_to index_only
