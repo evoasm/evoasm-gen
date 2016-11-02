@@ -70,7 +70,7 @@ module Evoasm
             if size
               io.puts operand_size_to_c(size), eol: ','
             else
-              io.puts 'EVOASM_X64_N_OPERAND_SIZES', eol: ','
+              io.puts 'EVOASM_X64_OPERAND_SIZE_NONE', eol: ','
             end
           end
 
