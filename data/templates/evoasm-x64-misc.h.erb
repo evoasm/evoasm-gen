@@ -10,7 +10,7 @@
 #pragma once
 
 static inline evoasm_x64_reg_type_t
-evoasm_x64_reg_type(evoasm_x64_reg_id_t reg) {
+evoasm_x64_get_reg_type(evoasm_x64_reg_id_t reg) {
   switch(reg) {
 <% Evoasm::Gen::X64::REGISTERS.each do |reg_type, regs| %>
   <% regs.each do |reg| %>
@@ -22,7 +22,7 @@ evoasm_x64_reg_type(evoasm_x64_reg_id_t reg) {
 }
 
 evoasm_success_t
-evoasm_x64_features(uint64_t *features);
+evoasm_x64_get_features(uint64_t *features);
 
 #define EVOASM_X64_INSTS_VAR_NAME <%= unit.c_instructions_variable_name %>
 

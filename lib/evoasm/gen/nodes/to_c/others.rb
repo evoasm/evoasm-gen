@@ -106,7 +106,7 @@ module Evoasm
         end
 
         def reg_code_to_c
-          unit.c_function_call 'reg_code', args.map(&:to_c), unit.architecture_prefix
+          unit.c_function_call 'get_reg_code', args.map(&:to_c), unit.architecture_prefix
         end
 
         def set_p_to_c
