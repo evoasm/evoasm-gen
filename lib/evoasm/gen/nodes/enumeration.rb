@@ -5,7 +5,7 @@ module Evoasm
   module Gen
     module Nodes
       class Enumeration < Node
-        attr_reader :name, :flags
+        attr_reader :flags
 
         def initialize(unit, name, elems = [], prefix: nil, flags: false)
           super(unit)
@@ -17,6 +17,14 @@ module Evoasm
           @flags = flags
           @aliases = {}
           add_all elems
+        end
+
+        def name(type: false)
+          if @name =~ /flag$/ && flags? && type
+            "#{@name}s"
+          else
+            @name
+          end
         end
 
         def flags?
@@ -90,11 +98,11 @@ module Evoasm
           @aliases[symbol]
         end
 
-        def bitsize(with_n = false)
-          if flags?
+        def bitsize(optional = false, flags: false)
+          if flags? || flags
             @map.size
           else
-            Math.log2(max + 1 + (with_n ? 1 : 0)).ceil.to_i
+            Math.log2(max + 1 + (optional ? 1 : 0)).ceil.to_i
           end
         end
 

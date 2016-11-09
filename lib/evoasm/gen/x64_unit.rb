@@ -9,7 +9,7 @@ module Evoasm
       STATIC_PARAMETERS = %i(reg0 reg1 reg2 reg3 imm).freeze
       SEARCH_PARAMETERS = %i(reg0 reg1 reg2 reg3 imm reg0_high_byte? reg1_high_byte?).freeze
 
-      attr_reader :bit_masks
+      attr_reader :bitmasks
       attr_reader :exceptions
       attr_reader :register_types
       attr_reader :operand_types
@@ -19,6 +19,8 @@ module Evoasm
       attr_reader :address_sizes
       attr_reader :instruction_ids
       attr_reader :scales
+      attr_reader :rflags_flags
+      attr_reader :mxcsr_flags
 
       def parameter_ids(basic: false)
         if basic
@@ -46,12 +48,14 @@ module Evoasm
         @register_types = Enumeration.new self, :reg_type, Gen::X64::REGISTERS.keys, prefix: architecture
         @operand_types = Enumeration.new self, :operand_type, Nodes::X64::Instruction::OPERAND_TYPES, prefix: architecture
         @register_ids = Enumeration.new self, :reg_id, Gen::X64::REGISTER_NAMES, prefix: architecture
-        @bit_masks = Enumeration.new self, :bit_mask, %i(rest 64_127 32_63 0_31), prefix: architecture, flags: true
+        @bitmasks = Enumeration.new self, :bitmask, %i(rest 64_127 32_63 0_31), prefix: architecture, flags: true
         @address_sizes = Enumeration.new self, :addr_size, %i(64 32), prefix: architecture
         @scales = Enumeration.new self, :scale, %i(1 2 4 8), prefix: architecture
         @parameter_ids = Enumeration.new self, :param_id, STATIC_PARAMETERS, prefix: architecture
         @basic_parameter_ids = Enumeration.new self, :basic_param_id, STATIC_PARAMETERS, prefix: architecture
         @instruction_ids = Enumeration.new self, :inst_id, prefix: architecture
+        @rflags_flags = Enumeration.new self, :rflags_flag, X64::RFLAGS, prefix: architecture
+        @mxcsr_flags = Enumeration.new self, :mxcsr_flag, X64::MXCSR, prefix: architecture
 
         @undefinedable_parameters = {}
         @basic_undefinedable_parameters = {}

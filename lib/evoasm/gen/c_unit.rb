@@ -230,15 +230,31 @@ module Evoasm
         Math.log2(max_parameters_per_instructions + 1).ceil.to_i
       end
 
-      def bit_mask_to_c(mask)
-        name =
-          case mask
-          when Range
-            "#{mask.min}_#{mask.max}"
+      def flags_to_c(flags, name)
+        enum =
+          case name
+          when 'RFLAGS'
+            rflags_flags
+          when 'MXCSR'
+            mxcsr_flags
           else
-            mask.to_s
+            raise "unknown flags operand #{name}"
           end
-        constant_name_to_c name, architecture_prefix(:bit_mask)
+
+        flags.map do |flag|
+          "(1 << #{enum.symbol_to_c flag})"
+        end.join('|')
+      end
+
+      def bitmask_to_c(mask)
+        case mask
+        when Range
+          bitmasks.symbol_to_c "#{mask.min}_#{mask.max}"
+        when nil
+          bitmasks.all_symbol_to_c
+        else
+          bitmasks.symbol_to_c mask.to_s
+        end
       end
 
       def c_instruction_parameters_variable_name(instruction)

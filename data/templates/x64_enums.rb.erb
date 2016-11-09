@@ -13,6 +13,8 @@ module Evoasm
 <%= unit.scales.to_ruby_ffi %>
 <%= unit.address_sizes.to_ruby_ffi %>
 <%= unit.instruction_ids.to_ruby_ffi %>
+<%= unit.rflags_flags.to_ruby_ffi %>
+<%= unit.mxcsr_flags.to_ruby_ffi %>
 
     enum :x64_operand_size, [
       :'1',

@@ -28,11 +28,15 @@
 
 <%= unit.operand_types.to_c %>
 
-<%= unit.bit_masks.to_c %>
-#define <%= unit.bit_mask_to_c 0..63 %> (<%= unit.bit_mask_to_c 0..31 %> | <%= unit.bit_mask_to_c 32..63 %>)
-#define <%= unit.bit_mask_to_c 0..127 %> (<%= unit.bit_mask_to_c 0..63 %> | <%= unit.bit_mask_to_c 64..127 %>)
+<%= unit.bitmasks.to_c %>
+#define <%= unit.bitmask_to_c 0..63 %> (<%= unit.bitmask_to_c 0..31 %> | <%= unit.bitmask_to_c 32..63 %>)
+#define <%= unit.bitmask_to_c 0..127 %> (<%= unit.bitmask_to_c 0..63 %> | <%= unit.bitmask_to_c 64..127 %>)
 
+#define EVOASM_X64_OPERAND_MAX_FLAGS_BITSIZE <%= [unit.rflags_flags.bitsize(flags: true), unit.mxcsr_flags.bitsize(flags: true)].max %>
 
 <%= unit.instruction_ids.to_c %>
 
 #define EVOASM_X64_PARAM_IDX_BITSIZE <%= unit.parameter_index_bitsize %>
+
+<%= unit.rflags_flags.to_c %>
+<%= unit.mxcsr_flags.to_c %>

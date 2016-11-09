@@ -15,7 +15,7 @@ module Evoasm
           def to_c(io)
             io.puts '{'
             io.indent do
-              flags_to_c io
+              operand_flags_to_c io
 
               parameters_to_c io
 
@@ -26,20 +26,28 @@ module Evoasm
 
               register_type_to_c io
 
-              if accessed_bits.key? :w
-                io.puts unit.bit_mask_to_c(accessed_bits[:w]), eol: ','
+              io.puts unit.bitmask_to_c(read_bits), eol: ','
+              io.puts unit.bitmask_to_c(written_bits), eol: ','
+              io.puts unit.bitmask_to_c(undefined_bits), eol: ','
+              io.puts unit.bitmask_to_c(cwritten_bits), eol: ','
+              if flags.any?
+                io.puts unit.flags_to_c(flags, name), eol: ','
               else
-                io.puts unit.bit_masks.all_symbol_to_c, eol: ','
+                io.puts '0', eol: ','
               end
 
-              type_to_c io
+              implicit_imm_or_reg_to_c io
             end
+
             io.puts '}'
           end
 
           private
-
           def flags_to_c(io)
+
+          end
+
+          def operand_flags_to_c(io)
             io.puts read? ? '1' : '0', eol: ','
             io.puts written? ? '1' : '0', eol: ','
             io.puts undefined? ? '1' : '0', eol: ','
@@ -82,7 +90,7 @@ module Evoasm
             end
           end
 
-          def type_to_c(io)
+          def implicit_imm_or_reg_to_c(io)
             io.puts '{'
             io.indent do
               case type

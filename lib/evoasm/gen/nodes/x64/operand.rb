@@ -6,12 +6,11 @@ module Evoasm
     module Nodes
       module X64
         class Operand < Nodes::Operand
-          include Evoasm::Gen::X64
 
           attr_reader :name, :parameter_name, :type, :size1, :size2, :read, :written,
                       :undefined, :cwritten, :read_bits, :written_bits, :cwritten_bits,
                       :undefined_bits, :register, :imm, :register_type, :accessed_bits, :register_size,
-                      :mem_size, :imm_size
+                      :mem_size, :imm_size, :flags
 
           IMM_OP_REGEXP = /^(imm|rel)(\d+)?$/
           MEM_OP_REGEXP = /^m(\d*)$/
@@ -19,9 +18,6 @@ module Evoasm
           VSIB_OP_REGEXP = /^vm(?:\d+)(x|y)(\d+)$/
           REG_OP_REGEXP = /^(?<reg>xmm|ymm|zmm|mm)$|^(?<reg>r)(?<reg_size>8|16|32|64)$/
           RM_OP_REGEXP = %r{^(?:(?<reg>xmm|ymm|zmm|mm)|(?<reg>r)(?<reg_size>8|16|32|64)?)/m(?<mem_size>\d+)$}
-
-          RFLAGS = REGISTERS.fetch :rflags
-          MXCSR = REGISTERS.fetch :mxcsr
 
           class Counters
             attr_accessor :imm_counter, :reg_counter
@@ -32,35 +28,56 @@ module Evoasm
             end
           end
 
-          def self.load(unit, instruction, ops)
-            operands = []
-            counters = Counters.new
+          class << self
+            def load(unit, instruction, ops)
+              operands = []
+              counters = Counters.new
 
-            ops.each do |operand_name, flags|
-              next if IGNORED_MXCSR.include? operand_name.to_sym
-              next if IGNORED_RFLAGS.include? operand_name.to_sym
+              ops.each do |operand_name, operand_flags|
+                next if Gen::X64::IGNORED_MXCSR.include? operand_name.to_sym
+                next if Gen::X64::IGNORED_RFLAGS.include? operand_name.to_sym
 
-              if operand_name == 'FLAGS' || operand_name == 'RFLAGS'
-                # NOTE: currently all used flags
-                # fall within the bits of 32-bit FLAGS
-                # i.e. all upper bits of RFLAGS are unused
-                RFLAGS.each do |reg_name|
-                  next if IGNORED_RFLAGS.include? reg_name.to_sym
-                  operand = new(unit, reg_name.to_s, flags, counters)
-                  operand.parent = instruction
+                flags_operand_name, flag = flags_operand_name operand_name
+                flags = []
 
-                  operands << operand
+                if flags_operand_name
+                  flags_operand = operands.find {|op| op.name == flags_operand_name }
+                  if flags_operand
+                    flags_operand.flags << operand_name if flag
+                    next
+                  else
+                    flags << operand_name if flag
+                    operand_name = flags_operand_name
+                  end
                 end
-              else
-                operand = new(unit, operand_name, flags, counters)
-                operand.parent = instruction
 
+                operand = new(unit, operand_name, operand_flags, counters)
+                operand.parent = instruction
+                operand.flags.concat flags
                 operands << operand
               end
+
+              operands
             end
 
-            operands
+            private
+
+            def flags_operand_name(operand_name)
+              case operand_name.to_sym
+              when :RFLAGS, :FLAGS
+                ['RFLAGS', false]
+              when *Gen::X64::RFLAGS
+                ['RFLAGS', true]
+              when :MXCSR
+                ['MXCSR', false]
+              when *Gen::X64::MXCSR
+                ['MXCSR', true]
+              else
+                nil
+              end
+            end
           end
+
 
           def initialize(unit, name, flags, counters)
             super(unit)
@@ -70,8 +87,7 @@ module Evoasm
             @read = flags.include? 'r'
             @cwritten = flags.include? 'c'
             @undefined = flags.include? 'u'
-
-            @accessed_bits = {}
+            @flags = []
 
             flags.scan(/([crwu])\[(\d+)\.\.(\d+)\]/) do |acc, from, to|
               bits = (from.to_i..to.to_i)
@@ -239,62 +255,57 @@ module Evoasm
                 reg_name = reg_name.split(/\s*\+\s*/).first
               end
 
-              sym_reg = reg_name.to_sym
+              @register_type = :gp
+              @register =
+                case reg_name
+                when 'RAX', 'EAX', 'AX', 'AL'
+                  :A
+                when 'RCX', 'ECX', 'CX', 'CL'
+                  :C
+                when 'RDX', 'EDX', 'DX'
+                  :D
+                when 'RBX', 'EBX'
+                  :B
+                when 'RSP', 'SP'
+                  :SP
+                when 'RBP', 'BP'
+                  :BP
+                when 'RSI', 'ESI', 'SI', 'SIL'
+                  :SI
+                when 'RDI', 'EDI', 'DI', 'DIL'
+                  :DI
+                when 'RIP'
+                  @register_type = :ip
+                  :IP
+                when 'XMM0'
+                  @register_type = :xmm
+                  @register_size = 128
+                  :XMM0
+                when 'RFLAGS'
+                  @register_type = :rflags
+                  @register_size = 64
+                  :RFLAGS
+                when 'MXCSR'
+                  @register_type = :mxcsr
+                  @register_size = 32
+                  :MXCSR
+                else
+                  raise ArgumentError, "unexpected register '#{reg_name}'"
+                end
 
-              if RFLAGS.include?(sym_reg)
-                @register = sym_reg
-                @register_type = :rflags
-                @register_size = 1
-              elsif MXCSR.include?(sym_reg)
-                @register = sym_reg
-                @register_type = :mxcsr
-                @register_size = 32
-              else
-                @register_type = :gp
-                @register =
-                  case reg_name
-                  when 'RAX', 'EAX', 'AX', 'AL'
-                    :A
-                  when 'RCX', 'ECX', 'CX', 'CL'
-                    :C
-                  when 'RDX', 'EDX', 'DX'
-                    :D
-                  when 'RBX', 'EBX'
-                    :B
-                  when 'RSP', 'SP'
-                    :SP
-                  when 'RBP', 'BP'
-                    :BP
-                  when 'RSI', 'ESI', 'SI', 'SIL'
-                    :SI
-                  when 'RDI', 'EDI', 'DI', 'DIL'
-                    :DI
-                  when 'RIP'
-                    @register_type = :ip
-                    :IP
-                  when 'XMM0'
-                    @register_type = :xmm
-                    :XMM0
-                  else
-                    raise ArgumentError, "unexpected register '#{reg_name}'"
-                  end
-
-                @register_size =
-                  case reg_name
-                  when 'RAX', 'RCX', 'RDX', 'RBX', 'RSP', 'RBP', 'RSI', 'RDI', 'RIP'
-                    64
-                  when 'EAX', 'ECX', 'EDX', 'EBX', 'ESI', 'EDI'
-                    32
-                  when 'AX', 'CX', 'DX', 'SP', 'BP', 'SI', 'DI'
-                    16
-                  when 'AL', 'CL', 'SIL', 'DIL'
-                    8
-                  when 'XMM0'
-                    128
-                  else
-                    raise ArgumentError, "unexpected register '#{reg_name}'"
-                  end
-              end
+              @register_size ||=
+                case reg_name
+                when 'RAX', 'RCX', 'RDX', 'RBX', 'RSP', 'RBP', 'RSI', 'RDI', 'RIP'
+                  64
+                when 'EAX', 'ECX', 'EDX', 'EBX', 'ESI', 'EDI'
+                  32
+                when 'AX', 'CX', 'DX', 'SP', 'BP', 'SI', 'DI'
+                  16
+                when 'AL', 'CL', 'SIL', 'DIL'
+                  8
+                else
+                  raise ArgumentError, "unexpected register '#{reg_name}'"
+                end
             end
 
             @implicit = true

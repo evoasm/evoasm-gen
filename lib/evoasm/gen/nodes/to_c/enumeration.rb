@@ -25,11 +25,11 @@ module Evoasm
         end
 
         def all_symbol_to_c
-          unit.symbol_to_c "#{c_symbol_prefix}_all", @prefix, const: true
+          unit.symbol_to_c "#{c_symbol_prefix(true)}_all", @prefix, const: true
         end
 
         def none_symbol_to_c
-          unit.symbol_to_c "#{c_symbol_prefix}_none", @prefix, const: true
+          unit.symbol_to_c "#{c_symbol_prefix(true)}_none", @prefix, const: true
         end
 
         def symbol_to_c(symbol_name)
@@ -54,6 +54,7 @@ module Evoasm
           io.puts "#define #{bitsize_symbol_to_c} #{bitsize}"
           if flags?
             io.puts "#define #{all_symbol_to_c} #{all_value}"
+            io.puts "#define #{none_symbol_to_c} 0"
           else
             io.puts "#define #{bitsize_symbol_to_c true} #{bitsize true}"
           end
@@ -103,21 +104,21 @@ module Evoasm
           io.puts ":#{none_symbol_to_ruby_ffi}" unless flags?
         end
 
-        def c_symbol_prefix
+        def c_symbol_prefix(type = false)
           # convention: _id does not appear in symbol's name
-          name.to_s.sub(/_id$/, '')
+          name(type: type).to_s.sub(/_id$/, '')
         end
 
         def c_type_name
-          unit.symbol_to_c name, @prefix, type: true
+          unit.symbol_to_c name(type: true), @prefix, type: true
         end
 
         def bitsize_symbol_to_c(optional = false)
-          unit.symbol_to_c "#{c_symbol_prefix}_bitsize#{optional ? '_opt' : ''}", @prefix, const: true
+          unit.symbol_to_c "#{c_symbol_prefix(true)}_bitsize#{optional ? '_opt' : ''}", @prefix, const: true
         end
 
         def bitmask_symbol_to_c(optional = false)
-          unit.symbol_to_c "#{c_symbol_prefix}_bitmask#{optional ? '_opt' : ''}", @prefix, const: true
+          unit.symbol_to_c "#{c_symbol_prefix(true)}_bitmask#{optional ? '_opt' : ''}", @prefix, const: true
         end
 
         def ruby_ffi_type_name

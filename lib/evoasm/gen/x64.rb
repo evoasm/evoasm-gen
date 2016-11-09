@@ -8,10 +8,14 @@ module Evoasm
       # Exception flag/mask bits. Mostly meant to be checked
       # by the user, which we are not doing at the moment
       IGNORED_MXCSR = %i(PE UE OE ME ZE DE IE PM UM OM ZM DM IM MM).freeze
+
+      RFLAGS = %i(OF SF ZF PF CF)
+      MXCSR = %i(FZ RC DAZ)
+
       REGISTERS = {
         ip: %i(IP),
-        rflags: %i(OF SF ZF PF CF),
-        mxcsr: %i(FZ RC DAZ),
+        rflags: %i(RFLAGS),
+        mxcsr: %i(MXCSR),
         gp: %i(A C D B SP BP SI DI 8 9 10 11 12 13 14 15),
         mm: %i(MM0 MM1 MM2 MM3 MM4 MM5 MM6 MM7),
         xmm: %i(XMM0 XMM1 XMM2 XMM3 XMM4 XMM5 XMM6 XMM7
