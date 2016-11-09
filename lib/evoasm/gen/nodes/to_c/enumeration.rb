@@ -56,6 +56,7 @@ module Evoasm
             io.puts "#define #{all_symbol_to_c} #{all_value}"
             io.puts "#define #{none_symbol_to_c} 0"
           else
+            io.puts "#define #{bitsize_symbol_to_c } #{bitsize}"
             io.puts "#define #{bitsize_symbol_to_c true} #{bitsize true}"
           end
         end
