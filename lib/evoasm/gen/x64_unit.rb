@@ -6,8 +6,7 @@ module Evoasm
     module X64Unit
       include Nodes
 
-      STATIC_PARAMETERS = %i(reg0 reg1 reg2 reg3 imm).freeze
-      SEARCH_PARAMETERS = %i(reg0 reg1 reg2 reg3 imm reg0_high_byte? reg1_high_byte?).freeze
+      STATIC_PARAMETERS = %i(reg0 reg1 reg2 reg3).freeze
 
       attr_reader :bitmasks
       attr_reader :exceptions

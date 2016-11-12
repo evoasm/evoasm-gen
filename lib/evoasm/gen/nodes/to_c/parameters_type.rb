@@ -32,7 +32,7 @@ module Evoasm
 
           def signed_parameter?(parameter_name)
             case parameter_name
-            when :disp, :rel, :imm0, :imm, :imm1, :moffs
+            when :disp, :rel, :imm0, :imm1, :moffs
               true
             else
               false
@@ -71,7 +71,7 @@ module Evoasm
               4
             when :reg_base, :reg_index, :reg0, :reg1, :reg2, :reg3, :reg4
               @unit.register_ids.bitsize
-            when :imm, :imm0,:moffs, :rel
+            when :imm0,:moffs, :rel
               basic ? 32 : 64
             when :imm1
               # Only used for enter
@@ -211,7 +211,11 @@ module Evoasm
             when 'param_val'
               'int64_t'
             when 'param'
-              'evoasm_x64_param_id_t'
+              if @basic
+                'evoasm_x64_basic_param_id_t'
+              else
+                'evoasm_x64_param_id_t'
+              end
             else
               raise
             end

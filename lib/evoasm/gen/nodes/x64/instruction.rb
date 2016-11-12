@@ -108,8 +108,9 @@ module Evoasm
               else
                 raise
               end
-            when :imm0, :imm1, :imm, :moffs, :rel
+            when :imm0, :imm1, :moffs, :rel
               imm_op = encoded_operands.find { |operand| operand.parameter_name == parameter_name }
+              raise "no operand with name #{parameter_name}" unless imm_op
               case imm_op.size
               when 8
                 type_domain :int8
