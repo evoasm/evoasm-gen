@@ -258,7 +258,7 @@ module Evoasm
               @register_type = :gp
               @register =
                 case reg_name
-                when 'RAX', 'EAX', 'AX', 'AL'
+                when 'RAX', 'EAX', 'AX', 'AL', 'AH'
                   :A
                 when 'RCX', 'ECX', 'CX', 'CL'
                   :C
@@ -301,7 +301,7 @@ module Evoasm
                   32
                 when 'AX', 'CX', 'DX', 'SP', 'BP', 'SI', 'DI'
                   16
-                when 'AL', 'CL', 'SIL', 'DIL'
+                when 'AL', 'AH', 'CL', 'SIL', 'DIL'
                   8
                 else
                   raise ArgumentError, "unexpected register '#{reg_name}'"

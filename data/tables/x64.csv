@@ -579,9 +579,9 @@ AC,LODSB,NP,SIL:rw; [SIL]:r; m8:w; IF:w,repe:illegal/0,,
 AD,LODSW,NP,SI:rw; [SI]:r; m16:w; IF:w,repe:illegal/0; pref66:required/1,,
 AD,LODSD,NP,ESI:rw; [ESI]:r; m32:w; IF:w,repe:illegal/0; rex_w:optional/0,,
 AD,LODSQ,NP,RSI:rw; [RSI]:r; m64:w; IF:w,repe:illegal/0; rex_w:required/1,,
-E2 cb,LOOP,D,rel8:mer; RCX:r,,,
-E1 cb,LOOPE,D,rel8:mer; RCX:r; CF:r,,,
-E0 cb,LOOPNE,D,rel8:mer; RCX:r; CF:r,,,
+E2 cb,LOOP,D,rel8:mer; RCX:rw,,,
+E1 cb,LOOPE,D,rel8:mer; RCX:rw; CF:r,,,
+E0 cb,LOOPNE,D,rel8:mer; RCX:rw; CF:r,,,
 0F BD /r,LZCNT,RM,r16:mew; r/m16:mer; ZF:w; OF:u; SF:u; PF:u; AF:u; CF:w,pref66:required/1; pref67:operand/1; prefF3:required/1,LZCNT,SS; GP; PF; AC
 0F BD /r,LZCNT,RM,r32:mew; r/m32:mer; ZF:w; OF:u; SF:u; PF:u; AF:u; CF:w,rex_w:optional/0; pref67:operand/1; prefF3:required/1,LZCNT,SS; GP; PF; AC
 0F BD /r,LZCNT,RM,r64:mew; r/m64:mer; ZF:w; OF:u; SF:u; PF:u; AF:u; CF:w,rex_w:required/1; pref67:operand/1; prefF3:required/1,LZCNT,SS; GP; PF; AC
@@ -1145,9 +1145,9 @@ EVEX.NDS.128.66.0F38.W1 29 /r,VPCMPEQQ,FV,k1 {k2}:mew; xmm:mer; xmm/m128/m64bcst
 EVEX.NDS.256.66.0F38.W1 29 /r,VPCMPEQQ,FV,k1 {k2}:mew; ymm:mer; ymm/m256/m64bcst:mer,,AVX512VL+AVX512F,UD; GP
 EVEX.NDS.512.66.0F38.W1 29 /r,VPCMPEQQ,FV,k1 {k2}:mew; zmm:mer; zmm/m512/m64bcst:mer,,AVX512F,UD; GP
 0F 3A 61 /r ib,PCMPESTRI,RMI,xmm:mer; xmm/m128:mer; imm8:mer; RAX:r; RDX:r; RCX:w; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1; pref66:required/1,SSE4_2,UD; GP; AC; PFS
-VEX.128.66.0F3A.WIG 61 /r ib,VPCMPESTRI,RMI,xmm:mer; xmm/m128:mer; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1,AVX,UD; GP; AC; PFS
+VEX.128.66.0F3A.WIG 61 /r ib,VPCMPESTRI,RMI,xmm:mer; xmm/m128:mer; imm8:mer; RAX:r; RDX:r; RCX:w; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1,AVX,UD; GP; AC; PFS
 0F 3A 60 /r ib,PCMPESTRM,RMI,xmm:mer; xmm/m128:mer; imm8:mer; RAX:r; RDX:r; XMM0:w; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1; pref66:required/1,SSE4_2,UD; GP; AC; PFS
-VEX.128.66.0F3A.WIG 60 /r ib,VPCMPESTRM,RMI,xmm:mer; xmm/m128:mer; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1,AVX,UD; GP; AC; PFS
+VEX.128.66.0F3A.WIG 60 /r ib,VPCMPESTRM,RMI,xmm:mer; xmm/m128:mer; imm8:mer; RAX:r; RDX:r; XMM0:w; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1,AVX,UD; GP; AC; PFS
 0F 64 /r,PCMPGTB,RM,mm:merw[0..127]; mm/m64:mer,pref67:operand/1,MMX,UD; GP
 0F 64 /r,PCMPGTB,RM,xmm:merw[0..127]; xmm/m128:mer,pref67:operand/1; pref66:required/1,SSE2,UD; GP
 0F 65 /r,PCMPGTW,RM,mm:merw[0..127]; mm/m64:mer,pref67:operand/1,MMX,UD; GP
@@ -1176,9 +1176,9 @@ EVEX.NDS.128.66.0F38.W1 37 /r,VPCMPGTQ,FV,k1 {k2}:mew; xmm:mer; xmm/m128/m64bcst
 EVEX.NDS.256.66.0F38.W1 37 /r,VPCMPGTQ,FV,k1 {k2}:mew; ymm:mer; ymm/m256/m64bcst:mer,,AVX512VL+AVX512F,UD; GP
 EVEX.NDS.512.66.0F38.W1 37 /r,VPCMPGTQ,FV,k1 {k2}:mew; zmm:mer; zmm/m512/m64bcst:mer,,AVX512F,UD; GP
 0F 3A 63 /r ib,PCMPISTRI,RMI,xmm:mer; xmm/m128:mer; imm8:mer; RCX:w; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1; pref66:required/1,SSE4_2,UD; GP; AC; PFS
-VEX.128.66.0F3A.WIG 63 /r ib,VPCMPISTRI,RMI,xmm:mer; xmm/m128:mer; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1,AVX,UD; GP; AC; PFS
+VEX.128.66.0F3A.WIG 63 /r ib,VPCMPISTRI,RMI,xmm:mer; xmm/m128:mer; imm8:mer; RCX:w; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1,AVX,UD; GP; AC; PFS
 0F 3A 62 /r ib,PCMPISTRM,RMI,xmm:mer; xmm/m128:mer; imm8:mer; XMM0:w; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1; pref66:required/1,SSE4_2,UD; GP; AC; PFS
-VEX.128.66.0F3A.WIG 62 /r ib,VPCMPISTRM,RMI,xmm:mer; xmm/m128:mer; imm8:mer; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1,AVX,UD; GP; AC; PFS
+VEX.128.66.0F3A.WIG 62 /r ib,VPCMPISTRM,RMI,xmm:mer; xmm/m128:mer; imm8:mer; XMM0:w; OF:w; SF:w; ZF:w; AF:w; PF:w; CF:w,pref67:operand/1,AVX,UD; GP; AC; PFS
 VEX.NDS.LZ.F2.0F38.W0 F5 /r,PDEP,RVM,r32:mew; r32:mer; r/m32:mer,pref67:operand/1,BMI2,UDX; SSX; GP; PF; AC
 VEX.NDS.LZ.F2.0F38.W1 F5 /r,PDEP,RVM,r64:mew; r64:mer; r/m64:mer,pref67:operand/1,BMI2,UDX; SSX; GP; PF; AC
 VEX.NDS.LZ.F3.0F38.W0 F5 /r,PEXT,RVM,r32:mew; r32:mer; r/m32:mer,pref67:operand/1,BMI2,UDX; SSX; GP; PF; AC
