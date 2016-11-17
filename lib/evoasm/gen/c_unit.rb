@@ -246,14 +246,14 @@ module Evoasm
         end.join('|')
       end
 
-      def bitmask_to_c(mask)
+      def access_mask_to_c(mask)
         case mask
         when Range
-          bitmasks.symbol_to_c "#{mask.min}_#{mask.max}"
+          access_masks.symbol_to_c "#{mask.min}_#{mask.max}"
         when nil
-          bitmasks.all_symbol_to_c
+          access_masks.all_symbol_to_c
         else
-          bitmasks.symbol_to_c mask.to_s
+          access_masks.symbol_to_c mask.to_s
         end
       end
 

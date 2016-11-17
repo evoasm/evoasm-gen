@@ -8,7 +8,7 @@ module Evoasm
         class Operand < Nodes::Operand
 
           attr_reader :name, :parameter_name, :type, :size1, :size2, :read, :written,
-                      :undefined, :cwritten, :read_bits, :written_bits, :cwritten_bits,
+                      :undefined, :conditionally_written, :read_bits, :written_bits, :cwritten_bits,
                       :undefined_bits, :register, :imm, :register_type, :accessed_bits, :register_size,
                       :mem_size, :imm_size, :flags
 
@@ -29,11 +29,11 @@ module Evoasm
           end
 
           class << self
-            def load(unit, instruction, ops)
+            def load(unit, instruction, operands_spec)
               operands = []
               counters = Counters.new
 
-              ops.each do |operand_name, operand_flags|
+              operands_spec.each do |operand_name, operand_attrs|
                 next if Gen::X64::IGNORED_MXCSR.include? operand_name.to_sym
                 next if Gen::X64::IGNORED_RFLAGS.include? operand_name.to_sym
 
@@ -43,7 +43,7 @@ module Evoasm
                 if flags_operand_name
                   flags_operand = operands.find {|op| op.name == flags_operand_name }
                   if flags_operand
-                    flags_operand.flags << operand_name if flag
+                    flags_operand.send(:add_flag, operand_name, operand_attrs) if flag
                     next
                   else
                     flags << operand_name if flag
@@ -51,7 +51,7 @@ module Evoasm
                   end
                 end
 
-                operand = new(unit, operand_name, operand_flags, counters)
+                operand = new(unit, operand_name, operand_attrs, counters)
                 operand.parent = instruction
                 operand.flags.concat flags
                 operands << operand
@@ -78,18 +78,15 @@ module Evoasm
             end
           end
 
-
-          def initialize(unit, name, flags, counters)
+          def initialize(unit, name, attrs, counters)
             super(unit)
 
             @name = name
-            @written = flags.include? 'w'
-            @read = flags.include? 'r'
-            @cwritten = flags.include? 'c'
-            @undefined = flags.include? 'u'
             @flags = []
 
-            flags.scan(/([crwu])\[(\d+)\.\.(\d+)\]/) do |acc, from, to|
+            update_attrs attrs
+
+            attrs.scan(/([crwu])\[(\d+)\.\.(\d+)\]/) do |acc, from, to|
               bits = (from.to_i..to.to_i)
               case acc
               when 'r'
@@ -104,11 +101,6 @@ module Evoasm
                 raise
               end
             end
-
-            @encoded = flags.include? 'e'
-
-            # mnemonic operand
-            @mnemonic = flags.include? 'm'
 
             if name == name.upcase
               initialize_implicit
@@ -135,7 +127,7 @@ module Evoasm
 
           alias read? read
           alias written? written
-          alias cwritten? cwritten
+          alias conditionally_written? conditionally_written
           alias undefined? undefined
 
           def size
@@ -154,12 +146,26 @@ module Evoasm
             access = []
             access << :r if read?
             access << :w if written?
-            access << :c if cwritten?
+            access << :c if conditionally_written?
 
             access
           end
 
           private
+
+          def add_flag(flag_name, flag_attrs)
+            @flags << flag_name
+            update_attrs flag_attrs
+          end
+
+          def update_attrs(attrs)
+            @written ||= attrs.include? 'w'
+            @read ||= attrs.include? 'r'
+            @conditionally_written ||= attrs.include? 'c'
+            @undefined ||= attrs.include? 'u'
+            @encoded ||= attrs.include? 'e'
+            @mnemonic ||= attrs.include? 'm'
+          end
 
           def reg_size=(size)
             @size1 = size

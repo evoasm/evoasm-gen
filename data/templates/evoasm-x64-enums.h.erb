@@ -28,9 +28,12 @@
 
 <%= unit.operand_types.to_c %>
 
-<%= unit.bitmasks.to_c %>
-#define <%= unit.bitmask_to_c 0..63 %> (<%= unit.bitmask_to_c 0..31 %> | <%= unit.bitmask_to_c 32..63 %>)
-#define <%= unit.bitmask_to_c 0..127 %> (<%= unit.bitmask_to_c 0..63 %> | <%= unit.bitmask_to_c 64..127 %>)
+<%= unit.access_masks.to_c %>
+
+#define <%= unit.access_mask_to_c 0..15 %> (<%= unit.access_mask_to_c 0..7 %> | <%= unit.access_mask_to_c 8..15 %>)
+#define <%= unit.access_mask_to_c 0..31 %> (<%= unit.access_mask_to_c 0..15 %> | <%= unit.access_mask_to_c 16..31 %>)
+#define <%= unit.access_mask_to_c 0..63 %> (<%= unit.access_mask_to_c 0..31 %> | <%= unit.access_mask_to_c 32..63 %>)
+#define <%= unit.access_mask_to_c 0..127 %> (<%= unit.access_mask_to_c 0..63 %> | <%= unit.access_mask_to_c 64..127 %>)
 
 #define EVOASM_X64_RFLAGS_FLAGS_GET(flags, flag) ((flags) & (1 << (flag)))
 #define EVOASM_X64_RFLAGS_FLAGS_SET(flags, flag) ((flags) = (flags) | (1 << (flag)))

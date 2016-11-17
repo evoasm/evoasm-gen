@@ -26,10 +26,10 @@ module Evoasm
 
               register_type_to_c io
 
-              io.puts unit.bitmask_to_c(read_bits), eol: ','
-              io.puts unit.bitmask_to_c(written_bits), eol: ','
-              io.puts unit.bitmask_to_c(undefined_bits), eol: ','
-              io.puts unit.bitmask_to_c(cwritten_bits), eol: ','
+              io.puts unit.access_mask_to_c(read_bits), eol: ','
+              io.puts unit.access_mask_to_c(written_bits), eol: ','
+              io.puts unit.access_mask_to_c(undefined_bits), eol: ','
+              io.puts unit.access_mask_to_c(cwritten_bits), eol: ','
               if flags.any?
                 io.puts unit.flags_to_c(flags, name), eol: ','
               else
@@ -51,7 +51,7 @@ module Evoasm
             io.puts read? ? '1' : '0', eol: ','
             io.puts written? ? '1' : '0', eol: ','
             io.puts undefined? ? '1' : '0', eol: ','
-            io.puts cwritten? ? '1' : '0', eol: ','
+            io.puts conditionally_written? ? '1' : '0', eol: ','
             io.puts implicit? ? '1' : '0', eol: ','
             io.puts mnemonic? ? '1' : '0', eol: ','
           end
