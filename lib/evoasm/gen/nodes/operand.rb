@@ -6,7 +6,7 @@ module Evoasm
       class Operand < Node
 
         def instruction
-          parent
+          parent.instruction
         end
       end
     end

@@ -26,10 +26,10 @@ module Evoasm
 
               register_type_to_c io
 
-              io.puts unit.access_mask_to_c(read_bits), eol: ','
-              io.puts unit.access_mask_to_c(written_bits), eol: ','
-              io.puts unit.access_mask_to_c(undefined_bits), eol: ','
-              io.puts unit.access_mask_to_c(cwritten_bits), eol: ','
+              io.puts unit.access_mask_to_c(read_mask), eol: ','
+              io.puts unit.access_mask_to_c(written_mask), eol: ','
+              io.puts unit.access_mask_to_c(undefined_mask), eol: ','
+              io.puts unit.access_mask_to_c(conditionally_written_mask), eol: ','
               if flags.any?
                 io.puts unit.flags_to_c(flags, name), eol: ','
               else

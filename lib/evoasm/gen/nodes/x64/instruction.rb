@@ -6,6 +6,7 @@ require 'evoasm/gen/core_ext/integer'
 require 'evoasm/gen/x64'
 require 'evoasm/gen/nodes/x64/instruction_state_machine'
 require 'evoasm/gen/nodes/x64/operand'
+require 'evoasm/gen/nodes/x64/operands'
 
 module Evoasm
   module Gen
@@ -110,7 +111,7 @@ module Evoasm
               end
             when :imm0, :imm1, :moffs, :rel
               imm_op = encoded_operands.find { |operand| operand.parameter_name == parameter_name }
-              raise "no operand with name #{parameter_name}" unless imm_op
+              raise "no operand with name #{parameter_name} #{@encoded_operands.map(&:parameter_name)}" unless imm_op
               case imm_op.size
               when 8
                 type_domain :int8
@@ -297,12 +298,7 @@ module Evoasm
           end
 
           def load_operands(row)
-            ops = row[COL_OPS].split('; ').map do |op|
-              op =~ /(.*?):([a-z]+(?:\[\d+\.\.\d+\])?)/ || raise
-              [$1, $2]
-            end
-
-            @operands = Operand.load unit, self, ops
+            @operands = Operands.new unit, self, row[COL_OPS]
           end
 
           def load_flags

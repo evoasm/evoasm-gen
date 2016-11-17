@@ -8,8 +8,8 @@ module Evoasm
         class Operand < Nodes::Operand
 
           attr_reader :name, :parameter_name, :type, :size1, :size2, :read, :written,
-                      :undefined, :conditionally_written, :read_bits, :written_bits, :cwritten_bits,
-                      :undefined_bits, :register, :imm, :register_type, :accessed_bits, :register_size,
+                      :undefined, :conditionally_written, :read_mask, :written_mask, :conditionally_written_mask,
+                      :undefined_mask, :register, :imm, :register_type, :accessed_mask, :register_size,
                       :mem_size, :imm_size, :flags
 
           IMM_OP_REGEXP = /^(imm|rel)(\d+)?$/
@@ -18,15 +18,6 @@ module Evoasm
           VSIB_OP_REGEXP = /^vm(?:\d+)(x|y)(\d+)$/
           REG_OP_REGEXP = /^(?<reg>xmm|ymm|zmm|mm)$|^(?<reg>r)(?<reg_size>8|16|32|64)$/
           RM_OP_REGEXP = %r{^(?:(?<reg>xmm|ymm|zmm|mm)|(?<reg>r)(?<reg_size>8|16|32|64)?)/m(?<mem_size>\d+)$}
-
-          class Counters
-            attr_accessor :imm_counter, :reg_counter
-
-            def initialize
-              @imm_counter = 0
-              @reg_counter = 0
-            end
-          end
 
           class << self
             def load(unit, instruction, operands_spec)
@@ -78,34 +69,34 @@ module Evoasm
             end
           end
 
-          def initialize(unit, name, attrs, counters)
+          def initialize(unit, operands, name, flags, access)
             super(unit)
+
+            self.parent = operands
 
             @name = name
             @flags = []
 
-            update_attrs attrs
+            @read_mask = []
+            @written_mask = []
+            @conditionally_written_mask = []
+            @undefined_mask = []
 
-            attrs.scan(/([crwu])\[(\d+)\.\.(\d+)\]/) do |acc, from, to|
-              bits = (from.to_i..to.to_i)
-              case acc
-              when 'r'
-                @read_bits = bits
-              when 'w'
-                @written_bits = bits
-              when 'c'
-                @cwritten_bits = bits
-              when 'u'
-                @undefined_bits = bits
-              else
-                raise
-              end
+            @encoded = flags.include? :e
+            @mnemonic = flags.include? :m
+
+            p [name, access]
+            access.each do |mask, spec|
+              @read_mask << mask if spec&.include? :r
+              @written_mask << mask if spec&.include? :w
+              @conditionally_written_mask << mask if spec&.include? :c
+              @undefined_mask << mask if spec&.include? :u
             end
 
             if name == name.upcase
               initialize_implicit
             else
-              initialize_explicit counters
+              initialize_explicit
             end
           end
 
@@ -171,15 +162,14 @@ module Evoasm
             @size1 = size
           end
 
-          def initialize_explicit(counters)
+          def initialize_explicit
             case name
             when IMM_OP_REGEXP
               @type = :imm
               @imm_size = $2 && $2.to_i
 
               if $1 == 'imm'
-                @parameter_name = :"imm#{counters.imm_counter}"
-                counters.imm_counter += 1
+                @parameter_name = :"imm#{parent.next_imm_index}"
               else
                 @parameter_name = $1.to_sym
               end
@@ -220,8 +210,7 @@ module Evoasm
             end
 
             if type == :rm || type == :reg
-              @parameter_name = :"reg#{counters.reg_counter}"
-              counters.reg_counter += 1
+              @parameter_name = :"reg#{parent.next_reg_index}"
             end
           end
 
