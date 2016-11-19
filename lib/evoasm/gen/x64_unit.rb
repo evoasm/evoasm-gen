@@ -8,7 +8,7 @@ module Evoasm
 
       STATIC_PARAMETERS = %i(reg0 reg1 reg2 reg3).freeze
 
-      attr_reader :access_masks
+      attr_reader :word_sizes
       attr_reader :exceptions
       attr_reader :register_types
       attr_reader :operand_types
@@ -47,7 +47,7 @@ module Evoasm
         @register_types = Enumeration.new self, :reg_type, Gen::X64::REGISTERS.keys, prefix: architecture
         @operand_types = Enumeration.new self, :operand_type, Nodes::X64::Instruction::OPERAND_TYPES, prefix: architecture
         @register_ids = Enumeration.new self, :reg_id, Gen::X64::REGISTER_NAMES, prefix: architecture
-        @access_masks = Enumeration.new self, :access_mask, %i(rest 64_127 32_63 16_31 8_15 0_7) + X64::RFLAGS, prefix: architecture, flags: true
+        @word_sizes = Enumeration.new self, :word_size, %i(lb hb b lw ldw qw lwq hqw dqw vw) + X64::RFLAGS, prefix: architecture, flags: true
         @address_sizes = Enumeration.new self, :addr_size, %i(64 32), prefix: architecture
         @scales = Enumeration.new self, :scale, %i(1 2 4 8), prefix: architecture
         @parameter_ids = Enumeration.new self, :param_id, STATIC_PARAMETERS, prefix: architecture

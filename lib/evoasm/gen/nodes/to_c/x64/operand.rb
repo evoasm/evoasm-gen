@@ -13,50 +13,50 @@ module Evoasm
           end
 
           def to_c(io)
-            io.puts '{'
-            io.indent do
-              operand_flags_to_c io
+            initializer = ToC::StructInitializer.new
 
-              parameters_to_c io
-
-              io.puts operand_type_to_c(type), eol: ','
-
-              size_to_c io, size1
-              size_to_c io, size2
-
-              register_type_to_c io
-
-              io.puts unit.access_mask_to_c(read_mask), eol: ','
-              io.puts unit.access_mask_to_c(written_mask), eol: ','
-              io.puts unit.access_mask_to_c(undefined_mask), eol: ','
-              io.puts unit.access_mask_to_c(conditionally_written_mask), eol: ','
-              if flags.any?
-                io.puts unit.flags_to_c(flags, name), eol: ','
-              else
-                io.puts '0', eol: ','
-              end
-
-              implicit_imm_or_reg_to_c io
+            {
+              read?: 'read',
+              written?: 'written',
+              conditionally_written?: 'cond_written',
+              implicit?: 'implicit',
+              mnemonic?: 'mnem'
+            }.each do |attr, field_name|
+              initializer[field_name] = send(attr) ? '1' : '0'
             end
 
-            io.puts '}'
+            initializer[:param_idx] = parameter_index
+            initializer[:type] = operand_type_to_c(type)
+            initializer[:word_type] = unit.word_type_to_c word_type
+            initializer[:size] = unit.size_to_c size
+            initializer[:reg_type] = register_type_to_c
+
+            if read_flags&.any?
+              initializer[:read_flags] = unit.flags_to_c(read_flags, flags_type)
+            end
+
+            if written_flags&.any?
+              initializer[:written_flags] = unit.flags_to_c(written_flags, flags_type)
+            end
+
+            implicit_imm_or_reg_to_c initializer
+
+            io.puts initializer.to_s
           end
 
           private
-          def flags_to_c(io)
 
+          def size_to_c(size)
+            return 'EVOASM_X64_OPERAND_SIZE_NONE' if size.nil?
+            operand_size_to_c(size)
           end
 
-          def operand_flags_to_c(io)
-            io.puts read? ? '1' : '0', eol: ','
-            io.puts written? ? '1' : '0', eol: ','
-            io.puts undefined? ? '1' : '0', eol: ','
-            io.puts conditionally_written? ? '1' : '0', eol: ','
-            io.puts implicit? ? '1' : '0', eol: ','
-            io.puts mnemonic? ? '1' : '0', eol: ','
+          def word_type_to_c(type)
+            return 'EVOASM_X64_WORD_SIZE_NONE' if word_type.nil?
+            unit.word_type_to_c type
           end
 
-          def parameters_to_c(io)
+          def parameter_index
             parameters = instruction.parameters
             if parameter_name
               parameter_index = parameters.index do |parameter|
@@ -68,49 +68,39 @@ module Evoasm
                         " #{parameters.map(&:name).inspect}" \
                         " (#{instruction.mnemonic}/#{instruction.index})"
               end
-              io.puts parameter_index, eol: ','
+              parameter_index
             else
-              io.puts parameters.size, eol: ','
+              parameters.size
             end
           end
 
-          def size_to_c(io, size)
-            if size
-              io.puts operand_size_to_c(size), eol: ','
-            else
-              io.puts 'EVOASM_X64_OPERAND_SIZE_NONE', eol: ','
-            end
-          end
-
-          def register_type_to_c(io)
+          def register_type_to_c
             if register_type
-              io.puts unit.register_type_to_c(register_type), eol: ','
+              unit.register_type_to_c(register_type)
             else
-              io.puts unit.register_types.none_symbol_to_c, eol: ','
+              unit.register_types.none_symbol_to_c
             end
           end
 
-          def implicit_imm_or_reg_to_c(io)
-            io.puts '{'
-            io.indent do
-              case type
-              when :reg, :rm
+          def implicit_imm_or_reg_to_c(initializer)
+            case type
+            when :reg, :rm
+              initializer[:reg_id] =
                 if register
-                  io.puts unit.register_name_to_c(register), eol: ','
+                  unit.register_name_to_c(register)
                 else
-                  io.puts unit.register_ids.none_symbol_to_c, eol: ','
+                  unit.register_ids.none_symbol_to_c
                 end
-              when :imm
+            when :imm
+              initializer[:imm] =
                 if imm
-                  io.puts imm, eol: ','
+                  imm
                 else
-                  io.puts 255, eol: ','
+                  255
                 end
-              else
-                io.puts '255'
-              end
+            else
+              initializer[:unused] = 255
             end
-            io.puts '}'
           end
         end
       end

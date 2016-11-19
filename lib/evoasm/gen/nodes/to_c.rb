@@ -4,6 +4,28 @@ module Evoasm
       def self.def_to_c(node_class, &block)
         node_class.send :define_method, :to_c, &block
       end
+
+      module ToC
+        class StructInitializer
+          def initialize
+            @fields = []
+          end
+
+          def to_s
+            io = StringIO.new
+            io.block do
+              @fields.each do |field_name, field_value|
+                io.write ".#{field_name} = #{field_value},"
+              end
+            end
+            io.to_s
+          end
+
+          def []=(field_name, value)
+            @fields << [field_name, value]
+          end
+        end
+      end
     end
   end
 end

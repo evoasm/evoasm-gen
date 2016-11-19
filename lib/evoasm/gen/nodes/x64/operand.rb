@@ -8,90 +8,30 @@ module Evoasm
         class Operand < Nodes::Operand
 
           attr_reader :name, :parameter_name, :type, :size1, :size2, :read, :written,
-                      :undefined, :conditionally_written, :read_mask, :written_mask, :conditionally_written_mask,
-                      :undefined_mask, :register, :imm, :register_type, :accessed_mask, :register_size,
-                      :mem_size, :imm_size, :flags
+                      :undefined, :conditionally_written, :register, :imm, :register_type, :register_size,
+                      :mem_size, :imm_size, :read_flags, :written_flags
 
           IMM_OP_REGEXP = /^(imm|rel)(\d+)?$/
           MEM_OP_REGEXP = /^m(\d*)$/
           MOFFS_OP_REGEXP = /^moffs(\d+)$/
           VSIB_OP_REGEXP = /^vm(?:\d+)(x|y)(\d+)$/
-          REG_OP_REGEXP = /^(?<reg>xmm|ymm|zmm|mm)$|^(?<reg>r)(?<reg_size>8|16|32|64)$/
+          REG_OP_REGEXP = /^(?<reg>xmm|ymm|zmm|mm)(?<range>\[\d+\.\.\d+\])?$|^(?<reg>r)(?<reg_size>8|16|32|64)$/
           RM_OP_REGEXP = %r{^(?:(?<reg>xmm|ymm|zmm|mm)|(?<reg>r)(?<reg_size>8|16|32|64)?)/m(?<mem_size>\d+)$}
 
-          class << self
-            def load(unit, instruction, operands_spec)
-              operands = []
-              counters = Counters.new
-
-              operands_spec.each do |operand_name, operand_attrs|
-                next if Gen::X64::IGNORED_MXCSR.include? operand_name.to_sym
-                next if Gen::X64::IGNORED_RFLAGS.include? operand_name.to_sym
-
-                flags_operand_name, flag = flags_operand_name operand_name
-                flags = []
-
-                if flags_operand_name
-                  flags_operand = operands.find {|op| op.name == flags_operand_name }
-                  if flags_operand
-                    flags_operand.send(:add_flag, operand_name, operand_attrs) if flag
-                    next
-                  else
-                    flags << operand_name if flag
-                    operand_name = flags_operand_name
-                  end
-                end
-
-                operand = new(unit, operand_name, operand_attrs, counters)
-                operand.parent = instruction
-                operand.flags.concat flags
-                operands << operand
-              end
-
-              operands
-            end
-
-            private
-
-            def flags_operand_name(operand_name)
-              case operand_name.to_sym
-              when :RFLAGS, :FLAGS
-                ['RFLAGS', false]
-              when *Gen::X64::RFLAGS
-                ['RFLAGS', true]
-              when :MXCSR
-                ['MXCSR', false]
-              when *Gen::X64::MXCSR
-                ['MXCSR', true]
-              else
-                nil
-              end
-            end
-          end
-
-          def initialize(unit, operands, name, flags, access)
+          def initialize(unit, operands, name, flags, read_flags, written_flags)
             super(unit)
 
             self.parent = operands
 
             @name = name
-            @flags = []
-
-            @read_mask = []
-            @written_mask = []
-            @conditionally_written_mask = []
-            @undefined_mask = []
+            @read_flags = read_flags
+            @written_flags = written_flags
 
             @encoded = flags.include? :e
             @mnemonic = flags.include? :m
-
-            p [name, access]
-            access.each do |mask, spec|
-              @read_mask << mask if spec&.include? :r
-              @written_mask << mask if spec&.include? :w
-              @conditionally_written_mask << mask if spec&.include? :c
-              @undefined_mask << mask if spec&.include? :u
-            end
+            @read = flags.include? :r
+            @written = flags.include? :w
+            @conditionally_written = flags.include? :c
 
             if name == name.upcase
               initialize_implicit
@@ -102,6 +42,17 @@ module Evoasm
 
           def can_encode_register?
             type == :rm || type == :reg
+          end
+
+          def flags_type
+            case name
+            when 'RFLAGS' then
+              :rflags
+            when 'MXCSR' then
+              :mxcsr
+            else
+              nil
+            end
           end
 
           def encoded?
@@ -133,6 +84,14 @@ module Evoasm
             @mem_size
           end
 
+          def word_type1
+            @register_word_type || size_to_word_type(size1)
+          end
+
+          def word_type2
+            size_to_word_type(size2)
+          end
+
           def access
             access = []
             access << :r if read?
@@ -144,22 +103,23 @@ module Evoasm
 
           private
 
-          def add_flag(flag_name, flag_attrs)
-            @flags << flag_name
-            update_attrs flag_attrs
-          end
-
-          def update_attrs(attrs)
-            @written ||= attrs.include? 'w'
-            @read ||= attrs.include? 'r'
-            @conditionally_written ||= attrs.include? 'c'
-            @undefined ||= attrs.include? 'u'
-            @encoded ||= attrs.include? 'e'
-            @mnemonic ||= attrs.include? 'm'
-          end
-
-          def reg_size=(size)
-            @size1 = size
+          def size_to_word_type(size)
+            case size
+            when 8
+              :lb
+            when 16
+              :w
+            when 32
+              :dw
+            when 64
+              :lqw
+            when 128
+              :dqw
+            when 256, 512
+              :vw
+            else
+              raise "unknown operand size #{size}"
+            end
           end
 
           def initialize_explicit
@@ -206,7 +166,7 @@ module Evoasm
                   512
                 end
             else
-              raise "unexpected operand '#{name}'"
+              raise "unexpected operand '#{name}' (#{instruction.name})"
             end
 
             if type == :rm || type == :reg
@@ -296,7 +256,13 @@ module Evoasm
                   32
                 when 'AX', 'CX', 'DX', 'SP', 'BP', 'SI', 'DI'
                   16
-                when 'AL', 'AH', 'CL', 'SIL', 'DIL'
+                when 'CL', 'SIL', 'DIL'
+                  8
+                when 'AL'
+                  @register_word_type = :lb
+                  8
+                when 'AH'
+                  @register_word_type = :hb
                   8
                 else
                   raise ArgumentError, "unexpected register '#{reg_name}'"

@@ -48,6 +48,10 @@ module Evoasm
         symbol_to_ruby_ffi name, prefix, const: true
       end
 
+      def word_type_to_c(word_type)
+        constant_name_to_c word_type, architecture_prefix(:word_type)
+      end
+
       def symbol_to_ruby_ffi(name, prefix = nil, const: false, type: false)
         ruby_ffi_name = name.to_s.downcase
         ruby_ffi_name =
@@ -230,15 +234,15 @@ module Evoasm
         Math.log2(max_parameters_per_instructions + 1).ceil.to_i
       end
 
-      def flags_to_c(flags, name)
+      def flags_to_c(flags, flags_type)
         enum =
-          case name
-          when 'RFLAGS'
+          case flags_type
+          when :rflags
             rflags_flags
-          when 'MXCSR'
+          when :mxcsr
             mxcsr_flags
           else
-            raise "unknown flags operand #{name}"
+            raise "unknown flags operand #{flags_type}"
           end
 
         flags.map do |flag|
@@ -246,14 +250,14 @@ module Evoasm
         end.join('|')
       end
 
-      def access_mask_to_c(mask)
+      def word_size_to_c(mask)
         case mask
         when Range
-          access_masks.symbol_to_c "#{mask.min}_#{mask.max}"
+          word_sizes.symbol_to_c "#{mask.min}_#{mask.max}"
         when nil
-          access_masks.all_symbol_to_c
+          word_sizes.all_symbol_to_c
         else
-          access_masks.symbol_to_c mask.to_s
+          word_sizes.symbol_to_c mask.to_s
         end
       end
 

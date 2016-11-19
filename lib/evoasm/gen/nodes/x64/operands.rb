@@ -1,4 +1,5 @@
 require 'evoasm/gen/nodes'
+require 'evoasm/gen/core_ext/array'
 
 module Evoasm
   module Gen
@@ -14,8 +15,9 @@ module Evoasm
 
             @imm_counter = 0
             @reg_counter = 0
-            @operands = filter_operands(parse_operands_spec(operands_spec)).map do |name, flags, access|
-              Operand.new unit, self, name, flags, access
+            @operands = filter_operands(parse_operands_spec(operands_spec))
+                          .map do |operand_name, operand_flags, read_flags, written_flags|
+              Operand.new unit, self, operand_name, operand_flags, read_flags, written_flags
             end
           end
 
@@ -54,20 +56,36 @@ module Evoasm
           private
 
           def default_range(mode, operand_name)
+            read = mode == :r
+            vex = instruction.encodes_vex?
+
             case operand_name
-            when 'xmm', 'xmm/m128', 'XMM0', 'xmm/m16'
-              if instruction.encodes_vex?
-                (0..256)
+            when 'xmm',  'XMM0'
+              if vex
+                (0..:vlmax)
               else
                 (0..127)
               end
+            when 'xmm/m64'
+              if vex
+                (0..:vlmax)
+              else
+                (0..63)
+              end
+            when 'xmm/m128'
+            when 'xmm/m16'
+
             when 'ymm', 'ymm/m256'
               (0..256)
-            when 'EAX', 'RAX', 'r/m32', 'r/m64', 'r32',
-                 'r64', 'xmm/m64', 'xmm/m32', 'ESI', 'EDI', 'RSI',
-                 'RDI', 'EDX', 'ECX', 'EBX', 'RDX', 'RCX', 'RBX', 'mm',
-                 'mm/m64', 'RSP', 'RBP', 'r32/m8', 'r32/m16'
+            when 'RAX', 'r/m64',
+                 'r64', 'RSI',
+                 'RDI',  'RDX', 'RCX', 'RBX', 'mm',
+                 'mm/m64', 'RSP', 'RBP'
               (0..64)
+            when 'EAX', 'ESI', 'EDI','EDX', 'ECX', 'EBX',
+                  'r/m32', 'r32', 'xmm/m32', 'r32/m8', 'r32/m16'
+
+
             when 'AL', 'SIL', 'DIL'
               (0..7)
             when 'AH'
@@ -92,16 +110,9 @@ module Evoasm
           def parse_operands_spec(operands_spec)
             operands_spec.split('; ').map do |op|
               op =~ /(.*?):(.*)/ || raise
-              name = $1
-
-              flags = %i(m e).select { |flag| $2.include? flag.to_s }
-              access = $2.scan(/(r|w|c)(?:\[(\d+)\.\.(\d+)\])?/).map do |mode, range_min, range_max|
-                mode = mode.to_sym
-                range = range_min && Range.new(range_min, range_max)
-                [mode, range || default_range(mode, name)]
-              end.to_h
-
-              [name, flags, access]
+              operand_name = $1
+              operand_flags = $2.each_char.map(&:to_sym)
+              [operand_name, operand_flags]
             end
           end
 
@@ -118,11 +129,18 @@ module Evoasm
             end
 
             unless rflags.empty?
-              operands << [
-                'RFLAGS',
-                [],
-                rflags.map { |name, _, access| [name.to_sym, access.keys.uniq] }.to_h
-              ]
+              written_flags = rflags.select do |_, operand_flags|
+                operand_flags.include? :w
+              end.map(&:first)
+
+              read_flags = rflags.select do |_, operand_flags|;
+                # NOTE: handling undefined as written
+                operand_flags.include?(:w) || operand_flags.include?(:u)
+              end.map(&:first)
+
+              operand_flags = rflags.map(&:second).flatten.uniq.sort
+
+              operands << ['RFLAGS', operand_flags, read_flags, written_flags]
             end
 
             operands
