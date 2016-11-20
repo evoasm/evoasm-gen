@@ -177,7 +177,6 @@ module Evoasm
           ALLOWED_REG_SIZES = [8, 16, 32, 64].freeze
 
           def initialize_reg(reg, reg_size, word_size = nil)
-            @word = size_to_word(word_size) if word_size
             @register_type, @register_size =
               case reg
               when 'r'
@@ -194,6 +193,7 @@ module Evoasm
               else
                 raise "unexpected reg type '#{reg}/#{reg_size}'"
               end
+            @word = size_to_word(word_size || @register_size)
           end
 
           def initialize_implicit
@@ -260,14 +260,17 @@ module Evoasm
                 when 'CL', 'SIL', 'DIL'
                   8
                 when 'AL'
-                  @register_operand_word = :lb
+                  @word = :lb
                   8
                 when 'AH'
-                  @register_operand_word = :hb
+                  @word = :hb
                   8
                 else
                   raise ArgumentError, "unexpected register '#{reg_name}'"
                 end
+
+              @word ||= size_to_word @register_size
+
             end
 
             @implicit = true

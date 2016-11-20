@@ -12,8 +12,8 @@ module Evoasm
             unit.constant_name_to_c size, unit.architecture_prefix(:operand_size)
           end
 
-          def operand_word_to_c(operand_word)
-            unit.constant_name_to_c operand_word, unit.architecture_prefix(:operand_word)
+          def register_word_to_c(register_word)
+            unit.constant_name_to_c register_word, unit.architecture_prefix(:reg_word)
           end
 
           def to_c(io)
@@ -57,8 +57,8 @@ module Evoasm
           end
 
           def word_to_c(type)
-            return 'EVOASM_X64_WORD_SIZE_NONE' if word.nil?
-            operand_word_to_c type
+            return 'EVOASM_X64_REG_WORD_NONE' if word.nil?
+            register_word_to_c type
           end
 
           def parameter_index

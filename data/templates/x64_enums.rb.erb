@@ -17,7 +17,6 @@ module Evoasm
 <%= unit.mxcsr_flags.to_ruby_ffi %>
 
     enum :x64_operand_size, [
-      :'1',
       :'8',
       :'16',
       :'32',
@@ -27,5 +26,18 @@ module Evoasm
       :'512',
       :none
     ]
+
+    enum :x64_reg_word, [
+      :lb,
+      :hb,
+      :w,
+      :dw,
+      :lqw,
+      :hqw,
+      :dqw,
+      :vw,
+      :none,
+    ]
+
   end
 end

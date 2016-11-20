@@ -142,12 +142,12 @@ VEX.NDD.LZ.0F38.W0 F3 /2,BLSMSK,VM,r32:mew; r/m32:mer; SF:w; CF:w; ZF:w; OF:w; A
 VEX.NDD.LZ.0F38.W1 F3 /2,BLSMSK,VM,r64:mew; r/m64:mer; SF:w; CF:w; ZF:w; OF:w; AF:u; PF:u,pref67:operand/1,BMI1,UDX; SSX; GP; PF; AC
 VEX.NDD.LZ.0F38.W0 F3 /1,BLSR,VM,r32:mew; r/m32:mer; ZF:w; SF:w; CF:w; OF:w; AF:u; PF:u,pref67:operand/1,BMI1,UDX; SSX; GP; PF; AC
 VEX.NDD.LZ.0F38.W1 F3 /1,BLSR,VM,r64:mew; r/m64:mer; ZF:w; SF:w; CF:w; OF:w; AF:u; PF:u,pref67:operand/1,BMI1,UDX; SSX; GP; PF; AC
-0F BC /r,BSF,RM,r16:mew; r/m16:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,pref66:required/1; pref67:operand/1,,SS; GP; PF; AC
-0F BC /r,BSF,RM,r32:mew; r/m32:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,rex_w:optional/0; pref67:operand/1,,SS; GP; PF; AC
-0F BC /r,BSF,RM,r64:mew; r/m64:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,rex_w:required/1; pref67:operand/1,,SS; GP; PF; AC
-0F BD /r,BSR,RM,r16:mew; r/m16:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,pref66:required/1; pref67:operand/1,,SS; GP; PF; AC
-0F BD /r,BSR,RM,r32:mew; r/m32:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,rex_w:optional/0; pref67:operand/1,,SS; GP; PF; AC
-0F BD /r,BSR,RM,r64:mew; r/m64:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,rex_w:required/1; pref67:operand/1,,SS; GP; PF; AC
+0F BC /r,BSF,RM,r16:mecw; r/m16:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,pref66:required/1; pref67:operand/1,,SS; GP; PF; AC
+0F BC /r,BSF,RM,r32:mecw; r/m32:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,rex_w:optional/0; pref67:operand/1,,SS; GP; PF; AC
+0F BC /r,BSF,RM,r64:mecw; r/m64:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,rex_w:required/1; pref67:operand/1,,SS; GP; PF; AC
+0F BD /r,BSR,RM,r16:mecw; r/m16:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,pref66:required/1; pref67:operand/1,,SS; GP; PF; AC
+0F BD /r,BSR,RM,r32:mecw; r/m32:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,rex_w:optional/0; pref67:operand/1,,SS; GP; PF; AC
+0F BD /r,BSR,RM,r64:mecw; r/m64:mer; ZF:w; CF:u; OF:u; SF:u; AF:u; PF:u,rex_w:required/1; pref67:operand/1,,SS; GP; PF; AC
 0F C8+rd,BSWAP,O,r32:merw,,,
 0F C8+rd,BSWAP,O,r64:merw,rex_w:required/1,,
 0F A3 /r,BT,MR,r/m16:mer; r16:mer; CF:w; OF:u; SF:u; AF:u; PF:u; ZF:u,pref66:required/1; pref67:operand/1,,SS; GP; PF; AC
