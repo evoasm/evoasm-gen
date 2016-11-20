@@ -55,58 +55,6 @@ module Evoasm
 
           private
 
-          def default_range(mode, operand_name)
-            read = mode == :r
-            vex = instruction.encodes_vex?
-
-            case operand_name
-            when 'xmm',  'XMM0'
-              if vex
-                (0..:vlmax)
-              else
-                (0..127)
-              end
-            when 'xmm/m64'
-              if vex
-                (0..:vlmax)
-              else
-                (0..63)
-              end
-            when 'xmm/m128'
-            when 'xmm/m16'
-
-            when 'ymm', 'ymm/m256'
-              (0..256)
-            when 'RAX', 'r/m64',
-                 'r64', 'RSI',
-                 'RDI',  'RDX', 'RCX', 'RBX', 'mm',
-                 'mm/m64', 'RSP', 'RBP'
-              (0..64)
-            when 'EAX', 'ESI', 'EDI','EDX', 'ECX', 'EBX',
-                  'r/m32', 'r32', 'xmm/m32', 'r32/m8', 'r32/m16'
-
-
-            when 'AL', 'SIL', 'DIL'
-              (0..7)
-            when 'AH'
-              (8..15)
-            when 'AX', 'r/m8', 'r8', 'r/m16', 'r16', 'SI', 'DI',
-                 'DX', 'SP', 'BP'
-              # r/m8 can either be high or low byte
-              (0..15)
-            when 'imm8', 'imm16', 'imm32', 'OF', 'SF', 'ZF',
-                 'AF', 'CF', 'PF', 'PE', 'UE', 'OE', 'DE', 'IE',
-                 'rel32', 'RIP', 'DF', 'm8', '[SIL]', '[DIL]', '[SI]',
-                 '[DI]', '[ESI]', '[EDI]', '[RSI]', '[RDI]', 'm64', 'm128',
-                 'ZE', 'rel8', 'm256', 'm32', 'MM', 'FZ', 'RC', 'PM', 'UM', 'OM',
-                 'ZM', 'DM', 'IM', 'DAZ', 'm16', 'IF', 'moffs8', 'moffs16', 'moffs32',
-                 'moffs64', 'imm64'
-              nil
-            else
-              raise "unknown operand #{operand_name}"
-            end
-          end
-
           def parse_operands_spec(operands_spec)
             operands_spec.split('; ').map do |op|
               op =~ /(.*?):(.*)/ || raise

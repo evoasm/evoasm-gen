@@ -122,7 +122,7 @@ module Evoasm
               when 64
                 type_domain :int64
               else
-                raise "unexpected imm size '#{imm_op.size}'"
+                raise "unexpected imm size '#{imm_op.size}' for #{imm_op.name} #{imm_op.class}"
               end
             when :disp
               type_domain :int32
@@ -146,8 +146,8 @@ module Evoasm
           end
 
           def build_name(index = nil)
-            ops_str = operands.select(&:mnemonic?).map do |op|
-              op.name.gsub('/m', 'm').downcase
+            ops_str = operands.select(&:mnemonic?).map do |operand|
+              operand.name.gsub('/m', 'm').gsub(/\[.*?\]/, '').downcase
             end.join('_')
 
             name = @mnemonic.split('/').first.downcase

@@ -7,7 +7,7 @@ module Evoasm
       module X64
         class Operand < Nodes::Operand
 
-          attr_reader :name, :parameter_name, :type, :size1, :size2, :read, :written,
+          attr_reader :name, :parameter_name, :type, :size, :word, :read, :written,
                       :undefined, :conditionally_written, :register, :imm, :register_type, :register_size,
                       :mem_size, :imm_size, :read_flags, :written_flags
 
@@ -15,10 +15,11 @@ module Evoasm
           MEM_OP_REGEXP = /^m(\d*)$/
           MOFFS_OP_REGEXP = /^moffs(\d+)$/
           VSIB_OP_REGEXP = /^vm(?:\d+)(x|y)(\d+)$/
-          REG_OP_REGEXP = /^(?<reg>xmm|ymm|zmm|mm)(?<range>\[\d+\.\.\d+\])?$|^(?<reg>r)(?<reg_size>8|16|32|64)$/
+          REG_OP_REGEXP = /^(?<reg>xmm|ymm|zmm|mm)(?:\[(?<range_min>\d+)\.\.(?<range_max>\d+)\])?$|^(?<reg>r)(?<reg_size>8|16|32|64)$/
           RM_OP_REGEXP = %r{^(?:(?<reg>xmm|ymm|zmm|mm)|(?<reg>r)(?<reg_size>8|16|32|64)?)/m(?<mem_size>\d+)$}
 
           def initialize(unit, operands, name, flags, read_flags, written_flags)
+
             super(unit)
 
             self.parent = operands
@@ -73,23 +74,15 @@ module Evoasm
           alias undefined? undefined
 
           def size
-            @register_size || @imm_size || @mem_size
-          end
-
-          def size1
             @register_size || @imm_size || @index_register_size
           end
 
-          def size2
-            @mem_size
+          def word
+            @word
           end
 
-          def word_type1
-            @register_word_type || size_to_word_type(size1)
-          end
-
-          def word_type2
-            size_to_word_type(size2)
+          def flags?
+            @read_flags&.any? && @written_flags&.any?
           end
 
           def access
@@ -103,16 +96,18 @@ module Evoasm
 
           private
 
-          def size_to_word_type(size)
+          def size_to_word(size)
             case size
             when 8
               :lb
             when 16
               :w
-            when 32
+            when 32, [0, 31]
               :dw
-            when 64
+            when 64, [0, 63]
               :lqw
+            when [64, 127]
+              :hqw
             when 128
               :dqw
             when 256, 512
@@ -145,17 +140,22 @@ module Evoasm
               initialize_reg $~[:reg], reg_size, mem_size
             when REG_OP_REGEXP
               @type = :reg
-              initialize_reg $~[:reg], $~[:reg_size].to_i
+              word_size =
+                if $~[:range_min]
+                  [$~[:range_min].to_i, $~[:range_max].to_i]
+                end
+              initialize_reg $~[:reg], $~[:reg_size].to_i, word_size
             when MEM_OP_REGEXP
               @type = :mem
-              @mem_size = $1.empty? ? nil : $1.to_i
+              @word = size_to_word($1.empty? ? nil : $1.to_i)
             when MOFFS_OP_REGEXP
               @type = :mem
-              @mem_size = Integer($1)
+              @imm_size = Integer($1)
+              @word = size_to_word(@imm_size)
               @parameter_name = :moffs
             when VSIB_OP_REGEXP
               @type = :vsib
-              @mem_size = $2.to_i
+              @word = size_to_word($2.to_i)
               @index_register_size =
                 case $1
                 when 'x'
@@ -176,20 +176,21 @@ module Evoasm
 
           ALLOWED_REG_SIZES = [8, 16, 32, 64].freeze
 
-          def initialize_reg(reg, reg_size, mem_size = nil)
-            @register_type, @register_size, @mem_size =
+          def initialize_reg(reg, reg_size, word_size = nil)
+            @word = size_to_word(word_size) if word_size
+            @register_type, @register_size =
               case reg
               when 'r'
                 raise "invalid reg size #{reg_size}" unless ALLOWED_REG_SIZES.include?(reg_size)
-                [:gp, reg_size, mem_size]
+                [:gp, reg_size]
               when 'xmm'
-                [:xmm, 128, mem_size]
+                [:xmm, 128]
               when 'ymm'
-                [:xmm, 256, mem_size]
+                [:xmm, 256]
               when 'zmm'
-                [:zmm, 512, mem_size]
+                [:zmm, 512]
               when 'mm'
-                [:mm, 64, mem_size]
+                [:mm, 64]
               else
                 raise "unexpected reg type '#{reg}/#{reg_size}'"
               end
@@ -259,10 +260,10 @@ module Evoasm
                 when 'CL', 'SIL', 'DIL'
                   8
                 when 'AL'
-                  @register_word_type = :lb
+                  @register_operand_word = :lb
                   8
                 when 'AH'
-                  @register_word_type = :hb
+                  @register_operand_word = :hb
                   8
                 else
                   raise ArgumentError, "unexpected register '#{reg_name}'"

@@ -48,10 +48,6 @@ module Evoasm
         symbol_to_ruby_ffi name, prefix, const: true
       end
 
-      def word_type_to_c(word_type)
-        constant_name_to_c word_type, architecture_prefix(:word_type)
-      end
-
       def symbol_to_ruby_ffi(name, prefix = nil, const: false, type: false)
         ruby_ffi_name = name.to_s.downcase
         ruby_ffi_name =

@@ -18,7 +18,7 @@ module Evoasm
                 io.write ".#{field_name} = #{field_value},"
               end
             end
-            io.to_s
+            io.string
           end
 
           def []=(field_name, value)

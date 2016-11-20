@@ -12,6 +12,10 @@ module Evoasm
             unit.constant_name_to_c size, unit.architecture_prefix(:operand_size)
           end
 
+          def operand_word_to_c(operand_word)
+            unit.constant_name_to_c operand_word, unit.architecture_prefix(:operand_word)
+          end
+
           def to_c(io)
             initializer = ToC::StructInitializer.new
 
@@ -27,19 +31,20 @@ module Evoasm
 
             initializer[:param_idx] = parameter_index
             initializer[:type] = operand_type_to_c(type)
-            initializer[:word_type] = unit.word_type_to_c word_type
-            initializer[:size] = unit.size_to_c size
+            initializer[:word] = word_to_c word
+            initializer[:size] = size_to_c size
             initializer[:reg_type] = register_type_to_c
 
-            if read_flags&.any?
-              initializer[:read_flags] = unit.flags_to_c(read_flags, flags_type)
+            if flags?
+              if read_flags&.any?
+                initializer[:read_flags] = unit.flags_to_c(read_flags, flags_type)
+              end
+              if written_flags&.any?
+                initializer[:written_flags] = unit.flags_to_c(written_flags, flags_type)
+              end
+            else
+              implicit_imm_or_reg_to_c initializer
             end
-
-            if written_flags&.any?
-              initializer[:written_flags] = unit.flags_to_c(written_flags, flags_type)
-            end
-
-            implicit_imm_or_reg_to_c initializer
 
             io.puts initializer.to_s
           end
@@ -51,9 +56,9 @@ module Evoasm
             operand_size_to_c(size)
           end
 
-          def word_type_to_c(type)
-            return 'EVOASM_X64_WORD_SIZE_NONE' if word_type.nil?
-            unit.word_type_to_c type
+          def word_to_c(type)
+            return 'EVOASM_X64_WORD_SIZE_NONE' if word.nil?
+            operand_word_to_c type
           end
 
           def parameter_index
@@ -96,10 +101,10 @@ module Evoasm
                 if imm
                   imm
                 else
-                  255
+                  '-128'
                 end
             else
-              initializer[:unused] = 255
+              initializer[:unused] = '255u'
             end
           end
         end
