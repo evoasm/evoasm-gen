@@ -295,7 +295,7 @@ module Evoasm
       end
 
       def_to_c ErrorCode do
-        unit.constant_name_to_c name, 'error_code'
+        unit.constant_name_to_c name, "arch_error_code"
       end
 
       def_to_c SharedVariable do

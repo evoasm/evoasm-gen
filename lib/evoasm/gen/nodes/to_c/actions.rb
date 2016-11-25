@@ -45,7 +45,7 @@ module Evoasm
         io.puts "  .param = #{parameter_c},"
         io.puts '};'
 
-        io.puts %Q{evoasm_error(EVOASM_ERROR_TYPE_ENC, #{code.to_c}, &error_data, #{message.to_c});}
+        io.puts %Q{evoasm_error2(EVOASM_ERROR_TYPE_ARCH, #{code.to_c}, &error_data, #{message.to_c});}
         io.puts 'retval = false;'
       end
 
