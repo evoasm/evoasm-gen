@@ -10,8 +10,8 @@ Gem::Specification.new do |spec|
   spec.email         = ["furunkel@polyadic.com"]
 
   spec.summary       = %q{An AIMGP (Automatic Induction of Machine code by Genetic Programming) engine}
-  spec.homepage      = "https://github.com/furunkel/evoasm-gen"
-  spec.licenses      = ['AGPL-3.0']
+  spec.homepage      = "https://github.com/evoasm/evoasm-gen"
+  spec.license       = 'AGPL-3.0'
 
   spec.files         = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features)/}) }
   spec.bindir        = "exe"
