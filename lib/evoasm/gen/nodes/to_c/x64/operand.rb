@@ -22,7 +22,7 @@ module Evoasm
             {
               read?: 'read',
               written?: 'written',
-              conditionally_written?: 'cond_written',
+              maybe_written?: 'maybe_written',
               implicit?: 'implicit',
               mnemonic?: 'mnem'
             }.each do |attr, field_name|

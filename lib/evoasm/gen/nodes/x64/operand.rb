@@ -8,7 +8,7 @@ module Evoasm
         class Operand < Nodes::Operand
 
           attr_reader :name, :parameter_name, :type, :size, :word, :read, :written,
-                      :undefined, :conditionally_written, :register, :imm, :register_type, :register_size,
+                      :undefined, :maybe_written, :register, :imm, :register_type, :register_size,
                       :mem_size, :imm_size, :read_flags, :written_flags
 
           IMM_OP_REGEXP = /^(imm|rel)(\d+)?$/
@@ -31,8 +31,8 @@ module Evoasm
             @encoded = flags.include? :e
             @mnemonic = flags.include? :m
             @read = flags.include? :r
-            @written = flags.include? :w
-            @conditionally_written = flags.include? :c
+            @written = flags.include?(:w) || flags.include?(:w?)
+            @maybe_written = flags.include? :w?
 
             if name == name.upcase
               initialize_implicit
@@ -70,7 +70,7 @@ module Evoasm
 
           alias read? read
           alias written? written
-          alias conditionally_written? conditionally_written
+          alias maybe_written? maybe_written
           alias undefined? undefined
 
           def size
@@ -83,15 +83,6 @@ module Evoasm
 
           def flags?
             @read_flags&.any? && @written_flags&.any?
-          end
-
-          def access
-            access = []
-            access << :r if read?
-            access << :w if written?
-            access << :c if conditionally_written?
-
-            access
           end
 
           private

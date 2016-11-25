@@ -8,7 +8,7 @@ module Evoasm
       Action = def_node Node
       WriteAction = def_node Action, :values, :sizes
       LogAction = def_node Action, :level, :msg, :args
-      AccessAction = def_node Action, :register, :modes
+      AccessAction = def_node Action, :operand
       CallAction = def_node Action, :state_machine
       SetAction = def_node Action, :variable, :value
       UnorderedWritesAction = def_node Action, :parameter, :unordered_writes

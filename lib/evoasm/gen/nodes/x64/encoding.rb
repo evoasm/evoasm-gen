@@ -265,8 +265,7 @@ module Evoasm
 
         class ModRMSIB < StateMachine
           node_attrs :reg_param, :rm_reg_param, :rm_type,
-                     :modrm_reg_bits, :rm_reg_access,
-                     :reg_access, :byte_regs?, :basic?
+                     :modrm_reg_bits, :byte_regs?, :basic?
 
           include StateDSL
           include EncodeUtil
@@ -502,8 +501,6 @@ module Evoasm
           end
 
           static_state def direct
-            access rm_reg_param, rm_reg_access if rm_reg_param
-
             raise "mem operand for direct encoding" if rm_type == :mem
 
             write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param, byte_regs: byte_regs? do
@@ -523,8 +520,6 @@ module Evoasm
           static_state def root_state
             comment 'ModRM'
             log :trace, 'ModRM'
-
-            access reg_param, reg_access if reg_param
 
             if direct_only? || basic?
               to direct

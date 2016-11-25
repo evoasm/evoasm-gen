@@ -145,7 +145,6 @@ module Evoasm
 
             set_reg_bits(:_reg_code, :reg0, reg_op.size == 8) do
               write [:add, byte, [:mod, :_reg_code, 8]], 8
-              access :reg0, reg_op.access
               block[opcode_index]
             end
           end
@@ -176,13 +175,6 @@ module Evoasm
                 raise "unexpected modrm reg specifier '#{$1}'"
               end
 
-            # Currently ignored, set to nil
-            # to reduce number of different generated function
-            #rm_reg_access = rm_op&.access
-            #reg_access = reg_op&.access
-            rm_reg_access = nil
-            reg_access = nil
-
             rm_type = rm_op.type
             byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
@@ -191,8 +183,6 @@ module Evoasm
                                   rm_reg_param: rm_reg_param,
                                   rm_type: rm_type,
                                   modrm_reg_bits: modrm_reg_bits,
-                                  rm_reg_access: rm_reg_access,
-                                  reg_access: reg_access,
                                   byte_regs?: byte_regs,
                                   basic?: basic?
 
@@ -248,8 +238,6 @@ module Evoasm
               end
 
             reg_op, rm_op, vex_op = instruction.register_operands
-
-            access(vex_op.parameter_name, vex_op.access) if vex_op
 
             vex_v =
               case instruction.encoding
@@ -370,19 +358,9 @@ module Evoasm
             block[opcode_index] if block
           end
 
-          def access_implicit_operands
-            instruction.operands.each do |operand|
-              if operand.implicit? && operand.type == :reg
-                access operand.register, operand.access
-              end
-            end
-          end
-
           static_state def root_state
             comment instruction.mnemonic
             log :debug, instruction.name
-
-            access_implicit_operands
 
             encode_prefixes do
               encode_rex_or_vex(0) do |opcode_index|

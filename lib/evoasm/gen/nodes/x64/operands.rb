@@ -59,7 +59,7 @@ module Evoasm
             operands_spec.split('; ').map do |op|
               op =~ /(.*?):(.*)/ || raise
               operand_name = $1
-              operand_flags = $2.each_char.map(&:to_sym)
+              operand_flags = $2.scan(/[a-z]\??/).map(&:to_sym)
               [operand_name, operand_flags]
             end
           end

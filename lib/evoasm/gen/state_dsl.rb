@@ -89,10 +89,6 @@ module Evoasm
         add_new_action :call, func
       end
 
-      def access(op, modes)
-        add_new_action :access, op, modes
-      end
-
       def recover_with(param, range = nil, **opts)
         @__state__.recovery << [param, range, opts]
       end

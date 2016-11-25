@@ -63,42 +63,6 @@ module Evoasm
         io.puts %[evoasm_log_#{level}("#{msg_c}" #{args_c});]
       end
 
-      class AccessAction
-        def access_call_to_c(name, op, acc = 'acc', params = [], eol: false)
-          unit.c_function_call("#{name}_access",
-                               [
-                                 "(#{unit.c_bitmap_type_name} *) &#{acc}",
-                                 "(#{regs.c_type_name}) #{expr_to_c(op)}",
-                                 *params
-                               ],
-                               base_enc_ctx_prefix,
-                               eol: eol)
-        end
-
-        def translate_write_access(io)
-          io.puts access_call_to_c('write', :w, eol: true)
-        end
-
-        def undefined_access_to_c(io)
-          io.puts access_call_to_c('undefined', :u, eol: true)
-        end
-
-        def to_c(io)
-          #modes.each do |mode|
-          #  case mode
-          #  when :r
-          #    translate_read_access io
-          #  when :w
-          #    translate_write_access io
-          #  when :u
-          #    translate_undefined_access io
-          #  else
-          #    fail "unexpected access mode '#{mode.inspect}'"
-          #  end
-          #end
-        end
-      end
-
       def_to_c UnorderedWritesAction do |io|
         unordered_writes.call_to_c io, parameter
       end
