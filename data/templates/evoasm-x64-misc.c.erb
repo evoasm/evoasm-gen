@@ -18,6 +18,7 @@
  */
 
 #include "evoasm-x64.h"
+#include "evoasm-log.h"
 
 static const char *_evoasm_log_tag = "x64";
 
@@ -72,9 +73,9 @@ evoasm_x64_get_features(uint64_t *features_) {
         <% io.indent absolute: 1 do %>
           <% io.puts "if(vals[#{index0}][#{index1}] & (1ull << #{bit_index})) {" %>
           <% io.puts "  features |= (1ull << #{unit.feature_name_to_c flag});" %>
-          <% io.puts %{  evoasm_log_info("Found support for #{flag.upcase}");} %>
+          <% io.puts %{  evoasm_log_info("Found support for " EVOASM_ANSI_CODE_GREEN "#{flag.upcase}" EVOASM_ANSI_CODE_RESET);} %>
           <% io.puts "} else {" %>
-          <% io.puts %{  evoasm_log_info("Missing support for #{flag.upcase}");} %>
+          <% io.puts %{  evoasm_log_info("Missing support for " EVOASM_ANSI_CODE_RED " #{flag.upcase}" EVOASM_ANSI_CODE_RESET);} %>
           <% io.puts "}" %>
         <% end %>
       <% end %>
