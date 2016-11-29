@@ -16,10 +16,10 @@ module Evoasm
             io.puts
           end
 
-          %i(set get unset).each do |type|
-            CParametersAccessorFunction.new(unit, type, basic: false, stub: !header).output io
+          %i(set get unset type).each do |type|
+            CParametersFunction.new(unit, type, basic: false, stub: !header).output io
             io.puts
-            CParametersAccessorFunction.new(unit, type, basic: true, stub: !header).output io
+            CParametersFunction.new(unit, type, basic: true, stub: !header).output io
           end
 
           io.string
@@ -64,14 +64,14 @@ module Evoasm
             when :addr_size
               @unit.address_sizes.bitsize
             when :scale
-              2
+              @unit.scales.bitsize
             when :modrm_reg
               3
             when :vex_v
               4
             when :reg_base, :reg_index, :reg0, :reg1, :reg2, :reg3, :reg4
               @unit.register_ids.bitsize
-            when :imm0,:moffs, :rel
+            when :imm0, :moffs, :rel
               basic ? 32 : 64
             when :imm1
               # Only used for enter
@@ -84,7 +84,39 @@ module Evoasm
               raise "missing C type for param #{parameter_name}"
             end
           end
+
+          def parameter_type(parameter_name, basic)
+            case parameter_name
+            when :rex_b, :rex_r, :rex_x, :rex_w,
+              :vex_l, :force_rex?, :lock?, :force_sib?,
+              :force_disp32?, :force_long_vex?, :reg0_high_byte?,
+              :reg1_high_byte?
+              :bool
+            when :addr_size
+              :addr_size
+            when :scale
+              :scale
+            when :modrm_reg
+              :int3
+            when :vex_v
+              :int4
+            when :reg_base, :reg_index, :reg0, :reg1, :reg2, :reg3, :reg4
+              :reg
+            when :imm0, :moffs, :rel
+              basic ? :int32 : :int64
+            when :imm1
+              # Only used for enter
+              :int8
+            when :disp
+              :int32
+            when :legacy_prefix_order
+              :int3
+            else
+              raise "missing C type for param #{parameter_name}"
+            end
+          end
         end
+
 
         class CParametersTypeDeclaration
           include CParametersTypeUtils
@@ -122,7 +154,7 @@ module Evoasm
               fields.sort_by do |name, bitsize|
                 [bitsize, name]
               end.group_by do |name, _|
-                (@basic ? BASIC_UNIONS : UNIONS).index {|union| union.include? name} || name
+                (@basic ? BASIC_UNIONS : UNIONS).index { |union| union.include? name } || name
               end.each_value do |union|
                 if union.size > 1
                   io.puts 'evoasm_packed(union {'
@@ -150,7 +182,7 @@ module Evoasm
           end
         end
 
-        class CParametersAccessorFunction
+        class CParametersFunction
           include CParametersTypeUtils
 
           def initialize(unit, type, basic:, stub:)
@@ -173,8 +205,8 @@ module Evoasm
           def output_stub(io)
             io.block prototype do
               io.write '  '
-              io.write 'return ' if @type == :get
-              io.write name(false)
+              io.write 'return ' if @type == :get || @type == :type
+              io.write function_name(false)
               io.write '('
               io.write function_parameter_names.join ', '
               io.puts ');'
@@ -197,10 +229,15 @@ module Evoasm
           end
 
           def return_type
-            if @type == :get
+            case @type
+            when :get
               'int64_t'
-            else
+            when :set, :unset
               'void'
+            when :type
+              'evoasm_x64_param_type_t'
+            else
+              raise
             end
           end
 
@@ -227,18 +264,28 @@ module Evoasm
               %w(params param param_val)
             when :get, :unset
               %w(params param)
+            when :type
+              %w(param)
             else
               raise
             end
           end
 
-          def name(stub = @stub)
-            name = 'evoasm_x64'
-            name << '_basic' if @basic
-            name << "_params_#{@type}"
-            name << '_' unless stub
+          def name
+            if @type == :type
+              'get_type'
+            else
+              @type.to_s
+            end
+          end
 
-            name
+          def function_name(stub = @stub)
+            function_name = 'evoasm_x64'
+            function_name << '_basic' if @basic
+            function_name << "_params_#{name}"
+            function_name << '_' unless stub
+
+            function_name
           end
 
           def parameter_list
@@ -252,7 +299,7 @@ module Evoasm
           end
 
           def prototype(stub = @stub)
-            "#{function_modifiers}#{return_type} #{name stub}(#{parameter_list})"
+            "#{function_modifiers}#{return_type} #{function_name stub}(#{parameter_list})"
           end
 
           def switch_case(io, parameter_name)
@@ -278,6 +325,8 @@ module Evoasm
                 io.puts "  params->#{field_name}_set = false;"
               end
               io.puts '  break;'
+            when :type
+              io.puts "  return #{@unit.parameter_types.symbol_to_c parameter_type(parameter_name, @basic)};"
             end
           end
         end

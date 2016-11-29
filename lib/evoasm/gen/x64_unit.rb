@@ -7,6 +7,7 @@ module Evoasm
       include Nodes
 
       STATIC_PARAMETERS = %i(reg0 reg1 reg2 reg3).freeze
+      PARAMETER_TYPES = %i(bool int3 int4 int8 int32 int64 reg addr_size scale)
 
       attr_reader :word_sizes
       attr_reader :exceptions
@@ -20,6 +21,7 @@ module Evoasm
       attr_reader :scales
       attr_reader :rflags_flags
       attr_reader :mxcsr_flags
+      attr_reader :parameter_types
 
       def parameter_ids(basic: false)
         if basic
@@ -55,6 +57,7 @@ module Evoasm
         @instruction_ids = Enumeration.new self, :inst_id, prefix: architecture
         @rflags_flags = Enumeration.new self, :rflags_flag, X64::RFLAGS, prefix: architecture
         @mxcsr_flags = Enumeration.new self, :mxcsr_flag, X64::MXCSR, prefix: architecture
+        @parameter_types = Enumeration.new self, :param_type, PARAMETER_TYPES, prefix: architecture
 
         @undefinedable_parameters = {}
         @basic_undefinedable_parameters = {}

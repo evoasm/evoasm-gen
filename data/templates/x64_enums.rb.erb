@@ -15,6 +15,7 @@ module Evoasm
 <%= unit.instruction_ids.to_ruby_ffi %>
 <%= unit.rflags_flags.to_ruby_ffi %>
 <%= unit.mxcsr_flags.to_ruby_ffi %>
+<%= unit.parameter_types.to_ruby_ffi %>
 
     enum :x64_operand_size, [
       :'8',
@@ -27,7 +28,7 @@ module Evoasm
       :none
     ]
 
-    enum :x64_reg_word, [
+    enum :x64_operand_word, [
       :lb,
       :hb,
       :w,
