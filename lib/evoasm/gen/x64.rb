@@ -93,7 +93,7 @@ module Evoasm
             osxsave
             avx
             f16c
-            rdrnd
+            rdrand
             hypervisor
           )
         },
