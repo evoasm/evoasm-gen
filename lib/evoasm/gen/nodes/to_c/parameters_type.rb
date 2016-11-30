@@ -87,11 +87,12 @@ module Evoasm
 
           def parameter_type(parameter_name, basic)
             case parameter_name
-            when :rex_b, :rex_r, :rex_x, :rex_w,
-              :vex_l, :force_rex?, :lock?, :force_sib?,
+            when :force_rex?, :lock?, :force_sib?,
               :force_disp32?, :force_long_vex?, :reg0_high_byte?,
               :reg1_high_byte?
               :bool
+            when :rex_b, :rex_r, :rex_x, :rex_w, :vex_l
+              :uint1
             when :addr_size
               :addr_size
             when :scale

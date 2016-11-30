@@ -7,7 +7,7 @@ module Evoasm
       include Nodes
 
       STATIC_PARAMETERS = %i(reg0 reg1 reg2 reg3).freeze
-      PARAMETER_TYPES = %i(bool int3 int4 int8 int32 int64 reg addr_size scale)
+      PARAMETER_TYPES = %i(bool uint1 int3 int4 int8 int32 int64 reg addr_size scale)
 
       attr_reader :word_sizes
       attr_reader :exceptions
