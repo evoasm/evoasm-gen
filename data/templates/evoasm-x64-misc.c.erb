@@ -107,3 +107,14 @@ alloc_failed:
   return false;
 }
 
+const char *
+evoasm_x64_get_reg_name(evoasm_x64_reg_id_t reg) {
+  switch(reg) {
+<% Evoasm::Gen::X64::REGISTERS.values.flatten.each do |reg| %>
+  case <%= unit.register_name_to_c reg %>: return "<%= reg.to_s.upcase %>";
+<%end %>
+  default:
+   evoasm_log_fatal("invalid register id %d", reg);
+   evoasm_assert_not_reached();
+  }
+}
