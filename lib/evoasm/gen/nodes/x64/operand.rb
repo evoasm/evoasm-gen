@@ -32,7 +32,7 @@ module Evoasm
             @mnemonic = flags.include? :m
             @read = flags.include? :r
             @written = flags.include?(:w) || flags.include?(:w?)
-            @maybe_written = flags.include? :w?
+            @maybe_written = flags.include?(:w?)
 
             if name == name.upcase
               initialize_implicit

@@ -49,9 +49,6 @@
 #define <%= unit.word_size_to_c 0..63 %> (<%= unit.word_size_to_c 0..31 %> | <%= unit.word_size_to_c 32..63 %>)
 #define <%= unit.word_size_to_c 0..127 %> (<%= unit.word_size_to_c 0..63 %> | <%= unit.word_size_to_c 64..127 %>)
 
-#define EVOASM_X64_RFLAGS_FLAGS_GET(flags, flag) ((flags) & (1 << (flag)))
-#define EVOASM_X64_RFLAGS_FLAGS_SET(flags, flag) ((flags) = (flags) | (1 << (flag)))
-
 #define EVOASM_X64_RFLAGS_FLAGS_BITSIZE <%= unit.rflags_flags.bitsize(flags: true) %>
 #define EVOASM_X64_OPERAND_MAX_FLAGS_BITSIZE <%= [unit.rflags_flags.bitsize(flags: true), unit.mxcsr_flags.bitsize(flags: true)].max %>
 
