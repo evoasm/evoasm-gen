@@ -42,6 +42,10 @@ module Evoasm
               if written_flags&.any?
                 initializer[:written_flags] = unit.flags_to_c(written_flags, flags_type)
               end
+              if maybe_written_flags&.any?
+                initializer[:maybe_written_flags] = unit.flags_to_c(maybe_written_flags, flags_type)
+              end
+
             else
               implicit_imm_or_reg_to_c initializer
             end

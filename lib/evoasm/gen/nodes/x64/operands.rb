@@ -16,8 +16,8 @@ module Evoasm
             @imm_counter = 0
             @reg_counter = 0
             @operands = filter_operands(parse_operands_spec(operands_spec))
-                          .map do |operand_name, operand_flags, read_flags, written_flags|
-              Operand.new unit, self, operand_name, operand_flags, read_flags, written_flags
+                          .map do |operand_name, operand_flags, read_flags, written_flags, maybe_written_flags|
+              Operand.new unit, self, operand_name, operand_flags, read_flags, written_flags, maybe_written_flags
             end
           end
 
@@ -59,7 +59,7 @@ module Evoasm
             operands_spec.split('; ').map do |op|
               op =~ /(.*?):(.*)/ || raise
               operand_name = $1
-              operand_flags = $2.scan(/[a-z]\??/).map(&:to_sym)
+              operand_flags = $2.scan(/[a-z01]\??/).map(&:to_sym)
               [operand_name, operand_flags]
             end
           end
@@ -77,18 +77,22 @@ module Evoasm
             end
 
             unless rflags.empty?
-              written_flags = rflags.select do |_, operand_flags|
-                operand_flags.include? :w
+              read_flags = rflags.select do |_, operand_flags|
+                operand_flags.include? :r
               end.map(&:first)
 
-              read_flags = rflags.select do |_, operand_flags|;
-                # NOTE: handling undefined as written
+              written_flags = rflags.select do |_, operand_flags|
+                operand_flags.include?(:'0') || operand_flags.include?(:'1')
+              end.map(&:first)
+
+              maybe_written_flags = rflags.select do |_, operand_flags|
+                # NOTE: handling undefined as maybe_written
                 operand_flags.include?(:w) || operand_flags.include?(:u)
               end.map(&:first)
 
               operand_flags = rflags.map(&:second).flatten.uniq.sort
 
-              operands << ['RFLAGS', operand_flags, read_flags, written_flags]
+              operands << ['RFLAGS', operand_flags, read_flags, written_flags, maybe_written_flags]
             end
 
             operands

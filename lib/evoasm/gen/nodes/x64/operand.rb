@@ -9,7 +9,7 @@ module Evoasm
 
           attr_reader :name, :parameter_name, :type, :size, :word, :read, :written,
                       :undefined, :maybe_written, :register, :imm, :register_type, :register_size,
-                      :mem_size, :imm_size, :read_flags, :written_flags
+                      :mem_size, :imm_size, :read_flags, :written_flags, :maybe_written_flags
 
           IMM_OP_REGEXP = /^(imm|rel)(\d+)?$/
           MEM_OP_REGEXP = /^m(\d*)$/
@@ -18,7 +18,7 @@ module Evoasm
           REG_OP_REGEXP = /^(?<reg>xmm|ymm|zmm|mm)(?:\[(?<range_min>\d+)\.\.(?<range_max>\d+)\])?$|^(?<reg>r)(?<reg_size>8|16|32|64)$/
           RM_OP_REGEXP = %r{^(?:(?<reg>xmm|ymm|zmm|mm)|(?<reg>r)(?<reg_size>8|16|32|64)?)/m(?<mem_size>\d+)$}
 
-          def initialize(unit, operands, name, flags, read_flags, written_flags)
+          def initialize(unit, operands, name, flags, read_flags, written_flags, maybe_written_flags)
 
             super(unit)
 
@@ -27,6 +27,7 @@ module Evoasm
             @name = name
             @read_flags = read_flags
             @written_flags = written_flags
+            @maybe_written_flags = maybe_written_flags
 
             @encoded = flags.include? :e
             @mnemonic = flags.include? :m
@@ -82,7 +83,7 @@ module Evoasm
           end
 
           def flags?
-            @read_flags&.any? && @written_flags&.any?
+            @read_flags&.any? || @written_flags&.any? || @maybe_written_flags&.any?
           end
 
           private
