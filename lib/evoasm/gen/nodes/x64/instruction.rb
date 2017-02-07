@@ -79,8 +79,6 @@ module Evoasm
 
           # NOTE: enum domains need to be sorted
           # (i.e. by their corresponding C enum numeric value)
-          GP_REGISTERS = Gen::X64::REGISTERS.fetch(:gp)[0..-5] - [:SP]
-          XMM_REGISTERS = Gen::X64::REGISTERS.fetch :xmm
 
           def parameter_domain(parameter_name)
             case parameter_name
@@ -239,7 +237,7 @@ module Evoasm
           end
 
           def gp_registers_domain
-            unit.node EnumerationDomain, register_constants(GP_REGISTERS)
+            unit.node EnumerationDomain, register_constants(Gen::X64::GP_REGISTERS)
           end
 
           def xmm_registers_domain(zmm: false)

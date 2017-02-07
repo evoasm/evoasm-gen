@@ -26,6 +26,9 @@ module Evoasm
 
       REGISTER_NAMES = REGISTERS.values.flatten
 
+      GP_REGISTERS = Gen::X64::REGISTERS.fetch(:gp)[0..-2] - [:SP]
+      SCRATCH_REGISTERS =  Gen::X64::REGISTERS.fetch(:gp)[-2..-1]
+
       CPUID = {
         [0x1, nil] => {
           d: %i(

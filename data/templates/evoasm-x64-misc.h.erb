@@ -40,3 +40,7 @@ evoasm_x64_get_reg_name(evoasm_x64_reg_id_t reg);
 
 #define EVOASM_X64_INSTS_VAR_NAME <%= unit.c_instructions_variable_name %>
 
+<% Evoasm::Gen::X64::SCRATCH_REGISTERS.each_with_index do |reg, index| %>
+#define EVOASM_X64_SCRATCH_REG<%= index + 1 %> <%= unit.register_name_to_c reg %>
+<% end %>
+
