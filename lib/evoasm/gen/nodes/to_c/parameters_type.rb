@@ -16,7 +16,7 @@ module Evoasm
             io.puts
           end
 
-          %i(set get unset type).each do |type|
+          %i(set get unset type name).each do |type|
             CParametersFunction.new(unit, type, basic: false, stub: !header).output io
             io.puts
             CParametersFunction.new(unit, type, basic: true, stub: !header).output io
@@ -237,6 +237,8 @@ module Evoasm
               'void'
             when :type
               'evoasm_x64_param_type_t'
+            when :name
+              'const char *'
             else
               raise
             end
@@ -265,25 +267,31 @@ module Evoasm
               %w(params param param_val)
             when :get, :unset
               %w(params param)
-            when :type
+            when :type, :name
               %w(param)
             else
               raise
             end
           end
 
-          def name
-            if @type == :type
-              'get_type'
-            else
-              @type.to_s
-            end
-          end
-
           def function_name(stub = @stub)
             function_name = 'evoasm_x64'
+
+            case @type
+            when :type, :name
+              function_name << '_get'
+            end
+
             function_name << '_basic' if @basic
-            function_name << "_params_#{name}"
+
+            case @type
+            when :type, :name
+              function_name << '_param'
+            else
+              function_name << '_params'
+            end
+
+            function_name << "_#{@type}"
             function_name << '_' unless stub
 
             function_name
@@ -328,6 +336,8 @@ module Evoasm
               io.puts '  break;'
             when :type
               io.puts "  return #{@unit.parameter_types.symbol_to_c parameter_type(parameter_name, @basic)};"
+            when :name
+              io.puts %Q{  return "#{parameter_name}";}
             end
           end
         end
