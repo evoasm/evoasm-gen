@@ -21,6 +21,8 @@ module Evoasm
             io.puts
             CParametersFunction.new(unit, type, basic: true, stub: !header).output io
           end
+          io.puts
+          CParametersFunction.new(unit, :to_basic, basic: false, stub: !header).output io
 
           io.string
         end
@@ -206,7 +208,7 @@ module Evoasm
           def output_stub(io)
             io.block prototype do
               io.write '  '
-              io.write 'return ' if @type == :get || @type == :type
+              io.write 'return ' if %i(get type name to_basic).include? @type
               io.write function_name(false)
               io.write '('
               io.write function_parameter_names.join ', '
@@ -239,6 +241,8 @@ module Evoasm
               'evoasm_x64_param_type_t'
             when :name
               'const char *'
+            when :to_basic
+              'evoasm_x64_basic_param_id_t'
             else
               raise
             end
@@ -267,7 +271,7 @@ module Evoasm
               %w(params param param_val)
             when :get, :unset
               %w(params param)
-            when :type, :name
+            when :type, :name, :to_basic
               %w(param)
             else
               raise
@@ -277,18 +281,18 @@ module Evoasm
           def function_name(stub = @stub)
             function_name = 'evoasm_x64'
 
-            case @type
-            when :type, :name
-              function_name << '_get'
-            end
-
             function_name << '_basic' if @basic
 
             case @type
-            when :type, :name
+            when :type, :name, :to_basic
               function_name << '_param'
             else
               function_name << '_params'
+            end
+
+            case @type
+            when :type, :name
+              function_name << '_get'
             end
 
             function_name << "_#{@type}"
@@ -318,7 +322,10 @@ module Evoasm
             bitmask = (1 << bitsize) - 1
             undefinedable = @unit.undefinedable_parameter? parameter_name, basic: @basic
 
-            io.puts "case #{@unit.parameter_ids(basic: @basic).symbol_to_c parameter_name}:"
+            parameter_ids = @unit.parameter_ids basic: @basic
+            basic_parameter_ids = @unit.parameter_ids basic: true
+
+            io.puts "case #{parameter_ids.symbol_to_c parameter_name}:"
             case @type
             when :get
               io.puts "  return (#{return_type}) params->#{field_name};"
@@ -338,6 +345,12 @@ module Evoasm
               io.puts "  return #{@unit.parameter_types.symbol_to_c parameter_type(parameter_name, @basic)};"
             when :name
               io.puts %Q{  return "#{parameter_name}";}
+            when :to_basic
+              if basic_parameter_ids.include?(parameter_name)
+                io.puts "  return #{basic_parameter_ids.symbol_to_c parameter_name};"
+              else
+                io.puts "  return #{basic_parameter_ids.symbol_to_c :none};"
+              end
             end
           end
         end

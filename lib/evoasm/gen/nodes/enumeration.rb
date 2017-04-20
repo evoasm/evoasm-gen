@@ -86,6 +86,10 @@ module Evoasm
           @map.keys
         end
 
+        def include?(symbol)
+          @map.include?( symbol) || @aliases.include?(symbol)
+        end
+
         def alias?(symbol)
           @aliases.key? symbol
         end
