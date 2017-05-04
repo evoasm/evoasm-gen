@@ -382,8 +382,10 @@ module Evoasm
               end
 
             when '/is4'
-              write [:shl, [:reg_code, :reg3], 4], 8
-              encode_imm_or_imm_reg opcode_index, imm_counter, &block
+              check_register_param :reg3, :xmm do
+                write [:shl, [:reg_code, :reg3], 4], 8
+                encode_imm_or_imm_reg opcode_index, imm_counter, &block
+              end
             else
               raise "invalid immediate specifier '#{byte}'"\
                       " found in immediate encoding #{mnemonic}" if encoding =~ /I$/

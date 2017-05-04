@@ -31,8 +31,9 @@ evoasm_x64_get_reg_code(evoasm_x64_reg_id_t reg) {
 <%end %>
   case <%= unit.register_name_to_c :ip %>: return 5;
   default:
-    evoasm_log_fatal("invalid register id %d", reg);
-    evoasm_assert_not_reached();
+    //evoasm_log_fatal("invalid register id %d", reg);
+    //evoasm_assert_not_reached();
+    return -1;
   }
 }
 

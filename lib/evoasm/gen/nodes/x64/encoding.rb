@@ -269,21 +269,14 @@ module Evoasm
           end
 
           def check_register_param(param, type, &block)
-            cond =
-              if basic?
-                true
-              else
-                register_type_match?(param, type)
-              end
-
-            to_if cond, likely: true, &block
-
-            if cond != true
+            if basic?
+              block[]
+            else
+              to_if register_type_match?(param, type), likely: true, &block
               else_to do
                 error :invalid_param, 'invalid parameter value', param: param
               end
             end
-
           end
 
           def register_type_match?(param, type)
