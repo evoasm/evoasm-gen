@@ -58,6 +58,11 @@ module Evoasm
                 Operation.new(unit, :eq, [args.first, arg])
               end
               [:or, mapped_args]
+            when :in_range?
+              [:and, [
+                Operation.new(unit, :gtq, [args[0], args[1]]),
+                Operation.new(unit, :ltq, [args[0], args[2]]),
+              ]]
             when :not_in?
               [:not, [Operation.new(unit, :in?, args)]]
             end
@@ -92,7 +97,7 @@ module Evoasm
         attr_reader :permutation_table
 
         def domain
-          @domain ||= unit.node RangeDomain,
+          @domain ||= unit.node RangeDomain, :custom,
                                 0, @permutation_table.height - 1
         end
 
@@ -106,8 +111,7 @@ module Evoasm
 
       Domain = def_node Node
       EnumerationDomain = def_node Domain, :values
-      RangeDomain = def_node Domain, :min, :max
-      TypeDomain = def_node Domain, :type
+      RangeDomain = def_node Domain, :type, :min, :max
 
       Literal = def_node Expression
       ValueLiteral = def_node Literal, :value

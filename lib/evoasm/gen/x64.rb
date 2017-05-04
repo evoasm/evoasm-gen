@@ -171,7 +171,7 @@ module Evoasm
           )
         },
 
-        [0x80000001, nil] => {
+        [-0x7fffffff, nil] => {
           d: %i(
             fpu
             vme

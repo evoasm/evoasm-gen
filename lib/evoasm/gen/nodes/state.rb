@@ -61,7 +61,7 @@ module Evoasm
           return false if returns?
           return false if else_child?
 
-          raise state.actions.inspect if transitions.empty?
+          raise actions.inspect if transitions.empty?
 
           return false if transitions.any? do |_child, condition|
             condition.is_a?(Nodes::TrueLiteral)
@@ -93,9 +93,9 @@ module Evoasm
           parent_states << parent unless parent_states.include? parent
         end
 
-        def add_transition(child, condition = nil, priority)
+        def add_transition(child, condition = nil, attrs)
           child.add_parent self
-          transitions << [child, condition, priority]
+          transitions << [child, condition, attrs]
         end
 
         %i(sets asserts calls writes debugs).each do |name|

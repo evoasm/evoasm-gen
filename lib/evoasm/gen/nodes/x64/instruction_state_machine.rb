@@ -143,9 +143,11 @@ module Evoasm
             reg_op, = instruction.register_operands
             reg_op.parameter_name == :reg0 or raise "expected reg_op to have param reg0 not #{reg_op.parameter_name}"
 
-            set_reg_bits(:_reg_code, :reg0, reg_op.size == 8) do
-              write [:add, byte, [:mod, :_reg_code, 8]], 8
-              block[opcode_index]
+            check_register_param :reg0, :gp do
+              set_reg_bits(:_reg_code, :reg0, reg_op.size == 8) do
+                write [:add, byte, [:mod, :_reg_code, 8]], 8
+                block[opcode_index]
+              end
             end
           end
 
@@ -176,6 +178,12 @@ module Evoasm
               end
 
             rm_type = rm_op.type
+
+            p [reg_op&.register_type, rm_op&.register_type]
+
+            reg_register_type = reg_op&.register_type
+            rm_register_type = rm_op&.register_type
+
             byte_regs = reg_op&.size == 8 || rm_op&.size == 8
 
             modrm_sib = unit.node ModRMSIB,
@@ -184,7 +192,9 @@ module Evoasm
                                   rm_type: rm_type,
                                   modrm_reg_bits: modrm_reg_bits,
                                   byte_regs?: byte_regs,
-                                  basic?: basic?
+                                  basic?: basic?,
+                                  rm_register_type: rm_register_type,
+                                  reg_register_type: reg_register_type
 
             call modrm_sib
             block[opcode_index]
@@ -298,7 +308,7 @@ module Evoasm
                       when 0x0 then
                         0x0
                       else
-                        fail "unexpected REX pref value #{rex_w_value}"
+                        raise "unexpected REX pref value #{rex_w_value}"
                       end
             else
               force_rex = false
@@ -333,29 +343,51 @@ module Evoasm
             end
           end
 
-          def encode_imm_or_imm_reg(opcode_index, &block)
-            imm_counter = 0
-            opcode = instruction.opcode
+          def check_imm_param(param_name, imm_size, &block)
+            cond = if basic?
+                     true
+                   else
+                     [:in_range?, param_name,
+                      [:sub, -2**(imm_size - 1) + 1, 1],
+                      2**(imm_size - 1) - 1]
+                   end
 
-            loop do
-              byte = opcode[opcode_index]
-              opcode_index += 1
+            to_if(cond, likely: true, &block)
 
-              break if byte.nil?
-
-              case byte
-              when /^(?:i|c)(?:b|w|d|o|q)$/
-                write imm_parameter_name(imm_counter), imm_code_size(byte)
-                imm_counter += 1
-              when '/is4'
-                write [:shl, [:reg_code, :reg3], 4], 8
-              else
-                raise "invalid immediate specifier '#{byte}'"\
-                      " found in immediate encoding #{mnemonic}" if encoding =~ /I$/
+            if cond != true
+              else_to do
+                error :not_encodable, 'immediate is too large', param: param_name
               end
             end
+          end
 
-            block[opcode_index] if block
+          def encode_imm_or_imm_reg(opcode_index, imm_counter = 0, &block)
+            opcode = instruction.opcode
+            byte = opcode[opcode_index]
+            opcode_index += 1
+
+            if byte.nil?
+              block[opcode_index]
+              return
+            end
+
+            case byte
+            when /^(?:i|c)(?:b|w|d|o|q)$/
+              parameter_name = imm_parameter_name(imm_counter)
+              imm_size = imm_code_size(byte)
+
+              check_imm_param parameter_name, imm_size do
+                write parameter_name, imm_size
+                encode_imm_or_imm_reg opcode_index, imm_counter + 1, &block
+              end
+
+            when '/is4'
+              write [:shl, [:reg_code, :reg3], 4], 8
+              encode_imm_or_imm_reg opcode_index, imm_counter, &block
+            else
+              raise "invalid immediate specifier '#{byte}'"\
+                      " found in immediate encoding #{mnemonic}" if encoding =~ /I$/
+            end
           end
 
           static_state def root_state

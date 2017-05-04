@@ -5,6 +5,11 @@ module Evoasm
   module Gen
     module Nodes
       class StateMachine
+
+        def static?
+          false
+        end
+
         class StateMachineCTranslator
           INST_STATE_ID_MIN = 32
           INST_STATE_ID_MAX = 2000
@@ -127,8 +132,8 @@ module Evoasm
             io.puts "goto #{state_label transition};"
           end
 
-          def translate_transition(state, condition, untranslated_states, &block)
-            condition.if_to_c io do
+          def translate_transition(state, condition, attrs, untranslated_states, &block)
+            condition.if_to_c io, likely: attrs&.[](:likely) do
               if state.inlineable?
                 block[] if block
                 translate_body(state, untranslated_states, inlined: true)
@@ -145,8 +150,8 @@ module Evoasm
           def translate_transitions(state, untranslated_states, &block)
             transitions = state.ordered_transitions
 
-            transitions.each do |child, condition|
-              translate_transition child, condition, untranslated_states, &block
+            transitions.each do |child, condition, attrs|
+              translate_transition child, condition, attrs, untranslated_states, &block
             end
 
             raise 'missing else branch' if state.can_get_stuck?
@@ -162,7 +167,7 @@ module Evoasm
         end
 
         def call_to_c
-          "if(!#{c_function_name}(ctx)){goto error;}"
+          "if(evoasm_unlikely(!#{c_function_name}(ctx))){goto error;}"
         end
 
         def to_c(io)
@@ -175,7 +180,7 @@ module Evoasm
         end
 
         def c_prototype
-          "#{c_return_type_name} #{c_function_name}(#{unit.c_context_type} *ctx)"
+          "#{static? ? 'static ' : ''}#{c_return_type_name} #{c_function_name}(#{unit.c_context_type} *ctx)"
         end
 
         def c_return_type_name

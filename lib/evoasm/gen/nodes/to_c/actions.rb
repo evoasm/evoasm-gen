@@ -8,7 +8,7 @@ module Evoasm
           end
         else
           value_c = values.first.to_c
-          size_c = sizes.first.to_c false
+          size_c = sizes.first.value.to_s
         end
         io.puts "evoasm_buf_ref_write#{size_c}(&ctx->buf_ref, (int#{size_c}_t) #{value_c});"
       end

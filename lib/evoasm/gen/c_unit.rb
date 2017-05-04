@@ -138,7 +138,7 @@ module Evoasm
       end
 
       def domains_to_c
-        nodes_of_class_to_c Nodes::EnumerationDomain, Nodes::RangeDomain, Nodes::TypeDomain
+        nodes_of_class_to_c Nodes::EnumerationDomain, Nodes::RangeDomain
       end
 
       def parameters_to_c

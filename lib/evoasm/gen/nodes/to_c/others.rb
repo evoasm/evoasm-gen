@@ -6,9 +6,9 @@ module Evoasm
 
       def_to_c IntegerLiteral do |hex = true|
         if hex
-          "#{value < 0 ? '-' : ''}0x" + value.abs.to_s(16)
+          "#{value < 0 ? '-' : ''}0x#{value.abs.to_s(16)}LL"
         else
-          value.to_s
+          "#{value}LL"
         end
       end
 
@@ -21,7 +21,7 @@ module Evoasm
           'true'
         end
 
-        def if_to_c(_io)
+        def if_to_c(_io, **kwargs)
           yield
         end
       end
@@ -31,19 +31,26 @@ module Evoasm
           'false'
         end
 
-        def if_to_c(_io)
+        def if_to_c(_io, **kwargs)
         end
       end
 
       class Expression
-        def if_to_c(io, &block)
+        def if_to_c(io, likely: nil, &block)
           condition_c = to_c.gsub(/^\(|\)$/, '')
+          unless likely.nil?
+            if likely
+              condition_c = "evoasm_likely(#{condition_c})"
+            else
+              condition_c = "evoasm_unlikely(#{condition_c})"
+            end
+          end
           io.block "if(#{condition_c})", &block
         end
       end
 
       class Else
-        def if_to_c(io, &block)
+        def if_to_c(io, **kwargs, &block)
           io.block "else", &block
         end
       end
@@ -67,11 +74,13 @@ module Evoasm
         def check_arity!(arity)
           if arity && arity != args.size
             raise "wrong number of operands for"\
-                  " '#{name}' (#{args.inspect} for #{arity})"
+                  " '#{name}' (#{args.size} for #{arity})"
           end
         end
 
         def c_operator
+          no_arity_check = false
+
           c_op, arity =
             case name
             when :and
@@ -90,17 +99,23 @@ module Evoasm
               ['/', 2]
             when :add
               '+'
+            when :sub
+              '-'
             when :not
               ['!', 1]
             when :neg
               ['~', 1]
             when :mod
               '%'
+            when :int_cast
+              size = args.last
+              no_arity_check = true
+              ["(int#{size.value}_t)", 1]
             else
               raise "unknown operator '#{name}' (#{self.class})"
             end
 
-          check_arity! arity
+          check_arity! arity unless no_arity_check
 
           [c_op, arity]
         end
@@ -196,7 +211,16 @@ module Evoasm
 
       class RangeDomain
         def body_to_c
-          "{EVOASM_DOMAIN_TYPE_RANGE, #{min}, #{max}}"
+
+          range_type_c =
+            if type == :custom
+              'EVOASM_RANGE_DOMAIN_TYPE_CUSTOM'
+            else
+              type =~ /int(\d+)/ || raise
+              "EVOASM_RANGE_DOMAIN_TYPE_INT#{$1}"
+            end
+
+          "{EVOASM_DOMAIN_TYPE_RANGE, #{range_type_c}, #{min}, #{max}}"
         end
 
         def c_type_name
@@ -204,22 +228,14 @@ module Evoasm
         end
 
         def c_variable_name
-          "range_domain__#{min.to_s.tr('-', 'm')}_#{max.to_s.tr('-', 'm')}"
-        end
-      end
+          id =
+            if type == :custom
+              "#{min.to_s.tr('-', 'm')}_#{max.to_s.tr('-', 'm')}"
+            else
+              type.to_s
+            end
 
-      class TypeDomain
-        def body_to_c
-          type =~ /int(\d+)/ || raise
-          "{EVOASM_DOMAIN_TYPE_INT#$1}"
-        end
-
-        def c_type_name
-          "evoasm_#{type}_domain_t"
-        end
-
-        def c_variable_name
-          "type_domain__#{type}"
+          "range_domain__#{id}"
         end
       end
 
@@ -250,6 +266,7 @@ module Evoasm
           # inline singleton writes
           return if writes.size == 1
 
+          # always static, ignore parameter
           io.puts 'static void'
           io.write c_function_name
           io.write '('

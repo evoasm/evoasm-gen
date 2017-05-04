@@ -177,7 +177,7 @@ module Evoasm
                 end
               end
 
-              p fields.inject(0) { |acc, (n, s)| acc + s }./(64.0)
+              p ['words', fields.inject(0) { |acc, (n, s)| acc + s }./(64.0)]
             end
 
             io.puts "} #{@unit.c_parameters_type_name @basic};"

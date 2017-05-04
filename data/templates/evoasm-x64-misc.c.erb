@@ -42,12 +42,12 @@ evoasm_x64_get_features(uint64_t *features_) {
 <% Evoasm::Gen::X64::CPUID.each_with_index do |((eax_val, ecx_val), out_regs), index0| %>
 
   EVOASM_X64_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_A);
-  EVOASM_X64_SET(EVOASM_X64_PARAM_IMM0, <%= eax_val %>);
+  EVOASM_X64_SET(EVOASM_X64_PARAM_IMM0, <%= eax_val %>LL);
   EVOASM_X64_ENC(mov_r32_imm32);
 
   <% if ecx_val %>
   EVOASM_X64_SET(EVOASM_X64_PARAM_REG0, EVOASM_X64_REG_C);
-  EVOASM_X64_SET(EVOASM_X64_PARAM_IMM0, <%= ecx_val %>);
+  EVOASM_X64_SET(EVOASM_X64_PARAM_IMM0, <%= ecx_val %>LL);
   EVOASM_X64_ENC(mov_r32_imm32);
   <% end %>
 

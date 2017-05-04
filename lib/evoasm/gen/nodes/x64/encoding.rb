@@ -146,7 +146,13 @@ module Evoasm
           end
         end
 
-        class REX < StateMachine
+        class StaticStateMachine < StateMachine
+          def static?
+            true
+          end
+        end
+
+        class REX < StaticStateMachine
           node_attrs :rex_w, :reg_param, :rm_reg_param, :force,
                      :rm_reg_type, :encodes_modrm?, :byte_regs?, :basic?
 
@@ -241,8 +247,8 @@ module Evoasm
             set local_name, reg_bits(reg_param)
             if byte_reg
               to_if :true?, :"#{reg_param}_high_byte?" do
-                to_if :in?, reg_param, :A, :C, :D, :B do
-                  to_if :true?, :@encode_rex do
+                to_if :in?, reg_param, :A, :C, :D, :B, likely: true do
+                  to_if :true?, :@encode_rex, likely: false do
                     error :not_encodable, 'cannot be encoded with REX', param: reg_param
                   end
                   else_to do
@@ -261,11 +267,51 @@ module Evoasm
               block[]
             end
           end
+
+          def check_register_param(param, type, &block)
+            cond =
+              if basic?
+                true
+              else
+                register_type_match?(param, type)
+              end
+
+            to_if cond, likely: true, &block
+
+            if cond != true
+              else_to do
+                error :invalid_param, 'invalid parameter value', param: param
+              end
+            end
+
+          end
+
+          def register_type_match?(param, type)
+            case type
+            when :gp
+              [:and,
+               [:gtq, param, :A],
+               [:ltq, param, :'15']
+              ]
+            when :xmm
+              [:and,
+               [:gtq, param, :XMM0],
+               [:ltq, param, :XMM15]
+              ]
+            when :mm
+              [:and,
+               [:gtq, param, :MM0],
+               [:ltq, param, :MM7]
+              ]
+            else
+              raise "invalid register type #{type}"
+            end
+          end
         end
 
-        class ModRMSIB < StateMachine
+        class ModRMSIB < StaticStateMachine
           node_attrs :reg_param, :rm_reg_param, :rm_type,
-                     :modrm_reg_bits, :byte_regs?, :basic?
+                     :modrm_reg_bits, :byte_regs?, :basic?, :rm_register_type, :reg_register_type
 
           include StateDSL
           include EncodeUtil
@@ -299,8 +345,11 @@ module Evoasm
             elsif reg_param
               # register, use register parameter specified
               # in reg_param
-              set_reg_bits :_reg_bits, reg_param, byte_regs do
-                write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
+
+              check_register_param reg_param, reg_register_type do
+                set_reg_bits :_reg_bits, reg_param, byte_regs do
+                  write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
+                end
               end
             else
               # ModRM.reg is free, use a parameter
@@ -328,11 +377,12 @@ module Evoasm
           end
 
           def byte_disp?
-            [
-              :and,
-             [:ltq, :disp, 127],
-             [:gtq, :disp, -128],
-            ]
+            [:in_range?, :disp, -128, 127]
+            # [
+            #   :and,
+            #  [:ltq, :disp, 127],
+            #  [:gtq, :disp, -128],
+            # ]
           end
 
           def vsib?
@@ -385,13 +435,19 @@ module Evoasm
             log :trace, 'scale, index, base'
             set :_reg_index, :reg_index
 
-            if vsib?
-              to scale_index_base_
-            else
-              to_if index_encodable?, scale_index_base_
-              else_to do
-                # not encodable
-                error :not_encodable, 'index not encodable', param: :reg_index
+            check_register_param :reg_base, :gp do
+              if vsib?
+                check_register_param :reg_index, :xmm do
+                  to scale_index_base_
+                end
+              else
+                check_register_param :reg_index, :gp do
+                  to_if index_encodable?, scale_index_base_, likely: true
+                  else_to do
+                    # not encodable
+                    error :not_encodable, 'index not encodable', param: :reg_index
+                  end
+                end
               end
             end
           end
@@ -409,26 +465,38 @@ module Evoasm
           static_state def index_only
             log :trace, 'index only'
 
-            condition =
+            index_type_cond =
+              if vsib?
+                register_type_match? :reg_index, :xmm
+              else
+                register_type_match? :reg_index, :gp
+              end
+
+            index_encodable_cond =
               if vsib?
                 true
               else
                 index_encodable?
               end
 
-            to_if condition do
-              set :_reg_index, :reg_index
-              write_modrm mod_bits: 0b00, rm_bits: 0b100 do
-                write_sib nil, nil, 0b101
-                write :disp, 32
-                return!
+            to_if index_type_cond, likely: true do
+              to_if index_encodable_cond, likely: true do
+                set :_reg_index, :reg_index
+                write_modrm mod_bits: 0b00, rm_bits: 0b100 do
+                  write_sib nil, nil, 0b101
+                  write :disp, 32
+                  return!
+                end
+              end
+              # NOTE: keep comparison with true!
+              if index_encodable_cond != true
+                else_to do
+                  error :not_encodable, 'index not encodable (0b0100)', param: :reg_index
+                end
               end
             end
-            # NOTE: keep comparison with true!
-            if condition != true
-              else_to do
-                error :not_encodable, 'index not encodable (0b0100)', param: :reg_index
-              end
+            else_to do
+              error :invalid_param, 'invalid index register', param: :reg_index
             end
           end
 
@@ -459,8 +527,10 @@ module Evoasm
               end
             end
             else_to do
-              to_if :and, [:false?, :force_sib?], reg_code_not_in?(:reg_base, 4, 12), base_only_wo_sib
-              else_to base_only_w_sib
+              check_register_param :reg_base, :gp do
+                to_if :and, [:false?, :force_sib?], reg_code_not_in?(:reg_base, 4, 12), base_only_wo_sib
+                else_to base_only_w_sib
+              end
             end
           end
 
@@ -477,7 +547,7 @@ module Evoasm
             # VSIB does not allow to omit index
             if vsib?
               to_if no_base? do
-                to_if :set?, :reg_index, index_only
+                to_if :set?, :reg_index, index_only, likely: true
                 else_to do
                   error :missing_param, "parameter missing", param: :reg_index
                 end
@@ -486,7 +556,7 @@ module Evoasm
             else
               to_if no_base? do
                 to_if no_index? do
-                  to_if :set?, :disp, disp_only
+                  to_if :set?, :disp, disp_only, likely: true
                   else_to do
                     error :missing_param, "parameter missing", param: :disp
                   end
@@ -503,8 +573,13 @@ module Evoasm
           static_state def direct
             raise "mem operand for direct encoding" if rm_type == :mem
 
-            write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param, byte_regs: byte_regs? do
-              return!
+            to_if register_type_match?(rm_reg_param, rm_register_type), likely: true do
+              write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param, byte_regs: byte_regs? do
+                return!
+              end
+            end
+            else_to do
+              error :invalid_param, 'invalid parameter value', param: rm_reg_param
             end
           end
 
@@ -538,7 +613,7 @@ module Evoasm
           end
         end
 
-        class VEX < StateMachine
+        class VEX < StaticStateMachine
           node_attrs :rex_w, :reg_param, :rm_reg_param, :vex_m,
                      :vex_v, :vex_l, :vex_p, :encodes_modrm?,
                      :rm_reg_type, :basic?

@@ -112,18 +112,18 @@ module Evoasm
               raise "no operand with name #{parameter_name} #{@encoded_operands.map(&:parameter_name)}" unless imm_op
               case imm_op.size
               when 8
-                type_domain :int8
+                type_range_domain :int8
               when 16
-                type_domain :int16
+                type_range_domain :int16
               when 32
-                type_domain :int32
+                type_range_domain :int32
               when 64
-                type_domain :int64
+                type_range_domain :int64
               else
                 raise "unexpected imm size '#{imm_op.size}' for #{imm_op.name} #{imm_op.class}"
               end
             when :disp
-              type_domain :int32
+              type_range_domain :int32
             when :reg0, :reg1, :reg2, :reg3
               reg_op = encoded_operands.find { |operand| operand.parameter_name == parameter_name }
 
@@ -212,14 +212,12 @@ module Evoasm
             regs
           end
 
-          def type_domain(type)
-            unit.node TypeDomain, type
+          def type_range_domain(type)
+            unit.node RangeDomain, type, 0, 0
           end
 
           def range_domain(min, max)
-            unit.node RangeDomain,
-                      min,
-                      max
+            unit.node RangeDomain, :custom, min, max
           end
 
           def array_domain(values)
