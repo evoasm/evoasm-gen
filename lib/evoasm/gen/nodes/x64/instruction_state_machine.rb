@@ -184,14 +184,16 @@ module Evoasm
             reg_register_type = reg_op&.register_type
             rm_register_type = rm_op&.register_type
 
-            byte_regs = reg_op&.size == 8 || rm_op&.size == 8
+            reg_byte_reg = reg_op&.size == 8
+            rm_reg_byte_reg = rm_op&.size == 8
 
             modrm_sib = unit.node ModRMSIB,
                                   reg_param: reg_param,
                                   rm_reg_param: rm_reg_param,
                                   rm_type: rm_type,
                                   modrm_reg_bits: modrm_reg_bits,
-                                  byte_regs?: byte_regs,
+                                  reg_byte_reg?: reg_byte_reg,
+                                  rm_reg_byte_reg?: rm_reg_byte_reg,
                                   basic?: basic?,
                                   rm_register_type: rm_register_type,
                                   reg_register_type: reg_register_type
@@ -316,7 +318,9 @@ module Evoasm
             end
 
             reg_op, rm_op, _ = instruction.register_operands
-            byte_regs = reg_op&.size == 8 || rm_op&.size == 8
+
+            reg_byte_reg = reg_op&.size == 8
+            rm_reg_byte_reg = rm_op&.size == 8
 
             rex = unit.node REX,
                             force: force_rex,
@@ -325,7 +329,8 @@ module Evoasm
                             rm_reg_param: rm_op&.parameter_name,
                             rm_reg_type: rm_op&.type,
                             encodes_modrm?: instruction.encodes_modrm?,
-                            byte_regs?: byte_regs,
+                            reg_byte_reg?: reg_byte_reg,
+                            rm_reg_byte_reg?: rm_reg_byte_reg,
                             basic?: basic?
 
             call rex

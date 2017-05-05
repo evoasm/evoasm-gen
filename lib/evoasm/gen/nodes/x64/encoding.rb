@@ -154,7 +154,7 @@ module Evoasm
 
         class REX < StaticStateMachine
           node_attrs :rex_w, :reg_param, :rm_reg_param, :force,
-                     :rm_reg_type, :encodes_modrm?, :byte_regs?, :basic?
+                     :rm_reg_type, :encodes_modrm?, :reg_byte_reg?, :rm_reg_byte_reg?, :basic?
 
           include REXUtil
           include StateDSL
@@ -186,8 +186,8 @@ module Evoasm
               cond << [:and, [:set?, :reg_index], [:neq, rex_bit(:reg_index), 0]] if base_or_index?
             end
 
-            cond << rex_byte_reg?(reg_param) if reg_param && byte_regs?
-            cond << rex_byte_reg?(rm_reg_param) if rm_reg_param && byte_regs?
+            cond << rex_byte_reg?(reg_param) if reg_param && reg_byte_reg?
+            cond << rex_byte_reg?(rm_reg_param) if rm_reg_param && rm_reg_byte_reg?
 
             cond == [:or] ? false : cond
           end
@@ -304,7 +304,7 @@ module Evoasm
 
         class ModRMSIB < StaticStateMachine
           node_attrs :reg_param, :rm_reg_param, :rm_type,
-                     :modrm_reg_bits, :byte_regs?, :basic?, :rm_register_type, :reg_register_type
+                     :modrm_reg_bits, :reg_byte_reg?, :rm_reg_byte_reg?, :basic?, :rm_register_type, :reg_register_type
 
           include StateDSL
           include EncodeUtil
@@ -318,30 +318,30 @@ module Evoasm
             to &block
           end
 
-          def write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
+          def write_modrm_(mod_bits, rm_bits, rm_reg_param, rm_reg_byte_reg, &block)
             if rm_bits
               set :_rm_bits, rm_bits
               write_modrm__(mod_bits, &block)
             else
-              set_reg_bits :_rm_bits, rm_reg_param, byte_regs do
+              set_reg_bits :_rm_bits, rm_reg_param, rm_reg_byte_reg do
                 write_modrm__(mod_bits, &block)
               end
             end
           end
 
-          def write_modrm(mod_bits:, rm_bits: nil, rm_reg_param: nil, byte_regs: false, &block)
+          def write_modrm(mod_bits:, rm_bits: nil, rm_reg_param: nil, reg_byte_reg: false, rm_reg_byte_reg: false, &block)
             raise ArgumentError, 'must provide either rm_bits or rm_reg_param' unless rm_bits || rm_reg_param
 
             if modrm_reg_bits
               set :_reg_bits, modrm_reg_bits
-              write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
+              write_modrm_(mod_bits, rm_bits, rm_reg_param, rm_reg_byte_reg, &block)
             elsif reg_param
               # register, use register parameter specified
               # in reg_param
 
               check_register_param reg_param, reg_register_type do
-                set_reg_bits :_reg_bits, reg_param, byte_regs do
-                  write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
+                set_reg_bits :_reg_bits, reg_param, reg_byte_reg do
+                  write_modrm_(mod_bits, rm_bits, rm_reg_param, rm_reg_byte_reg, &block)
                 end
               end
             else
@@ -352,7 +352,7 @@ module Evoasm
               else
                 set :_reg_bits, :modrm_reg
               end
-              write_modrm_(mod_bits, rm_bits, rm_reg_param, byte_regs, &block)
+              write_modrm_(mod_bits, rm_bits, rm_reg_param, rm_reg_byte_reg, &block)
             end
           end
 
@@ -567,7 +567,9 @@ module Evoasm
             raise "mem operand for direct encoding" if rm_type == :mem
 
             to_if register_type_match?(rm_reg_param, rm_register_type), likely: true do
-              write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param, byte_regs: byte_regs? do
+              write_modrm mod_bits: 0b11, rm_reg_param: rm_reg_param,
+                                          reg_byte_reg: reg_byte_reg?,
+                                          rm_reg_byte_reg: rm_reg_byte_reg? do
                 return!
               end
             end
