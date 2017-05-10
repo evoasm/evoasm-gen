@@ -179,8 +179,6 @@ module Evoasm
 
             rm_type = rm_op.type
 
-            p [reg_op&.register_type, rm_op&.register_type]
-
             reg_register_type = reg_op&.register_type
             rm_register_type = rm_op&.register_type
 

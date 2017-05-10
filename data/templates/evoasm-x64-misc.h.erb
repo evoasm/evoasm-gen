@@ -44,3 +44,13 @@ evoasm_x64_get_reg_name(evoasm_x64_reg_id_t reg);
 #define EVOASM_X64_SCRATCH_REG<%= index + 1 %> <%= unit.register_name_to_c reg %>
 <% end %>
 
+typedef struct {
+evoasm_inst_id_t inst;
+int32_t imm;
+} evoasm_x64_similar_inst_entry_t;
+
+
+<% %i(absdiff hamming).each do |metric_name| %>
+extern const evoasm_x64_similar_inst_entry_t *evoasm_x64_similar_insts_<%= metric_name %>;
+extern const uint16_t                         evoasm_x64_n_similar_insts_idxs_<%= metric_name %>[EVOASM_X64_INST_NONE][2];
+<% end %>

@@ -1,12 +1,12 @@
 require 'erubis'
 require 'evoasm/gen/core_ext/string_io'
-require 'evoasm/gen/c_unit'
+require 'evoasm/gen/unit'
 require 'evoasm/gen/x64'
 
 module Evoasm
   module Gen
 
-    class CTranslator
+    class Translator
       attr_reader :unit
 
       OUTPUT_FORMATS = %i(c h ruby_ffi)

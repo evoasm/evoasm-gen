@@ -118,3 +118,37 @@ evoasm_x64_get_reg_name(evoasm_x64_reg_id_t reg) {
    evoasm_assert_not_reached();
   }
 }
+
+<% similar_insts_indexes = Hash.new { |h, k| h[k] = []} %>
+
+<% %i(absdiff hamming).each_with_index do |metric_name, metric_index| %>
+  <% current_similar_insts_index = 0 %>
+static const evoasm_x64_similar_inst_entry_t evoasm_x64_similar_insts_<%= metric_name %>_[] = {
+  <% unit.similar_instructions.each do |inst_name, for_metric| %>
+    <% selected_entries = for_metric[metric_name].select { |entry| entry[:inst].to_s.gsub(/_rm(?=\d)/, 'r') != inst_name.to_s.gsub(/_rm(?=\d)/, 'r') }.take(32) %>
+    <% next if selected_entries.empty? %>
+    <% next_similar_insts_index = current_similar_insts_index + selected_entries.size %>
+    <% similar_insts_indexes[inst_name][metric_index] = [current_similar_insts_index, next_similar_insts_index] %>
+    <% current_similar_insts_index = next_similar_insts_index %>
+    <% selected_entries.each_with_index do |entry, entry_index| %>
+      {<%= unit.instruction_ids.symbol_to_c entry[:inst] %>, INT32_C(<%= entry[:imm] || 0 %>)},
+    <% end %>
+  <% end %>
+};
+
+const evoasm_x64_similar_inst_entry_t *evoasm_x64_similar_insts_<%= metric_name %> = evoasm_x64_similar_insts_<%= metric_name %>_;
+
+<% end %>
+
+<% %i(absdiff hamming).each_with_index do |metric_name, metric_index| %>
+const uint16_t
+evoasm_x64_n_similar_insts_idxs_<%= metric_name %>[EVOASM_X64_INST_NONE][2] = {
+  <% similar_insts_indexes.each do |inst_name, indexes| %>
+    <% indexes_for_metric =  indexes[metric_index] %>
+    <% if indexes_for_metric %>
+      [<%= unit.instruction_ids.symbol_to_c inst_name %>] = {<%= indexes_for_metric[0] %>, <%= indexes_for_metric[1] %>},
+    <% end %>
+  <% end %>
+};
+
+<% end %>
