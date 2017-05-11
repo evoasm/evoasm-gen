@@ -11,21 +11,21 @@ module Evoasm
       CSV_SEPARATOR = ','
 
       attr_accessor :ruby_bindings
-      attr_reader :name, :archs
+      attr_reader :name, :modules
       attr_accessor :file_types
 
-      ALL_ARCHS = %i(x64)
+      ALL_MODULES = %i(x64 common)
       TABLE_X64_FILENAME = File.join(Evoasm::Gen.data_dir, 'tables', 'x64.csv')
       SIMILAR_INSTRUCTIONS_X64_FILENAME = File.join(Evoasm::Gen.data_dir, 'tables', 'inst_dist_x64.yml')
 
-      ARCH_TABLES = {
+      PREREQUISITES = {
         x64: TABLE_X64_FILENAME
       }.freeze
 
       def initialize(name = 'evoasm:gen', output_dir, &block)
         @ruby_bindings = true
         @name = name
-        @archs = ALL_ARCHS
+        @modules = ALL_MODULES
         @output_dir = output_dir
         @file_types = %i(c h enums_h)
 
@@ -36,22 +36,22 @@ module Evoasm
 
       def define
         namespace 'evoasm:gen' do
-          archs.each do |arch|
-            prereqs = [ARCH_TABLES[arch]]
+          modules.each do |module_|
+            prereqs = [PREREQUISITES[module_]].compact
 
             Translator::OUTPUT_FORMATS.each do |format|
-              prereqs.concat Translator.template_paths(arch, format)
+              prereqs.concat Translator.template_paths(module_, format)
             end
 
             # pick any single file type, all are generated
             # at the same time
-            target_path = output_path(Translator.target_filenames(arch, :c))
+            target_path = output_path(Translator.target_filenames(module_, :h))
 
             file target_path => prereqs do
               puts 'Translating'
-              table = load_table arch
-              similar_insts = load_similar_instructions arch
-              unit = Unit.new arch, table, similar_insts
+              table = load_table module_
+              similar_insts = load_similar_instructions module_
+              unit = Unit.new module_, table, similar_insts
               translator = Translator.new unit
               translator.translate! do |filename, content, file_type|
                 next unless file_types.include? file_type
@@ -59,10 +59,10 @@ module Evoasm
               end
             end
 
-            task "translate:#{arch}" => target_path
+            task "translate:#{module_}" => target_path
           end
 
-          task 'translate' => archs.map { |architecture| "translate:#{architecture}" }
+          task 'translate' => modules.map { |module_| "translate:#{module_}" }
         end
 
         task name => 'gen:translate'
@@ -73,11 +73,17 @@ module Evoasm
       end
 
       def load_table(arch)
-        send :"load_table_#{arch}"
+        method_name = :"load_table_#{arch}"
+        if respond_to? method_name
+          send method_name
+        end
       end
 
       def load_similar_instructions(arch)
-        send :"load_similar_instructions_#{arch}"
+        method_name = :"load_similar_instructions_#{arch}"
+        if respond_to? method_name
+          send method_name
+        end
       end
 
       def load_similar_instructions_x64

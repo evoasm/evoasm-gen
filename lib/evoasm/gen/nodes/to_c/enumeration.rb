@@ -123,7 +123,8 @@ module Evoasm
         end
 
         def ruby_ffi_type_name
-          "#{@prefix}_#{name}"
+          p [@prefix, name]
+          "#{@prefix ? "#{@prefix}_" : ''}#{name}"
         end
 
         def none_symbol_to_ruby_ffi

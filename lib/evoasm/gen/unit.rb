@@ -10,24 +10,29 @@ require 'evoasm/gen/nodes/to_c/enumeration'
 require 'evoasm/gen/nodes/to_c/parameters_type'
 require 'evoasm/gen/x64'
 require 'evoasm/gen/x64_unit'
+require 'evoasm/gen/common_unit'
 require 'evoasm/gen/unit'
+
 
 module Evoasm
   module Gen
+    MAX_SIMILAR_INSTRUCTIONS_PER_INSTRUCTION = 32
 
     class Unit
       attr_reader :architecture
       attr_reader :instructions
       attr_reader :parameters_type
       attr_reader :similar_instructions
-
+      attr_reader :metrics
 
       def initialize(arch, table, similar_insts)
         @architecture = arch
         @parameters_type = Nodes::ParametersType.new self
 
+        @metrics = Nodes::Enumeration.new self, :metric, %i(absdiff hamming)
+
         extend Gen.const_get(:"#{arch.to_s.camelcase}Unit")
-        load table
+        load table if table
 
         @similar_instructions = similar_insts
       end

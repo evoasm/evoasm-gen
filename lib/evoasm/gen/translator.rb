@@ -11,8 +11,8 @@ module Evoasm
 
       OUTPUT_FORMATS = %i(c h ruby_ffi)
 
-      def self.target_filenames(architecture, file_type)
-        case architecture
+      def self.target_filenames(module_, file_type)
+        case module_
         when :x64
           case file_type
           when :c
@@ -24,8 +24,19 @@ module Evoasm
           else
             raise "invalid file type #{file_type}"
           end
+        when :common
+          case file_type
+          when :h
+            %w(evoasm-enums.h)
+          when :ruby_ffi
+            %w(enums.rb)
+          when :c
+            []
+          else
+            raise "invalid file type #{file_type}"
+          end
         else
-          raise "invalid architecture #{architecture}"
+          raise "invalid module #{module_}"
         end
       end
 
@@ -37,8 +48,8 @@ module Evoasm
         File.join templates_dir, "#{filename}.erb"
       end
 
-      def self.template_paths(architecture, output_type)
-        target_filenames(architecture, output_type).map do |target_filename|
+      def self.template_paths(module_, output_type)
+        target_filenames(module_, output_type).map do |target_filename|
           File.join templates_dir, "#{target_filename}.erb"
         end
       end
