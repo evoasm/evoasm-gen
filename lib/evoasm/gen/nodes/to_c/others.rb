@@ -180,18 +180,12 @@ module Evoasm
 
       class Domain
         def to_c(io)
-          io.puts "static const #{c_type_name} #{c_variable_name} = #{body_to_c};"
+          io.puts "static const #{c_type_name} #{c_variable_name} = #{body_to_c}; // #{index}"
         end
       end
 
       class EnumerationDomain
         MAX_LENGTH = 32
-
-        def after_initialize
-          @@index ||= 0
-          @index = @@index
-          @@index += 1
-        end
 
         def body_to_c
           raise 'enum exceeds maximal enum length' if values.size > MAX_LENGTH
@@ -241,7 +235,8 @@ module Evoasm
 
       class UnorderedWrites
         def c_function_name
-          "unordered_write_#{object_id}"
+          @function_id ||= unit.next_function_id
+          "unordered_write_#{@function_id}"
         end
 
         def call_to_c(io, parameter)

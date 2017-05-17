@@ -21,8 +21,10 @@
 
 #pragma once
 
+#include "evoasm-domain.h"
 
 <% unit.instructions.each do |instruction| %>
 <%= instruction.state_machine.c_prototype %>;
 <% end %>
 
+<%= unit.domains_to_c header: true %>

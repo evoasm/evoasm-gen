@@ -90,9 +90,7 @@ module Evoasm
                 operand_flags.include?(:w) || operand_flags.include?(:u)
               end.map(&:first)
 
-              operand_flags = rflags.map(&:second).flatten.uniq.sort
-
-              operands << ['RFLAGS', operand_flags, read_flags, written_flags, maybe_written_flags]
+              operands << ['RFLAGS', nil, read_flags, written_flags, maybe_written_flags]
             end
 
             operands

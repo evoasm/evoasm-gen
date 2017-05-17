@@ -51,7 +51,6 @@ module Evoasm
         private
 
         def c_bitsize_defines(io)
-          io.puts "#define #{bitsize_symbol_to_c} #{bitsize}"
           if flags?
             io.puts "#define #{all_symbol_to_c} #{all_value}"
             io.puts "#define #{none_symbol_to_c} 0"

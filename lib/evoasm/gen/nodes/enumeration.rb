@@ -102,11 +102,15 @@ module Evoasm
           @aliases[symbol]
         end
 
+        def self.bitsize(max, optional = false)
+          Math.log2(max + 1 + (optional ? 1 : 0)).ceil.to_i
+        end
+
         def bitsize(optional = false, flags: false)
           if flags? || flags
             @map.size
           else
-            Math.log2(max + 1 + (optional ? 1 : 0)).ceil.to_i
+            self.class.bitsize max, optional
           end
         end
 

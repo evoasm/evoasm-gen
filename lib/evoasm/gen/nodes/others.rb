@@ -109,9 +109,25 @@ module Evoasm
         end
       end
 
-      Domain = def_node Node
-      EnumerationDomain = def_node Domain, :values
+      Domain = def_node Node do
+        attr_reader :index
+
+        def after_initialize
+          @index = Domain.next_index
+          p [self.class, @index]
+        end
+
+        def self.next_index
+          if @index
+            @index += 1
+          else
+            @index = 0
+          end
+        end
+      end
+
       RangeDomain = def_node Domain, :type, :min, :max
+      EnumerationDomain = def_node Domain, :values
 
       Literal = def_node Expression
       ValueLiteral = def_node Literal, :value

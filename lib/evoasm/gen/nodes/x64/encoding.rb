@@ -280,6 +280,8 @@ module Evoasm
           end
 
           def register_type_match?(param, type)
+            return true if basic?
+
             case type
             when :gp
               [:and,

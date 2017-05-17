@@ -71,6 +71,14 @@ module Evoasm
         'evoasm'
       end
 
+      def next_function_id
+        if @function_id
+          @function_id += 1
+        else
+          @function_id = 0
+        end
+      end
+
       def constant_name_to_c(name, prefix)
         symbol_to_c name, prefix, const: true
       end
@@ -148,8 +156,7 @@ module Evoasm
         nodes_to_c nodes_of_class(*node_classes)
       end
 
-      def nodes_to_c(nodes)
-        io = StringIO.new
+      def nodes_to_c(nodes, io = StringIO.new)
         nodes.each do |node|
           node.to_c io
         end
@@ -168,8 +175,29 @@ module Evoasm
         nodes_to_c helper_state_machine_nodes
       end
 
-      def domains_to_c
-        nodes_of_class_to_c Nodes::EnumerationDomain, Nodes::RangeDomain
+      def domains_to_c(header: false)
+        nodes = nodes_of_class Nodes::EnumerationDomain, Nodes::RangeDomain
+        io = StringIO.new
+
+        if header
+          io.puts 'extern const evoasm_domain_t **evoasm_domains;'
+          return io.string
+        end
+
+        nodes.sort_by! { |node| node.index }
+
+        nodes_to_c nodes, io
+
+        io.puts 'const evoasm_domain_t *evoasm_domains_[] = {'
+        io.indent do
+          nodes.each do |node|
+            io.puts "(evoasm_domain_t *) &#{node.c_variable_name},"
+          end
+        end
+        io.puts '};'
+        io.puts 'const evoasm_domain_t **evoasm_domains = evoasm_domains_;'
+
+        io.string
       end
 
       def parameters_to_c

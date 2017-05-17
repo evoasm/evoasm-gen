@@ -131,7 +131,17 @@ static const evoasm_x64_similar_inst_entry_t evoasm_x64_similar_insts_<%= metric
     <% similar_insts_indexes[inst_name][metric_index] = [current_similar_insts_index, next_similar_insts_index] %>
     <% current_similar_insts_index = next_similar_insts_index %>
     <% selected_entries.each_with_index do |entry, entry_index| %>
-      {<%= unit.instruction_ids.symbol_to_c entry[:inst] %>, INT32_C(<%= entry[:imm] || 0 %>)},
+    {
+      <% inst = nil %>
+      <% %i(reg0 reg1 reg2 reg3).each do |reg| %>
+        <% if entry[:params].include? reg %>
+          <% inst ||= unit.instructions.find { |inst| inst.name == entry[:inst].to_s} %>
+          <%= inst.parameters.find { |param| param.name == reg }.domain.index %>,
+        <% else %>
+          UINT8_MAX,
+        <% end %>
+      <% end %>
+      <%= unit.instruction_ids.symbol_to_c entry[:inst] %>, INT32_C(<%= entry[:imm] || 0 %>)},
     <% end %>
   <% end %>
 };

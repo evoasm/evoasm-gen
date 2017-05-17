@@ -29,11 +29,11 @@ module Evoasm
             @written_flags = written_flags
             @maybe_written_flags = maybe_written_flags
 
-            @encoded = flags.include? :e
-            @mnemonic = flags.include? :m
-            @read = flags.include? :r
-            @written = flags.include?(:w) || flags.include?(:w?)
-            @maybe_written = flags.include?(:w?)
+            @encoded = flags&.include? :e
+            @mnemonic = flags&.include? :m
+            @read = flags&.include?(:r) || read_flags&.any?
+            @maybe_written = flags&.include?(:w?) || (written_flags&.empty? && maybe_written_flags&.any?)
+            @written =  @maybe_written || flags&.include?(:w) || written_flags&.any?
 
             if name == name.upcase
               initialize_implicit
