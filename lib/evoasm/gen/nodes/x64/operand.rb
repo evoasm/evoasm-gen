@@ -9,7 +9,7 @@ module Evoasm
 
           attr_reader :name, :parameter_name, :type, :size, :word, :read, :written,
                       :undefined, :maybe_written, :register, :imm, :register_type, :register_size,
-                      :mem_size, :imm_size, :read_flags, :written_flags, :maybe_written_flags
+                      :imm_size, :read_flags, :written_flags, :maybe_written_flags
 
           IMM_OP_REGEXP = /^(imm|rel)(\d+)?$/
           MEM_OP_REGEXP = /^m(\d*)$/
@@ -88,7 +88,7 @@ module Evoasm
 
           private
 
-          def size_to_word(size)
+          def size_or_range_to_word(size)
             case size
             when 8
               :lb
@@ -139,15 +139,15 @@ module Evoasm
               initialize_reg $~[:reg], $~[:reg_size].to_i, word_size
             when MEM_OP_REGEXP
               @type = :mem
-              @word = size_to_word($1.empty? ? nil : $1.to_i)
+              @word = size_or_range_to_word($1.empty? ? nil : $1.to_i)
             when MOFFS_OP_REGEXP
               @type = :mem
               @imm_size = Integer($1)
-              @word = size_to_word(@imm_size)
+              @word = size_or_range_to_word(@imm_size)
               @parameter_name = :moffs
             when VSIB_OP_REGEXP
               @type = :vsib
-              @word = size_to_word($2.to_i)
+              @word = size_or_range_to_word($2.to_i)
               @index_register_size =
                 case $1
                 when 'x'
@@ -168,7 +168,7 @@ module Evoasm
 
           ALLOWED_REG_SIZES = [8, 16, 32, 64].freeze
 
-          def initialize_reg(reg, reg_size, word_size = nil)
+          def initialize_reg(reg, reg_size, size_or_range = nil)
             @register_type, @register_size =
               case reg
               when 'r'
@@ -185,7 +185,7 @@ module Evoasm
               else
                 raise "unexpected reg type '#{reg}/#{reg_size}'"
               end
-            @word = size_to_word(word_size || @register_size)
+            @word = size_or_range_to_word(size_or_range || @register_size)
           end
 
           def initialize_implicit
@@ -261,7 +261,7 @@ module Evoasm
                   raise ArgumentError, "unexpected register '#{reg_name}'"
                 end
 
-              @word ||= size_to_word @register_size
+              @word ||= size_or_range_to_word @register_size
 
             end
 
